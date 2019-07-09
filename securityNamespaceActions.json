@@ -1,0 +1,57 @@
+{
+    "Namespaces":[
+        {"name" : "Build" ,
+            "Actions" : ["ViewBuilds"
+                ,"EditBuildQuality"
+                ,"RetainIndefinitely"
+                ,"DeleteBuilds" 
+                ,"ManageBuildQualities" 
+                ,"DestroyBuilds"
+                ,"UpdateBuildInformation"
+                ,"QueueBuilds"
+                ,"ManageBuildQueue"
+                ,"StopBuilds"
+                ,"ViewBuildDefinition"
+                ,"EditBuildDefinition"
+                ,"DeleteBuildDefinition"
+                ,"OverrideBuildCheckInValidation"
+                ,"AdministerBuildPermissions"]
+        },
+        {"name" :"Project",
+            "Actions":["ADMINISTER_BUILD"
+                ,"START_BUILD"
+                ,"EDIT_BUILD_STATUS"
+                ,"UPDATE_BUILD"
+                ,"DELETE_TEST_RESULTS"
+                ,"VIEW_TEST_RESULTS"
+                ,"MANAGE_TEST_ENVIRONMENTS"
+                ,"MANAGE_TEST_CONFIGURATIONS"
+                ,"WORK_ITEM_DELETE"
+                ,"WORK_ITEM_MOVE"
+                ,"WORK_ITEM_PERMANENTLY_DELETE"
+                ,"RENAME"
+                ,"MANAGE_PROPERTIES"
+                ,"MANAGE_SYSTEM_PROPERTIES"
+                ,"BYPASS_PROPERTY_CACHE"
+                ,"BYPASS_RULES"
+                ,"SUPPRESS_NOTIFICATIONS"]
+        },
+        {"name":"GitRepositories",
+                "Actions":[
+                    "GenericContribute",
+                    "PullRequestContribute",
+                    "CreateBranch",
+                    "CreateRepository",
+                    "CreateTag",
+                    "DeleteRepository",
+                    "EditPolicies",
+                    "PolicyExempt",
+                    "ForcePush",
+                    "ManageNote",
+                    "ManagePermissions",
+                    "GenericRead",
+                    "RemoveOthersLocks",
+                    "RenameRepository"]   
+        }
+    ]
+}

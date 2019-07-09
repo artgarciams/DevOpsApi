@@ -1,0 +1,32 @@
+{
+    "VSTSMasterAcct" : "artgarciavsts",
+    "userEmail"      : "argarc@microsoft.com",
+    "PAT"            : "gxcsxgh6frwtnheya7vzol4jtfh7dioshmsvkpxyxxj76lokauva",
+    
+    "ProjectName"    : "DevOpsSlotMachine",
+    "Description"    : "My demo project",
+    "ProcessType"    : "Agile",
+    "RepositoryName" : "AAG Demo",
+    "BuildName"      : "Build 1",
+    "AgentQueue"     : "Default",
+    
+    "Teams" : [ {"name": "Team AAG1","description" :"Team BB1 description", 
+                 "users":["argarc@microsoft.com","mahyon@microsoft.com"] ,
+                 "permissions" :["MANAGE_TEST_ENVIRONMENTS|DENY","CreateRepository|DENY","EditBuildQuality|DENY","DeleteBuilds|DENY"]},
+
+                {"name": "Team AAG2","description" :"Team A2-2 description", 
+                 "users":["argarc@microsoft.com","mahyon@microsoft.com"],
+                 "permissions" :["MANAGE_TEST_ENVIRONMENTS|DENY","CreateRepository|DENY","EditBuildQuality|DENY","DeleteBuilds|DENY"]},
+
+                {"name": "Team AAG3","description" :"Team A3-3 description", 
+                 "users":["argarc@microsoft.com","mahyon@microsoft.com"], 
+                 "permissions" :["MANAGE_TEST_ENVIRONMENTS|DENY","CreateRepository|DENY","BUILD|EditBuildQuality|DENY","BUILD|DeleteBuilds|DENY"]}                 
+    ] ,
+    "VSTSGroups" :[{"name" : "Team VSTS1","description" :"VSTS Group description",
+                    "permissions" :["MANAGE_TEST_ENVIRONMENTS|ALLOW","MANAGE_PROPERTIES|ALLOW","EditBuildQuality|ALLOW"],
+                    "users":["argarc@microsoft.com","mahyon@microsoft.com"]},
+
+                   {"name" : "Team VSTS2","description" :"VSTS Two Group description",
+                     "users":["argarc@microsoft.com","mahyon@microsoft.com"]}]
+    
+}
