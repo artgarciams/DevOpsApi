@@ -275,7 +275,6 @@ function ListGitBranches(){
      try {
              
         # find git repo
-        # GET https://dev.azure.com/{organization}/{project}/_apis/git/repositories?api-version=5.0
         $listProviderURL = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories?api-version=5.0"
         $repo = Invoke-RestMethod -Uri $listProviderURL -Method Get -ContentType "application/json" -Headers $authorization 
     
@@ -283,7 +282,6 @@ function ListGitBranches(){
         try {
             
             # find branches for given repo
-            # GET https://dev.azure.com/{organization}/{project}/_apis/git/repositories/{repositoryId}/refs?api-version=5.0
             $listProviderURL = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories/" + $repo.value[0].Id + "/refs?api-version=5.0"
             $branchlist = Invoke-RestMethod -Uri $listProviderURL -Method Get -ContentType "application/json" -Headers $authorization 
 
@@ -309,6 +307,10 @@ function ListGitBranches(){
 function AddGitBranchFromMaster(){
 
     # https://github.com/microsoft/azure-devops-dotnet-samples/tree/master/ClientLibrary/Samples/Git
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/git/refs/update%20refs?view=azure-devops-rest-5.0#create/update/delete_a_ref_by_repositoryid
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/source%20providers/list%20branches?view=azure-devops-rest-5.0
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/source%20providers/list%20repositories?view=azure-devops-rest-5.0
+    
     # this function add a branch from the master branch
     Param(
         [Parameter(Mandatory = $true)]
@@ -323,14 +325,12 @@ function AddGitBranchFromMaster(){
      try {
              
         # find git repo
-        # GET https://dev.azure.com/{organization}/{project}/_apis/git/repositories?api-version=5.0
         $listProviderURL = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories?api-version=5.0"
         $repo = Invoke-RestMethod -Uri $listProviderURL -Method Get -ContentType "application/json" -Headers $authorization 
        
         try {
             
             # find branches for given repo
-            # GET https://dev.azure.com/{organization}/{project}/_apis/git/repositories/{repositoryId}/refs?api-version=5.0
             $URL = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories/" + $repo.value[0].Id + "/refs?api-version=5.0"
             $branchlist = Invoke-RestMethod -Uri $URL -Method Get -ContentType "application/json" -Headers $authorization 
 
@@ -338,8 +338,7 @@ function AddGitBranchFromMaster(){
             $Masterid  = ($branchlist.value | Where-Object {$_.name -eq "refs/heads/master"}).objectId
             Write-Host "Master repo " $Masterid
 
-            # create new branch payload
-            # newObjectId is the Object id of the master branch
+            # create new branch payload newObjectId is the Object id of the master branch
             # to add new branch, oldObjectid = 40 0's
             $payload = @( @{
                         name = $branchToCreate 
@@ -358,7 +357,6 @@ function AddGitBranchFromMaster(){
             $FailedItem = $_.Exception.ItemName
             Write-Host "Error : " + $ErrorMessage + " iTEM : " + $FailedItem
         }          
-    
     }
     catch {
         $ErrorMessage = $_.Exception.Message
@@ -395,8 +393,7 @@ function DeleteGitBranchByPath(){
             Write-Host "Master repo " $Masterid
 
             # delete branch  
-            # newObjectid is 40 o's
-            # old Objectid is object id master branch        
+            # newObjectid is 40 o's old Objectid is object id master branch
             $payload = @( @{
                 name = $branchPath
                 newObjectId = "0000000000000000000000000000000000000000"
