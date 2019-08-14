@@ -5,7 +5,8 @@
 # Purpose   : This script will create a project in VSTS and add groups to the
 #             project. It will allow you to set security at the user and group level as needed.
 #             This script is for demonstration only not to be used as production code
-# 
+# last Update: 8/1/2019
+
 
 #import modules
 $modName = $PSScriptRoot + ".\ProjectAndGroup.psm1" 
@@ -21,10 +22,13 @@ $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 Write-Output $userParameters.ProjectName
 Write-Output $userParameters.Description
 
+#list available branches
 ListGitBranches -userParams $userParameters
 
+# add a brance from master
 AddGitBranchFromMaster -userParams $userParameters -branchToCreate "refs/heads/release/v4"
 
+#delete branch
 DeleteGitBranchByPath -userParams $userParameters -branchPath "refs/heads/release/v4"
 
 
