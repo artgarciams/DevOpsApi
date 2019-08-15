@@ -14,7 +14,7 @@ Import-Module -Name $modName
 
 $modName = $PSScriptRoot + ".\SecurityHelper.psm1" 
 Import-Module -Name $modName
-
+ 
 # get parameter data for scripts
 $UserDataFile = $PSScriptRoot + "\ProjectDef.json"
 $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
