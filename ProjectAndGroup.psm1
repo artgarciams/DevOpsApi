@@ -4,6 +4,7 @@
 # Purpose  : this module will create a project and groups for a project
 #           This script is for demonstration only not to be used as production code
 #
+# last update 8/1/2019
 
 function CreateVSTSProject () {
     Param(

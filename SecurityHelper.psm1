@@ -4,7 +4,7 @@
 # Purpose  : this module has methods to allow for user and group security to be administered in a given VSTS project
 #          : This script is for demonstration only not to be used as production code
 
-     
+      
 
 #
 #   list of available areas to secure in vsts
