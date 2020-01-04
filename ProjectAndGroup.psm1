@@ -198,69 +198,6 @@ function Get-GroupInfo() {
     }
 }
 
-function GetSecurityNamespaces() {
-    Param(
-        [Parameter(Mandatory = $true)]
-        $userParams
-             
-    )
-    
-    try {
-        
-        # Base64-encodes the Personal Access Token (PAT) appropriately
-        $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
-
-        # find groups
-        $projectUri = "https://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/groups?api-version=4.0-preview"
-        $allGroups = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization 
-              
-        foreach ( $item in $userParams.VSTSGroups) {
-           
-            $fnd = $allGroups.value | Where-Object {$_.displayName -eq $item.name }
-            IF (![string]::IsNullOrEmpty($fnd)) {
-                $namespaceId = $fnd.originId
-            }
-
-        }
-        
-        # find namespaces
-        $projectUri = "https://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/securitynamespaces/" + $namespaceId + "/?api-version=1.0"
-        $allNameSpaces = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization   
-  
-        $jsn = ConvertTo-Json -InputObject $allGroups.value
-        Write-Host $jsn
-          
-        $fnd = $allGroups.value | Where-Object {$_.displayName -eq $groupName }
-        IF (![string]::IsNullOrEmpty($fnd)) {
-            $namespaceId = $fnd.originId
-        }
-
-        # find namespace for "Git Repositories"
-        $projectUri = "https://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/securitynamespaces/" + $namespaceId + "/?api-version=1.0"
-
-        $allNameSpaces = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization   
-        $fnd = $allNameSpaces.value | Where-Object {$_.name -eq "Git Repositories"}
-        IF (![string]::IsNullOrEmpty($fnd)) {
-
-            foreach ( $item in $fnd.actions) {
-                Write-Host $item.name
-            }
-            $projectUri = "https://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/accesscontrollists/" + $fnd.namespaceId + "/?api-version=1.0"
-            $aclList = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  
-        } 
-
-        foreach ($item in $allNameSpaces.value) {
-            Write-Host $item.displayName + " : " + $item.namespaceId
-        }
-       
-    }
-    catch {
-        $ErrorMessage = $_.Exception.Message
-        $FailedItem = $_.Exception.ItemName
-        Write-Host "Error : " + $ErrorMessage + " iTEM : " + $FailedItem
-    }
-}
-
 function ListGitBranches(){
 
     # this function will list the GIT repos

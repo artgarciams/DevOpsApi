@@ -1,9 +1,9 @@
 { 
     "VSTSMasterAcct" : "artgarciavsts",
     "userEmail"      : "argarc@microsoft.com",
-    "PAT"            : "gxcsxgh6frwtnheya7vzol4jtfh7dioshmsvkpxyxxj76lokauva",
+    "PAT"            : "hw3fi7h5w5hfxclma3oxwrat5zf2z5x7g3x3vrvrtqhi5b2yla3q",
     
-    "ProjectName"    : "DevOpsSlotMachine",
+    "ProjectName"    : "AzureDevOpsDemo",
     "Description"    : "My demo project",
     "ProcessType"    : "Agile",
     "RepositoryName" : "AAG Demo",

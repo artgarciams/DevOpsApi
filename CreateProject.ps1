@@ -9,12 +9,14 @@
 
 
 #import modules
-$modName = $PSScriptRoot + ".\ProjectAndGroup.psm1" 
+
+$modName = $PSScriptRoot + "\SecurityHelper.psm1" 
 Import-Module -Name $modName
 
-$modName = $PSScriptRoot + ".\SecurityHelper.psm1" 
+$modName = $PSScriptRoot + "\ProjectAndGroup.psm1" 
 Import-Module -Name $modName
- 
+
+
 # get parameter data for scripts
 $UserDataFile = $PSScriptRoot + "\ProjectDef.json"
 $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
@@ -22,14 +24,21 @@ $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 Write-Output $userParameters.ProjectName
 Write-Output $userParameters.Description
 
+#list security by namespaces
+Get-SecurityForGivenNamespaces -userParams $userParameters -NamespaceFilter "Project" -outFile "C:\temp\dataBuild33.txt"
+
+# Get-Teams -userParams $userParameters
+# Get-GroupList -userParams $userParameters
+# Get-AllGroups -userParams $userParameters
+
 #list available branches
-ListGitBranches -userParams $userParameters
+#ListGitBranches -userParams $userParameters
 
 # add a brance from master
-AddGitBranchFromMaster -userParams $userParameters -branchToCreate "refs/heads/release/v4"
+#AddGitBranchFromMaster -userParams $userParameters -branchToCreate "refs/heads/release/v4"
 
 #delete branch
-DeleteGitBranchByPath -userParams $userParameters -branchPath "refs/heads/release/v4"
+#DeleteGitBranchByPath -userParams $userParameters -branchPath "refs/heads/release/v4"
 
 
 
