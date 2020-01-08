@@ -94,6 +94,7 @@ function Get-DescriptorFromGroup()
     
     $str = ""
     $ln1 = 0
+    $dscrpt = ""
 
     if($rem -ne 0)
     {
@@ -103,24 +104,26 @@ function Get-DescriptorFromGroup()
         #        base64EncodedData += new string('=', 4 - lengthMod4);
         #    }
         $ln1 = (4 - [math]::Abs($rem))
+        if ($ln1 -gt 2)
+        {
+            $ln1 = 2
+        }
+
         $str = ("=" * $ln1)
         $b64 +=  $str
 
     }
-    #if($rem -ge 0)
-    #{
-    #    $b64 = $b64.SubString(0,$b64.Length - $rem)
-   # }
-    #if ($rem -eq 0) {
-    #    $b64 = $b64.SubString(0,$b64.Length - 2)
-    #    $ln1 = 2
-    #}
-    #if ($rem -lt 0){
-    #    $ln1 = ( $rem * -1) 
-    #}
-
-    Write-Host $b64
-    $dscrpt = [System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($b64))
+    
+    try {
+        Write-Host $b64
+        $dscrpt = [System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($b64))
+    }
+    catch {
+          $ErrorMessage = $_.Exception.Message
+          $FailedItem = $_.Exception.ItemName
+          Write-Host "Security Error : " + $ErrorMessage + " iTEM : " + $FailedItem
+    }
+   
     return $dscrpt
 
 }
@@ -147,7 +150,8 @@ function Get-SecurityForGivenNamespaces()
         $allNamespaces = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization 
        
         # find namespace for given category
-        $fndNamespace = $allNamespaces.value | Where-Object {$_.Name -eq $NamespaceFilter }
+        #$fndNamespace = $allNamespaces.value | Where-Object {$_.Name -match $NamespaceFilter }
+        $fndNamespace = $allNamespaces.value 
 
         # find all groups in organization and then filter by project
         $projectUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?api-version=5.0-preview.1"
@@ -164,8 +168,9 @@ function Get-SecurityForGivenNamespaces()
             # get decoded descriptor
             $dscrpt =  Get-DescriptorFromGroup -dscriptor $fnd[$j].descriptor
             $dscrpt = "Microsoft.TeamFoundation.Identity;" + $dscrpt
-                
-            Write-Output "  " | Out-File -FilePath $outFile -Append
+            
+            Write-Output "" | Out-File -FilePath $outFile -Append
+            Write-Output "" | Out-File -FilePath $outFile -Append
             Write-Output '## Group      : ' $fnd[$j].displayName | Out-File -FilePath $outFile -Append -NoNewline
             Write-Output "  " | Out-File -FilePath $outFile -Append
             Write-Output '   Dectriptor : '$dscrpt | Out-File -FilePath $outFile -Append -NoNewline
@@ -176,41 +181,31 @@ function Get-SecurityForGivenNamespaces()
             {
                 Write-Output "  " | Out-File $outFile -Append 
                 Write-Output '     == Security Namespace:' $ns.name  | Out-File $outFile  -Append -NoNewline
-                Write-Output "  " | Out-File $outFile -Append
 
-                # undocumented api to get groupname  from descriptor
-                # https://stackoverflow.com/questions/55735054/translate-acl-descriptors-to-security-group-names
-                $aseList = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?descriptors=" + $dscrpt
-                $aselistRetrun = Invoke-RestMethod -Uri $aseList -Method Get -Headers $authorization 
-
-                # write out group name
-                Write-Output "  " | Out-File $outFile -Append                 
-                Write-Output '     Group Name for given discriptor :' $aselistRetrun[0].DisplayName   | Out-File $outFile  -Append  -NoNewline
-                Write-Output "  " | Out-File $outFile -Append  
-                
                 $aclListByNamespace = ""
                 try {
                     #find all access control lists for the given namespace and group
-                    $grpUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?descriptors=" + $dscrpt + "&api-version=6.0-preview.1"
+                    $grpUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?descriptors=" + $dscrpt + "&includeExtendedInfo=True&api-version=6.0-preview.1"
                     $aclListByNamespace = Invoke-RestMethod -Uri $grpUri -Method Get -Headers $authorization 
                 }
                 catch {
                     $ErrorMessage = $_.Exception.Message
                     $FailedItem = $_.Exception.ItemName
                     Write-Host "Security Error : " + $ErrorMessage + " iTEM : " + $FailedItem
+                    Continue 
                 }
                 
                 # to control printing of actions only once per namespace
                 $namespacePrint = 0
                  
                 # loop thru acesDictionary in namespace 
-                for ($i = 0; $i -lt $aclListByNamespace.value.Count; $i++) {
+                for ($i = 0; $i -lt $aclListByNamespace.value.length; $i++) {
 
                     # list access control entry for each dictionary
                     $aclListByNamespace.value[$i].acesDictionary.PSObject.Properties | ForEach-Object {
                         if( ($_.Value.allow -ne 0) -or ($_.value.deny -ne 0) ) 
                         {
-                            # print allowable actions for namespce
+                            # print allowable actions for namespce only once
                             if($namespacePrint -eq 0)
                             {
                                 # write out all available permissons
@@ -226,6 +221,7 @@ function Get-SecurityForGivenNamespaces()
                                 $namespacePrint = 1
                             }
 
+                            # print out access control entry
                             Write-Output "  " | Out-File -FilePath $outFile -Append
                             Write-Output '     inheritPermissions: ' $aclListByNamespace.value[$i].inheritPermissions | Out-File -FilePath $outFile -Append -NoNewline
                             Write-Output "" | Out-File -FilePath $outFile -Append
@@ -233,9 +229,19 @@ function Get-SecurityForGivenNamespaces()
                             Write-Output "" | Out-File -FilePath $outFile -Append
                             Write-Output '     Descriptor :' $_.Value.descriptor | Out-File $outFile -Append -NoNewline
                             Write-Output "" | Out-File -FilePath $outFile -Append
+
+                            # undocumented api to get groupname  from descriptor
+                            # https://stackoverflow.com/questions/55735054/translate-acl-descriptors-to-security-group-names
+                            $aseList = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?descriptors=" + $_.Value.descriptor
+                            $aselistRetrun = Invoke-RestMethod -Uri $aseList -Method Get -Headers $authorization 
+
+                            Write-Output '     Group Name :' $aselistRetrun[0].DisplayName  | Out-File $outFile -Append -NoNewline
+                            Write-Output "" | Out-File -FilePath $outFile -Append
+
                             Write-Output '     Allow      :' $_.Value.allow | Out-File $outFile -Append -NoNewline
                             Write-Output "" | Out-File -FilePath $outFile -Append
                             Write-Output '     Deny       :' $_.Value.deny | Out-File $outFile  -Append -NoNewline
+                            Write-Output "" | Out-File -FilePath $outFile -Append
                             Write-Output "" | Out-File -FilePath $outFile -Append
                           
                             # decode bit. convert to base 2 and find the accompaning permission
@@ -254,6 +260,7 @@ function Get-SecurityForGivenNamespaces()
                             #        8 + 4096 = 4104
                             #    
                             
+                            # print allow permissions
                             if($_.Value.allow -gt 0)
                             {
                                 $permAllow = [convert]::ToString($_.Value.allow,2)
@@ -272,12 +279,49 @@ function Get-SecurityForGivenNamespaces()
                                         Write-Output '            Allow Permission :' $ns.actions[$Allowplace].name " :: " $ns.actions[$Allowplace].bit | Out-File $outFile  -Append -NoNewline
                                         Write-Output "" | Out-File -FilePath $outFile -Append
                                         Write-Host $ns.actions[$Allowplace].name
+                                        
                                     }
+                                }
+
+                                # check effective properties
+                                if($_.Value.extendedInfo.effectiveAllow -gt 0 )
+                                {
+                                    $effAllow = [convert]::ToString($_.Value.extendedInfo.effectiveAllow ,2)
+                                    
+                                    # make sure allow and effective allow are not the same
+                                    if($permAllow -ne $effAllow)
+                                    {
+                                        Write-Output "" | Out-File -FilePath $outFile -Append
+                                        Write-Output '       Inherited Allow : ' $_.Value.extendedInfo.effectiveAllow | Out-File $outFile  -Append -NoNewline
+                                        Write-Output "" | Out-File -FilePath $outFile -Append
+                                        Write-Output '       Inherited Allow Permission decoded :' $effAllow | Out-File $outFile  -Append -NoNewline
+
+                                        # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
+                                        for ($a1 =  $effAllow.Length-1; $a1 -ge 0; $a1--) 
+                                        {
+                                            
+                                            $EffAllowplace = ( ($a1 - $effAllow.Length) * -1 )-1
+                                            if( $effAllow.Substring($a1,1) -eq 1)
+                                            {
+                                                # need to traverse the string in reverse to match the action list
+                                                Write-Host $EffAllowplace
+                                                Write-Output "" | Out-File -FilePath $outFile -Append
+                                                Write-Output '            Inherited Allow Permission :' $ns.actions[$EffAllowplace].name " :: " $ns.actions[$EffAllowplace].bit | Out-File $outFile  -Append -NoNewline
+                                                Write-Host $ns.actions[$EffAllowplace].name
+                                            }
+                                        }
+                                    }else {
+                                        Write-Output "" | Out-File -FilePath $outFile -Append
+                                        Write-Output '            Selected (' $permAllow  ') and Inherited ('$effAllow ') Permissions are the same ' | Out-File $outFile  -Append -NoNewline
+                                        Write-Output "" | Out-File -FilePath $outFile -Append
+                                        
+                                    }
+
                                 }
                             }
 
                             Write-Output "" | Out-File -FilePath $outFile -Append
-
+                            Write-Output "" | Out-File -FilePath $outFile -Append
                             # decode bit. convert to base 2 and find the accompaning permission
                             if($_.Value.deny -gt 0)
                             {
@@ -296,10 +340,45 @@ function Get-SecurityForGivenNamespaces()
                                         Write-Output '            Deny Permission :' $ns.actions[$Denyplace].name " :: " $ns.actions[$Denyplace].bit | Out-File $outFile  -Append -NoNewline
                                         Write-Output "" | Out-File -FilePath $outFile -Append
                                         Write-Host $ns.actions[$Denyplace].name
+
                                     }
                                 }
 
-                                Write-Output "" | Out-File -FilePath $outFile -Append
+                                 # check effective properties
+                                 if($_.Value.extendedInfo.effectiveDeny -gt 0)
+                                 {
+                                     $effDeny = [convert]::ToString($_.Value.extendedInfo.effectiveDeny ,2)
+
+                                    # make sure deny and effective deny are not the same
+                                    if($permDeny -ne $effDeny)
+                                    {
+                                        Write-Output "" | Out-File -FilePath $outFile -Append
+                                        Write-Output '       Inherited Deny : ' $_.Value.extendedInfo.effectiveDeny | Out-File $outFile  -Append -NoNewline
+                                        Write-Output "" | Out-File -FilePath $outFile -Append
+                                        Write-Output '       Inherited Deny Permission decoded :' $effDeny | Out-File $outFile  -Append -NoNewline
+                                        Write-Output "" | Out-File -FilePath $outFile -Append
+    
+                                        # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
+                                        for ($d1 =  $effDeny.Length-1; $d1 -ge 0; $d1--) 
+                                        {
+                                            # need to traverse the string in reverse to match the action list
+                                            $EffDenyplace = ( ($d1 - $effDeny.Length) * -1 )-1
+                                            Write-Host $EffDenyplace
+    
+                                            if( $effDeny.Substring($d1,1) -eq 1)
+                                            {
+                                                Write-Output "" | Out-File -FilePath $outFile -Append
+                                                Write-Output '            Inherited Deny Permission :' $ns.actions[$EffDenyplace].name " :: " $ns.actions[$EffDenyplace].bit | Out-File $outFile  -Append -NoNewline
+                                                Write-Host $ns.actions[$EffDenyplace].name
+                                            }
+                                        }
+                                    }else {
+                                        Write-Output "" | Out-File -FilePath $outFile -Append
+                                        Write-Output '            Inherited Deny  (' $effDeny  ') and selected Deny  ('$permDeny ') Permissions are the same ' | Out-File $outFile  -Append -NoNewline
+                                        Write-Output "" | Out-File -FilePath $outFile -Append
+
+                                    }
+                                 }
 
                             }
                             
