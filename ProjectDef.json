@@ -1,7 +1,7 @@
 { 
     "VSTSMasterAcct" : "artgarciavsts",
     "userEmail"      : "argarc@microsoft.com",
-    "PAT"            : "oodo5ljz6bppsgqb6fvv3rxw2jbpbxf2653k3futgidq64sgfhcq",
+    "PAT"            : "",
     
     "ProjectName"    : "AzureDevOpsDemo",
     "Description"    : "My demo project",
