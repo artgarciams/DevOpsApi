@@ -1,9 +1,9 @@
 # DevOpsApi
 PowerShell to work with Azure DevOps API
 
-This set of PowerShell scripts will allow the creation of : Azure DevOps Projects </br>
+This set of PowerShell scripts will allow the creation of : </br>Azure DevOps Projects 
                                                             Teams </br>
-                                                            BUild </br>
+                                                            Build </br>
                                                             Environments </br>
                                                             Add members to teams </br>
                                                             
