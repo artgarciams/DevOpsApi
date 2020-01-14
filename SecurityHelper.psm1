@@ -149,9 +149,12 @@ function Get-SecurityForGivenNamespaces()
         $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/securitynamespaces?api-version=5.0"
         $allNamespaces = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization 
        
-        # find namespace for given category
-        #$fndNamespace = $allNamespaces.value | Where-Object {$_.Name -match $NamespaceFilter }
-        $fndNamespace = $allNamespaces.value 
+        # find namespace for given category or all categories
+        if($NamespaceFilter -ne "All"){
+            $fndNamespace = $allNamespaces.value | Where-Object {$_.Name -match $NamespaceFilter }
+        }else {
+            $fndNamespace = $allNamespaces.value 
+        }
 
         # find all groups in organization and then filter by project
         $projectUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?api-version=5.0-preview.1"

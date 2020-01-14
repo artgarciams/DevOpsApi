@@ -3,7 +3,7 @@
     "userEmail"      : "argarc@microsoft.com",
     "PAT"            : "",
     
-    "ProjectName"    : "AzureDevOpsDemo",
+    "ProjectName"    : "oneProjectDemo",
     "Description"    : "My demo project",
     "ProcessType"    : "Agile",
     "RepositoryName" : "AAG Demo",

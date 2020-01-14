@@ -25,7 +25,7 @@ Write-Output $userParameters.ProjectName
 Write-Output $userParameters.Description
 
 #list security by namespaces
-Get-SecurityForGivenNamespaces -userParams $userParameters -NamespaceFilter "Project" -outFile "C:\temp\dataBuild_p03.txt"
+Get-SecurityForGivenNamespaces -userParams $userParameters -NamespaceFilter "Project" -outFile "C:\temp\dataBuild_p003.txt"
 
 # Get-Teams -userParams $userParameters
 # Get-GroupList -userParams $userParameters
