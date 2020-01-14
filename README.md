@@ -7,5 +7,5 @@ This set of PowerShell scripts will allow the creation of : Azure DevOps Project
                                                             Environments
                                                             Add members to teams
                                                             
-You can also list all the allow and deny permissions for a given Organization and Project using 
-Get-SecurityForGivenNamespaces
+You can also list all the allow and deny permissions for a given Organization and Project 
+using Get-SecurityForGivenNamespaces
