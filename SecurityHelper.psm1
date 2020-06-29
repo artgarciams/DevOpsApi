@@ -922,7 +922,9 @@ function Get-GroupList()
 {
     param (
         [Parameter(Mandatory = $true)]
-        $userParams
+        $userParams,
+        [Parameter(Mandatory = $false)]
+        $outFile
     )
 
     # Base64-encodes the Personal Access Token (PAT) appropriately
@@ -948,13 +950,21 @@ function Get-GroupList()
     $projectUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?api-version=5.1-preview.1"
     $allGroups = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json"  
    
+    Write-Output "   GroupList    " | Out-File -FilePath $outFile -Append
+
     foreach ($item in $allGroups.value)
     {
         
-        Write-Host $item.displayName
+        Write-Host $item.displayName 
         Write-Host $item.principalName
         Write-Host $item.descriptor
         Write-Host $item.namespaceId
+        
+        Write-Output "" | Out-File -FilePath $outFile -Append
+        Write-Output $item.displayName | Out-File -FilePath $outFile -Append
+        Write-Output $item.principalName | Out-File -FilePath $outFile -Append
+        Write-Output $item.descriptor | Out-File -FilePath $outFile -Append
+        Write-Output $item.namespaceId | Out-File -FilePath $outFile -Append
 
         $usersUri = "https://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/users?groupDescriptors=" + $item.descriptor + "&api-version=4.0-preview"
         $grp =  Invoke-RestMethod -Uri $usersUri -Method Get -Headers $authorization -ContentType "application/json" 

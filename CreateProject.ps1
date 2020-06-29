@@ -16,7 +16,6 @@ Import-Module -Name $modName
 $modName = $PSScriptRoot + "\ProjectAndGroup.psm1" 
 Import-Module -Name $modName
 
-
 # get parameter data for scripts
 $UserDataFile = $PSScriptRoot + "\ProjectDef.json"
 $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
@@ -25,14 +24,14 @@ Write-Output $userParameters.ProjectName
 Write-Output $userParameters.Description
 
 #list security by namespaces
-Get-SecurityForGivenNamespaces -userParams $userParameters -NamespaceFilter "Project" -outFile "C:\temp\dataBuild_p003.txt"
+Get-SecurityForGivenNamespaces -userParams $userParameters -NamespaceFilter "ReleaseManagement" -outFile "C:\temp\dataBuild_r001.txt"
 
 # Get-Teams -userParams $userParameters
-# Get-GroupList -userParams $userParameters
+Get-GroupList -userParams $userParameters -outFile "C:\temp\dataBuild_r001.txt"
 # Get-AllGroups -userParams $userParameters
 
 #list available branches
-#ListGitBranches -userParams $userParameters
+ListGitBranches -userParams $userParameters -outFile "C:\temp\dataBuild_r001.txt"
 
 # add a brance from master
 #AddGitBranchFromMaster -userParams $userParameters -branchToCreate "refs/heads/release/v4"

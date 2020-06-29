@@ -203,7 +203,8 @@ function ListGitBranches(){
     # this function will list the GIT repos
     Param(
         [Parameter(Mandatory = $true)]
-        $userParams
+        $userParams,
+        $outFile
     )
 
     # Base64-encodes the Personal Access Token (PAT) appropriately
@@ -218,6 +219,8 @@ function ListGitBranches(){
     
        
         try {
+            Write-Output "  " | Out-File -FilePath $outFile -Append
+            Write-Output " Repositories  " | Out-File -FilePath $outFile -Append
             
             # find branches for given repo
             $listProviderURL = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories/" + $repo.value[0].Id + "/refs?api-version=5.0"
@@ -225,6 +228,8 @@ function ListGitBranches(){
 
             foreach ($item in $branchlist.value) {
                 Write-Host "Repositories : " $item.name 
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+                Write-Output '   Repositories : '$item.name | Out-File -FilePath $outFile -Append -NoNewline
             }    
         }
         catch {
