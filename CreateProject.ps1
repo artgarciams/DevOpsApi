@@ -22,7 +22,7 @@ $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 
 Write-Output $userParameters.ProjectName
 Write-Output $userParameters.Description
-
+ 
 #list security by namespaces
 Get-SecurityForGivenNamespaces -userParams $userParameters -NamespaceFilter "ReleaseManagement" -outFile "C:\temp\dataBuild_r001.txt"
 
