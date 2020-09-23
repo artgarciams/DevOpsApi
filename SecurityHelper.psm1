@@ -172,18 +172,18 @@ function Get-SecurityForGivenNamespaces()
             $dscrpt =  Get-DescriptorFromGroup -dscriptor $fnd[$j].descriptor
             $dscrpt = "Microsoft.TeamFoundation.Identity;" + $dscrpt
             
-            Write-Output "" | Out-File -FilePath $outFile -Append
-            Write-Output "" | Out-File -FilePath $outFile -Append
-            Write-Output '## Group      : ' $fnd[$j].displayName | Out-File -FilePath $outFile -Append -NoNewline
-            Write-Output "  " | Out-File -FilePath $outFile -Append
-            Write-Output '   Dectriptor : '$dscrpt | Out-File -FilePath $outFile -Append -NoNewline
-            Write-Output " " | Out-File -FilePath $outFile -Append
+           # Write-Output "" | Out-File -FilePath $outFile -Append
+           # Write-Output "" | Out-File -FilePath $outFile -Append
+           # Write-Output '## Group      : ' $fnd[$j].displayName | Out-File -FilePath $outFile -Append -NoNewline
+           # Write-Output "  " | Out-File -FilePath $outFile -Append
+           # Write-Output '   Dectriptor : '$dscrpt | Out-File -FilePath $outFile -Append -NoNewline
+           # Write-Output " " | Out-File -FilePath $outFile -Append
 
             # loop thru namespace selected and find ACL
             foreach( $ns in $fndNamespace)
             {
-                Write-Output "  " | Out-File $outFile -Append 
-                Write-Output '     == Security Namespace:' $ns.name  | Out-File $outFile  -Append -NoNewline
+               # Write-Output "  " | Out-File $outFile -Append 
+               # Write-Output '     == Security Namespace:' $ns.name  | Out-File $outFile  -Append -NoNewline
 
                 $aclListByNamespace = ""
                 try {
@@ -212,7 +212,7 @@ function Get-SecurityForGivenNamespaces()
                             if($namespacePrint -eq 0)
                             {
                                 # write out all available permissons
-                                Write-Output "  " | Out-File $outFile -Append 
+                                Write-Output "     ----------------------     " | Out-File $outFile -Append 
                                 Write-Output '     Allowed Permissions for Security Namespace:' $ns.name  | Out-File $outFile  -Append -NoNewline
                                 Write-Output "  " | Out-File $outFile -Append
 
@@ -385,6 +385,13 @@ function Get-SecurityForGivenNamespaces()
 
                             }
                             
+                            #
+                            # if either allow or deny permissions exist, show the group members
+                            if($_.Value.deny -gt 0 -or $_.Value.allow -gt 0)
+                            {
+                                Write-Host '     Group Name :' $aselistRetrun[0].DisplayName  
+                                Get-GroupListbyGroup -userParams $userParams -outFile $outFile -groupName $aselistRetrun[0].DisplayName 
+                            }
                         }
                     }
 
@@ -918,6 +925,68 @@ function Get-AllGroups()
          Write-Host ConvertTo-Json -InputObject $grp.value -Depth 42
      }
 }
+
+function Get-GroupListbyGroup() 
+{
+    param (
+        [Parameter(Mandatory = $true)]
+        $userParams,
+        [Parameter(Mandatory = $false)]
+        $outFile,
+        [Parameter(Mandatory = $true)]
+        $groupName
+        
+    )
+
+    # Base64-encodes the Personal Access Token (PAT) appropriately
+    $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
+     
+    # find list of all Groups  # https://vssps.dev.azure.com/{organization}/_apis/graph/groups?api-version=5.1-preview.1
+    $projectUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?api-version=5.1-preview.1"
+    $allGroups = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json"  
+   
+    $fnd = $allGroups.value | Where-Object {$_.principalName -eq $groupName}
+
+    foreach ($item in $fnd)
+    {
+        
+        Write-Host $item.displayName 
+        Write-Host $item.principalName
+        Write-Host $item.descriptor
+        Write-Host $item.description
+        
+        Write-Output "       ********* Users for selected group *********" | Out-File -FilePath $outFile -Append
+        Write-Output '       Group Name     : ' $item.displayName | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "" | Out-File -FilePath $outFile -Append
+
+        Write-Output '       Principal Name : ' $item.principalName | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "" | Out-File -FilePath $outFile -Append
+
+        Write-Output '       Descriptor     : ' $item.descriptor | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "" | Out-File -FilePath $outFile -Append
+
+        Write-Output '       Description    : ' $item.description | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "" | Out-File -FilePath $outFile -Append
+
+        $usersUri = "https://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/users?groupDescriptors=" + $item.descriptor + "&api-version=4.0-preview"
+        $grp =  Invoke-RestMethod -Uri $usersUri -Method Get -Headers $authorization -ContentType "application/json" 
+
+        foreach($useritem in $grp.value)
+        {
+       
+            Write-Host  $useritem.displayName  
+            Write-Host  $userItem.mailAddress 
+
+            Write-Output '            User : ' $useritem.displayName  | Out-File -FilePath $outFile -Append -NoNewline
+            Write-Output '  Alias : ' $useritem.directoryAlias  | Out-File -FilePath $outFile -Append -NoNewline
+            Write-Output '  Email : ' $userItem.mailAddress  | Out-File -FilePath $outFile -Append -NoNewline
+            Write-Output "" | Out-File -FilePath $outFile -Append      
+
+        }
+        Write-Output "" | Out-File -FilePath $outFile -Append      
+    }
+}
+
 function Get-GroupList() 
 {
     param (
@@ -929,48 +998,52 @@ function Get-GroupList()
 
     # Base64-encodes the Personal Access Token (PAT) appropriately
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
-
-    # find all security namespaces
-    $projectUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/securitynamespaces?api-version=5.0"
-    $allSecNameSpace = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json"  
-   
-    # get all access control lists in security namespaces
-    foreach ($item in $allSecNameSpace.value)
-    {
-        $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $item.namespaceId + "?api-version=5.0"
-        $aclByNamespace = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json"
-        
-        if ($aclByNamespace.count -gt 0) 
-        {
-            Write-Host ConvertTo-Json -InputObject $aclByNamespace 
-        }
-    }
-    
+     
     # find list of all Groups  # https://vssps.dev.azure.com/{organization}/_apis/graph/groups?api-version=5.1-preview.1
     $projectUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?api-version=5.1-preview.1"
     $allGroups = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json"  
    
-    Write-Output "   GroupList    " | Out-File -FilePath $outFile -Append
+    $fnd = $allGroups.value | Where-Object {$_.principalName -match $userParams.ProjectName }
 
-    foreach ($item in $allGroups.value)
+    Write-Output "GroupList    " | Out-File -FilePath $outFile -Append
+
+    foreach ($item in $fnd)
     {
         
         Write-Host $item.displayName 
         Write-Host $item.principalName
         Write-Host $item.descriptor
-        Write-Host $item.namespaceId
+        Write-Host $item.description
         
         Write-Output "" | Out-File -FilePath $outFile -Append
-        Write-Output $item.displayName | Out-File -FilePath $outFile -Append
-        Write-Output $item.principalName | Out-File -FilePath $outFile -Append
-        Write-Output $item.descriptor | Out-File -FilePath $outFile -Append
-        Write-Output $item.namespaceId | Out-File -FilePath $outFile -Append
+        Write-Output '  Group Name     : ' $item.displayName | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "" | Out-File -FilePath $outFile -Append
+
+        Write-Output '  Principal Name : ' $item.principalName | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "" | Out-File -FilePath $outFile -Append
+
+        Write-Output '  Descriptor     : ' $item.descriptor | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "" | Out-File -FilePath $outFile -Append
+
+        Write-Output '  Description    : ' $item.description | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "" | Out-File -FilePath $outFile -Append
 
         $usersUri = "https://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/users?groupDescriptors=" + $item.descriptor + "&api-version=4.0-preview"
         $grp =  Invoke-RestMethod -Uri $usersUri -Method Get -Headers $authorization -ContentType "application/json" 
 
-        Write-Host ConvertTo-Json -InputObject $grp -Depth 42
-                
+        foreach($useritem in $grp.value)
+        {
+       
+            Write-Host  $useritem.displayName  
+            Write-Host  $userItem.mailAddress 
+
+            Write-Output '     User : ' $useritem.displayName  | Out-File -FilePath $outFile -Append -NoNewline
+            Write-Output '  Alias : ' $useritem.directoryAlias  | Out-File -FilePath $outFile -Append -NoNewline
+            Write-Output '  Email : ' $userItem.mailAddress  | Out-File -FilePath $outFile -Append -NoNewline
+            Write-Output "" | Out-File -FilePath $outFile -Append      
+
+        }
+        Write-Output "" | Out-File -FilePath $outFile -Append      
     }
 }
 
