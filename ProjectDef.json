@@ -1,15 +1,22 @@
 { 
-    "VSTSMasterAcct" : "artgarciavsts",
+    "VSTSMasterAcct" : "fdx-strat-pgm",
     "userEmail"      : "argarc@microsoft.com",
-    "PAT"            : "bo2s5u5pazlk7um4dw3lfn5vflefdsbzrjemfrilsjyuaxfj2boa",
+    "PAT"            : "fjqftd6bssyrqjwfeatezq7c4iopajwizti4rt5jwowuz7lg7coa",
+    "Subscription"   : "a14f4de1-b47a-433f-a0d1-6ac624352fdf",
     
-    "ProjectName"    : "oneProjectDemo",
+    "ProjectName"    : "fdx-surround",
     "Description"    : "My demo project",
     "ProcessType"    : "Agile",
     "RepositoryName" : "AAG Demo",
     "BuildName"      : "Build 1",
     "AgentQueue"     : "Default",
     
+    "OmitTeam" :[{}],
+    
+    "Namespaces" :["Analytics","Tagging","Project"],
+    
+    "Namess"     :["Analytics","Tagging","AnalyticsViews","Project","Boards","Build","VersionControlItems","Git Repositories","DashboardsPrivileges"],
+
     "Teams" : [ {"name": "Team AAG1","description" :"Team BB1 description", 
                  "users":["argarc@microsoft.com","mahyon@microsoft.com"] ,
                  "permissions" :["MANAGE_TEST_ENVIRONMENTS|DENY","CreateRepository|DENY","EditBuildQuality|DENY","DeleteBuilds|DENY"]},

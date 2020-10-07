@@ -115,7 +115,7 @@ function Get-DescriptorFromGroup()
     }
     
     try {
-        Write-Host $b64
+       # Write-Host "Descriptor : " $b64
         $dscrpt = [System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($b64))
     }
     catch {
@@ -401,6 +401,423 @@ function Get-SecurityForGivenNamespaces()
 
          }
        
+}
+
+
+function Get-SecuritybyGroupByNamespace()
+{
+    Param(
+        [Parameter(Mandatory = $true)]
+        $userParams,
+        [Parameter(Mandatory = $true)]
+        $NamespaceFilter,
+        [Parameter(Mandatory = $true)]
+        $outFile,
+        [Parameter(Mandatory= $false)]
+        $getAllProjects 
+    )
+
+        # Base64-encodes the Personal Access Token (PAT) appropriately
+        $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
+        
+        $hasPermission = $false
+       
+        # get list of all security namespaces for organization
+        $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/securitynamespaces?api-version=5.0"
+        $allNamespaces = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization 
+          
+        # find all Teams in Org. needed to determine if group is a team or group
+        # GET https://dev.azure.com/{organization}/_apis/teams?api-version=6.0-preview.3        
+        # 
+        $tmUrl = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/teams?api-version=6.0-preview.3"
+        $allteams = Invoke-RestMethod -Uri $tmUrl -Method Get -Headers $authorization 
+        
+        # get all groups in org or just for a given project
+        # vssgp,aadgp are the subject types use vssgp to get groups for a given project
+        $projectUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?subjectTypes=vssgp&api-version=6.0-preview.1"
+        $allGroups = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization    
+        if( $getAllProjects -eq "True")
+        {
+            $groups = $allGroups.value
+        }else {
+            # find all groups for given project
+            $groups = $allGroups.value | Where-Object {$_.principalName -match $userParams.ProjectName }
+        }
+      
+        Write-Output 'Namespace|Project|Group Type|Group Name|Description|Permission Type|Permission|bit|Permission Name'  | Out-File $outFile  -Append 
+
+        # loop thru each group
+        foreach ($fnd in $groups) {
+
+            # find out if this is a team or project
+            $prName = $fnd.principalName.Split('\')
+            $projectName =  $prName[0].substring(1,$prname[0].length-2)
+            $tm = $prName[1]
+            $teamFound = $allteams.value | Where-Object {($_.ProjectName -eq $projectName) -and ($_.name -eq $tm)}
+            $GroupType = "G-Delivered"
+            IF (![string]::IsNullOrEmpty($teamFound)) {
+                $GroupType = "T-Custom"                
+            } 
+
+            Write-Host $fnd.displayname $fnd.principalName 
+        
+            # loop thru each namespace in the list and get security
+            for ($n = 0; $n -lt $userParams.Namespaces.Count; $n++) {
+
+                # get namespace
+                $nmeSpace =  $userParams.Namespaces[$n]
+                Write-Host $nmeSpace 
+                $ns = $allNamespaces.value | Where-Object {$_.Name -eq $nmeSpace }
+                
+                # get decoded descriptor
+                $dscrpt =  Get-DescriptorFromGroup -dscriptor $fnd.descriptor
+                $dscrpt = "Microsoft.TeamFoundation.Identity;" + $dscrpt
+
+                # find all access control lists for the given namespace and group
+                $aclListByNamespace = ""
+                $hasPermission = $false
+
+                try {
+                    $grpUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?descriptors=" + $dscrpt + "&includeExtendedInfo=True&api-version=6.1-preview.1"
+                    $aclListByNamespace = Invoke-RestMethod -Uri $grpUri -Method Get -Headers $authorization 
+
+                   # $gUri2 = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?includeExtendedInfo=True&recurse=True&api-version=6.1-preview.1"
+                    #$aclListByNamespace = Invoke-RestMethod -Uri $gUri2 -Method Get -Headers $authorization 
+
+                    Write-Output $fnd.displayname " - " $ns.name | Out-File "C:\temp\rawData.txt" -Append
+                    for ($i = 0; $i -lt $aclListByNamespace.Count; $i++) {
+
+                        $t =  ConvertTo-Json -InputObject $aclListByNamespace.value[$i] -Depth 42                         
+                        Write-Output $t | Out-File "C:\temp\rawData.txt" -Append
+                    }
+                    
+                }
+                catch {
+                    $ErrorMessage = $_.Exception.Message
+                    $FailedItem = $_.Exception.ItemName
+                    Write-Host "Security Error : " + $ErrorMessage + " iTEM : " + $FailedItem
+                    Continue 
+                }
+
+                $lastAllowDescriptor = ""  
+                $lastAllowEffDescriptor = ""
+                $lastDenyDescriptor  = ""
+                $lastDenyEffDescriptor = ""
+
+                # loop thru acesDictionary in namespace and find security
+                for ($i = 0; $i -lt $aclListByNamespace.value.length; $i++) {
+                    # set api to not include extended  info properties        
+                    # https://docs.microsoft.com/en-us/rest/api/azure/devops/security/access%20control%20lists/query?view=azure-devops-rest-6.1#examples                             
+                    #$tokenUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?token=" + $aclListByNamespace.value[$i].token + "&includeExtendedInfo=True&recurse=False&api-version=6.1-preview.1"
+                    # $aclListByToken = Invoke-RestMethod -Uri $tokenUri -Method Get -Headers $authorization 
+                                     
+                    # list access control entry for each dictionary 
+                    $aclListByNamespace.value[$i].acesDictionary.PSObject.Properties | ForEach-Object {
+                             
+                        $js = ConvertTo-Json -InputObject $aclListByNamespace.value[$i] -Depth 42
+                        Write-Output $fnd.principalName  | Out-File "C:\temp\rawData.txt" -Append    
+                        Write-Output $js | Out-File "C:\temp\rawData.txt"  -Append
+
+                        # check allow permissions
+                        if($_.Value.allow -gt 0 -and ($lastAllowDescriptor -ne $_.Value.descriptor))
+                        {
+                            try
+                            {
+                                # undocumented api to get groupname  from descriptor
+                                # https://stackoverflow.com/questions/55735054/translate-acl-descriptors-to-security-group-names
+                                $grpUrl = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?descriptors=" + $_.Value.descriptor
+                                $grpFromDesc = Invoke-RestMethod -Uri $grpUrl -Method Get -Headers $authorization 
+                                Write-Host "Security for group : " $grpFromDesc.DisplayName
+                            } 
+                            catch 
+                            {
+                                $ErrorMessage = $_.Exception.Message
+                                $FailedItem = $_.Exception.ItemName
+                                Write-Host "Security Error : " + $ErrorMessage + " iTEM : " + $FailedItem
+                                Continue 
+                            }
+                
+                            $permAllow = [convert]::ToString($_.Value.allow,2)
+                            Write-Host "Allow Permission raw    :" $_.Value.allow
+                            Write-Host "Allow Permission decoded:" $permAllow
+                         
+                            # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
+                            for ($a =  $permAllow.Length-1; $a -ge 0; $a--) 
+                            {
+                                # need to traverse the string in reverse to match the action list
+                                $Allowplace = ( ($a - $permAllow.Length) * -1 )-1
+                                Write-Host $Allowplace
+
+                                if( $permAllow.Substring($a,1) -ge 1)
+                                {
+                                    Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                    Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
+                                    Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
+                                    Write-Output $grpFromDesc.DisplayName  '|'   | Out-File $outFile -Append -NoNewline
+                                    Write-Output $fnd.description '|'  | Out-File $outFile  -Append -NoNewline
+                                    Write-Output 'Allow|' $ns.actions[$Allowplace].displayName "|" $ns.actions[$Allowplace].bit "|" $ns.actions[$Allowplace].Name | Out-File $outFile  -Append -NoNewline
+                                    Write-Output "" | Out-File -FilePath $outFile -Append
+                                    Write-Host "Allow : " $ns.actions[$Allowplace].displayName
+                                    
+                                    $hasPermission = $true                                    
+                                    $lastAllowDescriptor = $_.Value.descriptor
+                                }
+                                else
+                                {
+                                  #  Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                  #  Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
+                                  #  Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
+                                  #  Write-Output  $fnd.principalName  '|'   | Out-File $outFile -Append -NoNewline
+                                  #  Write-Output $desc '|'  | Out-File $outFile  -Append -NoNewline
+                                  #  Write-Output 'Not Set|' $ns.actions[$Allowplace].displayName "|" $ns.actions[$Allowplace].bit "|" $ns.actions[$Allowplace].Name | Out-File $outFile  -Append -NoNewline
+                                  #  Write-Output "" | Out-File -FilePath $outFile -Append
+                                  #  Write-Host "Not Set : " $ns.actions[$Allowplace].displayName
+                                   # $hasPermission = $true
+                                    
+                                }
+                            }
+
+                        }
+
+                        # check effective allow permissions -and ($lastDescriptor -ne $_.Value.descriptor)
+                        if (![string]::IsNullOrEmpty($_.Value.extendedInfo.effectiveAllow ) -and ($lastAllowEffDescriptor -ne $_.Value.descriptor)  )
+                        {                   
+
+                            # Write-Host $_.Value.descriptor
+                            if( ($_.Value.extendedInfo.effectiveAllow -gt 0)  )
+                            {
+
+                                try
+                                {
+                                    # undocumented api to get groupname  from descriptor
+                                    # https://stackoverflow.com/questions/55735054/translate-acl-descriptors-to-security-group-names
+                                    $grpUrl = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?descriptors=" + $_.Value.descriptor
+                                    $grpFromDesc = Invoke-RestMethod -Uri $grpUrl -Method Get -Headers $authorization 
+                                    Write-Host "Security for group effective : " $grpFromDesc.DisplayName
+                                } 
+                                catch 
+                                {
+                                    $ErrorMessage = $_.Exception.Message
+                                    $FailedItem = $_.Exception.ItemName
+                                    Write-Host "Security Error : " + $ErrorMessage + " iTEM : " + $FailedItem
+                                    Continue 
+                                }
+                    
+                                $effAllow = [convert]::ToString($_.Value.extendedInfo.effectiveAllow,2)
+
+                                # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
+                                for ($a =  $effAllow.Length-1; $a -ge 0; $a--) 
+                                {
+                                    # need to traverse the string in reverse to match the action list
+                                    $effAllowplace = ( ($a - $effAllow.Length) * -1 )-1
+                                    Write-Host $effAllowplace
+
+                                    if( $effAllow.Substring($a,1) -ge 1)
+                                    {
+                                        Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                        Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
+                                        Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
+
+                                        Write-Output $grpFromDesc.DisplayName  '|'   | Out-File $outFile -Append -NoNewline
+                                        Write-Output $fnd.description '|'  | Out-File $outFile  -Append -NoNewline
+                                        Write-Output 'Effective Allow|' $ns.actions[$effAllowplace].displayName "|" $ns.actions[$effAllowplace].bit  "|" $ns.actions[$effAllowplace].Name| Out-File $outFile  -Append -NoNewline
+                                        Write-Output "" | Out-File -FilePath $outFile -Append
+                                        Write-Host "Effective Allow: " $ns.actions[$effAllowplace].displayName
+                                        
+                                        $hasPermission = $true
+                                        $lastAllowEffDescriptor =   $_.Value.descriptor 
+                                    }
+                                }
+
+                            }
+                        }
+
+                         # check inherited allow permissions -and ($lastDescriptor -ne $_.Value.descriptor)
+                         if (![string]::IsNullOrEmpty($_.Value.extendedInfo.inheritedAllow )   )
+                         {                   
+ 
+                             # Write-Host $_.Value.descriptor
+                             if( ($_.Value.extendedInfo.inheritedAllow -gt 0)  )
+                             {
+ 
+                                 try
+                                 {
+                                     # undocumented api to get groupname  from descriptor
+                                     # https://stackoverflow.com/questions/55735054/translate-acl-descriptors-to-security-group-names
+                                     $grpUrl = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?descriptors=" + $_.Value.descriptor
+                                     $grpFromDesc = Invoke-RestMethod -Uri $grpUrl -Method Get -Headers $authorization 
+                                     Write-Host "Security for group Inherited : " $grpFromDesc.DisplayName
+                                 } 
+                                 catch 
+                                 {
+                                     $ErrorMessage = $_.Exception.Message
+                                     $FailedItem = $_.Exception.ItemName
+                                     Write-Host "Security Error : " + $ErrorMessage + " iTEM : " + $FailedItem
+                                     Continue 
+                                 }
+                     
+                                 $inhAllow = [convert]::ToString($_.Value.extendedInfo.inheritedAllow,2)
+ 
+                                 # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
+                                 for ($a =  $inhAllow.Length-1; $a -ge 0; $a--) 
+                                 {
+                                     # need to traverse the string in reverse to match the action list
+                                     $inhAllowplace = ( ($a - $inhAllow.Length) * -1 )-1
+                                     Write-Host $inhAllow
+ 
+                                     if( $inhAllow.Substring($a,1) -ge 1)
+                                     {
+                                         Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                         Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
+                                         Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
+ 
+                                         Write-Output $grpFromDesc.DisplayName  '|'   | Out-File $outFile -Append -NoNewline
+                                         Write-Output $fnd.description '|'  | Out-File $outFile  -Append -NoNewline
+                                         Write-Output 'Inherited Allow|' $ns.actions[$inhAllowplace].displayName "|" $ns.actions[$inhAllowplace].bit  "|" $ns.actions[$inhAllowplace].Name| Out-File $outFile  -Append -NoNewline
+                                         Write-Output "" | Out-File -FilePath $outFile -Append
+                                         Write-Host "Inherited Allow: " $ns.actions[$inhAllowplace].displayName
+                                         
+                                         $hasPermission = $true
+                                         $lastAllowEffDescriptor =   $_.Value.descriptor 
+                                     }
+                                 }
+ 
+                             }
+                         }
+                         # check deny
+                         if($_.Value.deny -gt 0 -and ($lastDenyDescriptor -ne $_.Value.descriptor))
+                         {
+                             try
+                             {
+                                 # undocumented api to get groupname  from descriptor
+                                 # https://stackoverflow.com/questions/55735054/translate-acl-descriptors-to-security-group-names
+                                 $grpUrl = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?descriptors=" + $_.Value.descriptor
+                                 $grpFromDesc = Invoke-RestMethod -Uri $grpUrl -Method Get -Headers $authorization 
+                                 Write-Host "Security for group Deny : " $grpFromDesc.DisplayName
+                             } 
+                             catch 
+                             {
+                                 $ErrorMessage = $_.Exception.Message
+                                 $FailedItem = $_.Exception.ItemName
+                                 Write-Host "Security Error : " + $ErrorMessage + " iTEM : " + $FailedItem
+                                 Continue 
+                             }
+                 
+                             $permDeny = [convert]::ToString($_.Value.deny,2)
+                             Write-Host "Deny Permission raw    :" $_.Value.deny
+                             Write-Host "Deny Permission decoded:" $permDeny
+                          
+                             # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
+                             for ($a =  $permDeny.Length-1; $a -ge 0; $a--) 
+                             {
+                                 # need to traverse the string in reverse to match the action list
+                                 $Denyplace = ( ($a - $permDeny.Length) * -1 )-1
+                                 Write-Host $Denyplace
+ 
+                                 if( $permDeny.Substring($a,1) -ge 1)
+                                 {
+                                     Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                     Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
+                                     Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
+                                     Write-Output $grpFromDesc.DisplayName  '|'   | Out-File $outFile -Append -NoNewline
+                                     Write-Output $fnd.description '|'  | Out-File $outFile  -Append -NoNewline
+                                     Write-Output 'Deny|' $ns.actions[$Denyplace].displayName "|" $ns.actions[$Denyplace].bit "|" $ns.actions[$Denyplace].Name| Out-File $outFile  -Append -NoNewline
+                                     Write-Output "" | Out-File -FilePath $outFile -Append
+                                     Write-Host "Deny : " $ns.actions[$Denyplace].displayName
+                                     
+                                     $hasPermission = $true
+                                     $lastDenyDescriptor = $_.Value.descriptor
+                                 }
+                             }
+ 
+                         }
+
+                        # check effective deny permissions 
+                        if (![string]::IsNullOrEmpty($_.Value.extendedInfo.effectiveDeny ) -and ($lastDenyEffDescriptor -ne $_.Value.descriptor)  )
+                        {                   
+
+                            # Write-Host $_.Value.descriptor
+                            if( ($_.Value.extendedInfo.effectiveDeny -gt 0)  )
+                            {
+
+                                try
+                                {
+                                    # undocumented api to get groupname  from descriptor
+                                    # https://stackoverflow.com/questions/55735054/translate-acl-descriptors-to-security-group-names
+                                    $grpUrl = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?descriptors=" + $_.Value.descriptor
+                                    $grpFromDesc = Invoke-RestMethod -Uri $grpUrl -Method Get -Headers $authorization 
+                                    Write-Host "Security for group Inherited deny : " $grpFromDesc.DisplayName
+                                } 
+                                catch 
+                                {
+                                    $ErrorMessage = $_.Exception.Message
+                                    $FailedItem = $_.Exception.ItemName
+                                    Write-Host "Security Error : " + $ErrorMessage + " iTEM : " + $FailedItem
+                                    Continue 
+                                }
+                    
+                                $effDeny = [convert]::ToString($_.Value.extendedInfo.effectiveDeny,2)
+
+                                # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
+                                for ($a =  $effDeny.Length-1; $a -ge 0; $a--) 
+                                {
+                                    # need to traverse the string in reverse to match the action list
+                                    $EffDenyplace = ( ($a - $effDeny.Length) * -1 )-1
+                                    Write-Host $effAllowplace
+
+                                    if( $effDeny.Substring($a,1) -ge 1)
+                                    {
+                                        Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                        Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
+                                        Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
+                                        Write-Output $grpFromDesc.DisplayName  '|'   | Out-File $outFile -Append -NoNewline
+                                        Write-Output $fnd.description '|'  | Out-File $outFile  -Append -NoNewline
+                                        Write-Output 'Inherited Deny|' $ns.actions[$EffDenyplace].displayName "|" $ns.actions[$EffDenyplace].bit  "|" $ns.actions[$EffDenyplace].Name| Out-File $outFile  -Append -NoNewline
+                                        Write-Output "" | Out-File -FilePath $outFile -Append
+                                        Write-Host "Inherited Deny: " $ns.actions[$EffDenyplace].displayName
+                                        
+                                        $hasPermission = $true
+                                        $lastDenyEffDescriptor =   $_.Value.descriptor 
+                                    }
+                                }
+
+                            }
+                        }
+
+                    }
+
+                }
+
+                # if no permission ser still add team
+                if($hasPermission -eq $false)
+                {
+                    #Write-Output ' '  | Out-File $outFile  -Append 
+                    Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                    Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
+                    Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
+                    Write-Output $tm  '|'   | Out-File $outFile -Append -NoNewline
+                    Write-Output $fnd.description '|'  | Out-File $outFile  -Append -NoNewline
+                    Write-Output 'No Permission set|No Permission Set|0|'  | Out-File $outFile  -Append -NoNewline
+                    Write-Output ' '  | Out-File $outFile  -Append 
+                }
+            }
+
+        }
+
+
+
+
+
+
+
+
+
+
+
+         
+
+
+        
 }
 
 function Get-MembersByTeam
@@ -874,6 +1291,66 @@ function Add-GroupSecurity()
     }
 }
 
+
+
+function Get-GroupSecurityTFS()
+{
+    Param(
+        [Parameter(Mandatory = $true)]
+        $userParams
+        
+    )
+       
+    
+     # Base64-encodes the Personal Access Token (PAT) appropriately
+     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
+
+    # find list of all Groups  # https://vssps.dev.azure.com/{organization}/_apis/graph/groups?api-version=5.1-preview.1
+    $projectUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?api-version=5.1-preview.1"
+    $allGroups = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json"  
+   
+    # find groups for the current project
+    $fnd = $allGroups.value | Where-Object {$_.principalName -match  $userParams.ProjectName }
+   
+    # get path to tfssecurity
+    $exePath = "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\IDE\CommonExtensions\Microsoft\TeamFoundation\Team Explorer\"
+   
+    $pth = $exePath + "TFSSecurity.exe"
+
+    foreach ($item in $fnd)
+    {
+        $cmd = " /im "
+
+        $groupName = $([char]34) + $item.displayName + $([char]34)            
+
+
+           
+            $cmd +=  $groupName +  " /server:https://" + $userParams.VSTSMasterAcct + ".visualstudio.com"
+            Write-Host $cmd
+
+            Start-Process $pth -ArgumentList $cmd -NoNewWindow -Wait 
+            $cmd = ""
+
+            # find security namespaces for area given ie : project, build, etc
+            # $secURL = " https://" + $VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/securitynamespaces/00000000-0000-0000-0000-000000000000/?api-version=1.0"
+            # $namespaces = Invoke-RestMethod -Uri $secURL -Method Get -Headers $authorization -ContentType "application/json" 
+            # $js = ConvertTo-Json -InputObject $namespaces -Depth 42
+            # Out-File -FilePath "C:\temp\SecurityNamespaces.json" -InputObject $js 
+
+            # $Sec = $namespaces.value | Where-Object {$_.name -eq $permissionList[0] }
+                
+            # $aclUrl = "https://" + $VSTSMasterAcct + ".visualstudio.com/_apis/accesscontrollists/" + $Sec.namespaceId + "?token=" + $tkn  +  "&api-version=4.1-preview.1"
+            # $aclList = Invoke-RestMethod -Uri $aclUrl -Method Get -Headers $authorization -ContentType "application/json" 
+           
+            # $fp = "C:\temp\acl_" + $item.name + "_" + $permissionList[0] + "_.json"
+            # $js = ConvertTo-Json -InputObject $aclList -Depth 42
+            # Out-File -FilePath $fp -InputObject $js 
+
+        
+    }
+}
+
+
 function Get-Teams()
 {
     param (
@@ -894,8 +1371,312 @@ function Get-Teams()
     $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/"  + $prj.id +   "/teams?api-version=5.0"
     $allTeams = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json" 
 
+    foreach ($item in $allTeams.value) {
+        # GET https://dev.azure.com/{organization}/_apis/projects/{projectId}/teams/{teamId}/members?api-version=6.1-preview.2
+         $teamUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/"  + $prj.id +   "/teams/" + $item.id + "/members?api-version=6.1-preview.2"
+         $allTeamMembers = Invoke-RestMethod -Uri $teamUri -Method Get -Headers $authorization  -ContentType "application/json" 
+
+    }
+
     return $allTeams
     
+}
+
+
+function Get-TeamsAndPermsions()
+{
+    param (
+        [Parameter(Mandatory = $true)]
+        $userParams,
+        [Parameter(Mandatory = $false)]
+        $NamespaceFilter,
+        [Parameter(Mandatory = $false)]
+        $outFile, [Parameter(Mandatory = $false)]
+        $Allprojects
+    )
+    #**************************************************************
+    # This function will retrieve the permissions for all teams and all namspaces
+    #     you can pass in the namespace ( $NamespaceFilter ) to limit namespaces
+    #     you can pass in the $AllProjects ( "True" or "False") to limit to teams in 
+    #      a project or all teams in org
+    #
+
+     # Base64-encodes the Personal Access Token (PAT) appropriately
+     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
+
+     #GET https://dev.azure.com/fabrikam/Fabrikam-Fiber-Git/_apis/wit/recyclebin?api-version=5.0
+    # get list of all security namespaces for organization
+    
+    # list of backlog items
+    # $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/fdx-surround" +  "/_apis/wit/recyclebin?api-version=5.0"
+    
+    $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/securitynamespaces?api-version=5.0"
+    $allNamespaces = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization 
+    
+    # find namespace for given category or all categories
+    if($NamespaceFilter -ne "All"){
+        $fndNamespace = $allNamespaces.value | Where-Object {$_.Name -eq $NamespaceFilter }
+    }else {
+        $fndNamespace = $allNamespaces.value 
+    }
+
+    # find all teams in a given project
+    if($Allprojects -eq "True")
+    {
+        #GET https://dev.azure.com/{organization}/_apis/teams?api-version=6.0-preview.3
+        $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/teams?api-version=6.0-preview.3"
+        $allTeams = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json" 
+    }
+    else {
+        # get project id
+        $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/" + $userParams.ProjectName +"?api-version=5.0"
+        $prj = Invoke-RestMethod -Uri $projectUri -Method Get -ContentType "application/json" -Headers $authorization 
+
+        $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/"  + $prj.id +   "/teams?api-version=5.0"
+        $allTeams = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json"             
+    }
+    
+    Write-Output "namespace|team name|description|permission type|permission|bit" $item.bit | Out-File $outFile -Append
+
+    foreach ($item in $allTeams.value) {
+        # GET https://vssps.dev.azure.com/{organization}/_apis/identities?descriptors={descriptors}&identityIds={identityIds}&subjectDescriptors={subjectDescriptors}&searchFilter={searchFilter}&filterValue={filterValue}&queryMembership={queryMembership}&api-version=6.0
+         $teamUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?identityIds="  + $item.id +   "&api-version=6.0"
+         $teamIdentity = Invoke-RestMethod -Uri $teamUri -Method Get -Headers $authorization  -ContentType "application/json" 
+         
+         $desc = $item.description
+         $desc -replace ",", " - "
+         
+         $hasPermissions = $false
+
+        # loop thru namespace selected and find ACL
+        foreach( $ns in $fndNamespace)
+        {
+            $aclListByNamespace = ""
+            try {
+                #find all access control lists for the given namespace and group
+                $grpUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?descriptors=" + $teamIdentity.value[0].descriptor + "&includeExtendedInfo=True&api-version=6.0-preview.1"
+                $aclListByNamespace = Invoke-RestMethod -Uri $grpUri -Method Get -Headers $authorization 
+            }
+            catch {
+                $ErrorMessage = $_.Exception.Message
+                $FailedItem = $_.Exception.ItemName
+                Write-Host "Security Error : " + $ErrorMessage + " iTEM : " + $FailedItem
+                Continue 
+            }
+                      
+            # loop thru acesDictionary in namespace 
+            for ($i = 0; $i -lt $aclListByNamespace.value.length; $i++) {
+
+                # list access control entry for each dictionary
+                $aclListByNamespace.value[$i].acesDictionary.PSObject.Properties | ForEach-Object {
+                    #if( ($_.Value.allow -ge 0) -or ($_.value.deny -ge 0) ) 
+                    #{                           
+                                                                      
+                        # undocumented api to get groupname  from descriptor
+                        # https://stackoverflow.com/questions/55735054/translate-acl-descriptors-to-security-group-names
+                        $aseList = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?descriptors=" + $_.Value.descriptor
+                        $aselistRetrun = Invoke-RestMethod -Uri $aseList -Method Get -Headers $authorization 
+                        
+                        # decode bit. convert to base 2 and find the accompaning permission
+                        # ACL has an allow and deny bit flag. this bit flag when converted to base 2
+                        # shows the allowed or denyed permissions
+                        # for example
+                        #    Allow      :1025
+                        #    Deny       :4104
+                        #    Allow Permission decoded :10000000001
+                        #        Allow Permission :ViewBuilds :: 1
+                        #        Allow Permission :ViewBuildDefinition :: 1024
+                        #        1 + 1024 = 1025
+                        #    Deny Permission decoded :1000000001000
+                        #            Deny Permission :DeleteBuilds :: 8
+                        #            Deny Permission :DeleteBuildDefinition :: 4096
+                        #        8 + 4096 = 4104
+                        #    
+                        # print allowable actions for namespce only once
+                                               
+
+                        # print allow permissions
+                        if($_.Value.allow -ge 1) 
+                        {
+                            $permAllow = [convert]::ToString($_.Value.allow,2)
+                            
+                            # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
+                            for ($a =  $permAllow.Length-1; $a -ge 0; $a--) 
+                            {
+                                # need to traverse the string in reverse to match the action list
+                                $Allowplace = ( ($a - $permAllow.Length) * -1 )-1
+                                Write-Host $Allowplace
+
+                                if( $permAllow.Substring($a,1) -ge 1)
+                                {
+                                    Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                    Write-Output $aselistRetrun[0].DisplayName '|'   | Out-File $outFile -Append -NoNewline
+                                    Write-Output $desc '|'  | Out-File $outFile  -Append -NoNewline
+                                    Write-Output 'Allow|' $ns.actions[$Allowplace].name "|" $ns.actions[$Allowplace].bit | Out-File $outFile  -Append -NoNewline
+                                    Write-Output "" | Out-File -FilePath $outFile -Append
+                                    Write-Host $ns.actions[$Allowplace].name
+
+                                    $hasPermissions = $true
+                                }
+                            }
+                        }
+
+                        # check effective properties
+                        if (![string]::IsNullOrEmpty($_.Value.extendedInfo.effectiveAllow )) {
+                                                    
+                            if($_.Value.extendedInfo.effectiveAllow -ge 1 )
+                            {
+                                $effAllow = [convert]::ToString($_.Value.extendedInfo.effectiveAllow ,2)
+                                
+                                # make sure allow and effective allow are not the same
+                                if($permAllow -ne $effAllow)
+                                {
+                                    # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
+                                    for ($a1 =  $effAllow.Length-1; $a1 -ge 0; $a1--) 
+                                    {
+                                        $EffAllowplace = ( ($a1 - $effAllow.Length) * -1 )-1
+                                        if( $effAllow.Substring($a1,1) -ge 1)
+                                        {
+                                            # need to traverse the string in reverse to match the action list
+                                            Write-Host $effAllow
+                                            Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                            Write-Output $aselistRetrun[0].DisplayName '|'   | Out-File $outFile -Append -NoNewline   
+                                            Write-Output $desc '|'  | Out-File $outFile  -Append -NoNewline
+                                            Write-Output 'Inherited Allow|' $ns.actions[$EffAllowplace].name "|" $ns.actions[$EffAllowplace].bit | Out-File $outFile  -Append -NoNewline
+                                            Write-Output "" | Out-File -FilePath $outFile -Append
+                                            Write-Host $ns.actions[$EffAllowplace].name
+
+                                            $hasPermissions = $true
+                                        }
+                                    }
+                                }
+                            }
+
+                        }
+
+                        
+                        # decode bit. convert to base 2 and find the accompaning permission
+                        if($_.Value.deny -ge 1) 
+                        {
+                            $permDeny = [convert]::ToString($_.Value.deny,2)
+
+                            # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
+                            for ($d =  $permDeny.Length-1; $d -ge 0; $d--) 
+                            {
+                                # need to traverse the string in reverse to match the action list
+                                $Denyplace = ( ($d - $permDeny.Length) * -1 )-1
+
+                                if( $permDeny.Substring($d,1) -ge 1)
+                                {
+                                    Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                    Write-Output $aselistRetrun[0].DisplayName '|'   | Out-File $outFile -Append -NoNewline 
+                                    Write-Output $desc '|'  | Out-File $outFile  -Append -NoNewline
+                                    Write-Output 'Deny|' $ns.actions[$Denyplace].name "|" $ns.actions[$Denyplace].bit | Out-File $outFile  -Append -NoNewline
+                                    Write-Output "" | Out-File -FilePath $outFile -Append
+                                    Write-Host $ns.actions[$Denyplace].name
+
+                                    $hasPermissions = $true
+                                }
+                            }
+                        }
+
+                        if (![string]::IsNullOrEmpty($_.Value.extendedInfo.effectiveDeny))
+                        { 
+                            # check effective properties
+                            if($_.Value.extendedInfo.effectiveDeny -ge 1)
+                            {
+                                $effDeny = [convert]::ToString($_.Value.extendedInfo.effectiveDeny ,2)
+
+                                # make sure deny and effective deny are not the same
+                                if($permDeny -ne $effDeny)
+                                {
+                                    
+                                    # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
+                                    for ($d1 =  $effDeny.Length-1; $d1 -ge 0; $d1--) 
+                                    {
+                                        # need to traverse the string in reverse to match the action list
+                                        $EffDenyplace = ( ($d1 - $effDeny.Length) * -1 )-1
+                                        Write-Host $EffDenyplace
+
+                                        if( $effDeny.Substring($d1,1) -ge 1)
+                                        {
+                                            Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                            Write-Output $aselistRetrun[0].DisplayName '|'   | Out-File $outFile -Append -NoNewline 
+                                            Write-Output $desc '|'  | Out-File $outFile  -Append -NoNewline
+                                            Write-Output 'Inherited Deny|' $ns.actions[$EffDenyplace].name "|" $ns.actions[$EffDenyplace].bit | Out-File $outFile  -Append -NoNewline
+                                            Write-Host $ns.actions[$EffDenyplace].name
+
+                                            $hasPermissions = $true
+                                        }
+                                    }
+                                }
+                              }
+                        }                                                                            
+                    
+                }
+
+            }
+
+            # if no permission ser still add team
+            if($hasPermissions -eq $false)
+            {
+                #Write-Output ' '  | Out-File $outFile  -Append 
+                Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                Write-Output $aselistRetrun[0].DisplayName '|'   | Out-File $outFile -Append -NoNewline
+                Write-Output $desc '|'  | Out-File $outFile  -Append -NoNewline
+                Write-Output 'No Permission set|No Permission Set|0'  | Out-File $outFile  -Append -NoNewline
+                Write-Output ' '  | Out-File $outFile  -Append 
+            
+            }
+            
+        }
+
+
+        
+
+    }
+
+    return $allTeams
+    
+}
+
+
+function Get-TeamsAndMemberstoCSV()
+{
+    param (
+        [Parameter(Mandatory = $true)]
+        $userParams,
+        [Parameter(Mandatory = $false)]
+        $outFile
+
+    )
+     # Base64-encodes the Personal Access Token (PAT) appropriately
+     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
+
+    # first get project id
+    $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/" + $userParams.ProjectName +"?api-version=5.0"
+    $prj = Invoke-RestMethod -Uri $projectUri -Method Get -ContentType "application/json" -Headers $authorization 
+ 
+    # find all teams in a given project    
+    $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/"  + $prj.id +   "/teams?api-version=5.0"
+    $allTeams = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json" 
+
+    Write-Output "Team/Group,Name,Member,Email Address"  | Out-File -FilePath $outFile -Append 
+    foreach ($item in $allTeams.value) {
+        # get all members of given team
+        # GET https://dev.azure.com/{organization}/_apis/projects/{projectId}/teams/{teamId}/members?api-version=6.1-preview.2
+         $teamUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/"  + $prj.id +   "/teams/" + $item.id + "/members?api-version=6.1-preview.2"
+         $allTeamMembers = Invoke-RestMethod -Uri $teamUri -Method Get -Headers $authorization  -ContentType "application/json" 
+
+         foreach ($member in $allTeamMembers.value) {
+            Write-Output "Team" | Out-File -FilePath $outFile -Append -NoNewline
+            Write-Output $item.name | Out-File -FilePath $outFile -Append -NoNewline
+            Write-Output ',' $member.Identity.displayName  | Out-File -FilePath $outFile -Append -NoNewline
+            Write-Output ',' $member.Identity.uniqueName  | Out-File -FilePath $outFile -Append -NoNewline
+            Write-Output "" | Out-File -FilePath $outFile -Append 
+         }
+
+    }      
 }
 
 function Get-AllGroups()
@@ -945,8 +1726,13 @@ function Get-GroupListbyGroup()
     $projectUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?api-version=5.1-preview.1"
     $allGroups = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json"  
    
-    $fnd = $allGroups.value | Where-Object {$_.principalName -eq $groupName}
-
+    # find namespace for given category or all categories
+    if($groupName -ne "All"){
+        $fnd = $allGroups.value | Where-Object {$_.principalName -eq $groupName}
+    }else {
+        $fnd = $allGroups.value 
+    }
+    
     foreach ($item in $fnd)
     {
         
@@ -994,6 +1780,7 @@ function Get-GroupList()
         $userParams,
         [Parameter(Mandatory = $false)]
         $outFile
+      
     )
 
     # Base64-encodes the Personal Access Token (PAT) appropriately
@@ -1003,43 +1790,55 @@ function Get-GroupList()
     $projectUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?api-version=5.1-preview.1"
     $allGroups = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json"  
    
-    $fnd = $allGroups.value | Where-Object {$_.principalName -match $userParams.ProjectName }
-
-    Write-Output "GroupList    " | Out-File -FilePath $outFile -Append
+      # find groups for the current project
+    if($groupName -ne "All"){
+        $fnd = $allGroups.value | Where-Object {$_.principalName -match  $userParams.ProjectName }
+    }else {
+        $fnd = $allGroups.value 
+    }
+    
+    #Write-Output "" | Out-File -FilePath $outFile -Append
+    Write-Output 'Group Name,UserName,type,origin,Fedex ID,Email Address' $item.displayName | Out-File -FilePath $outFile -Append -NoNewline
+    Write-Output "" | Out-File -FilePath $outFile -Append
 
     foreach ($item in $fnd)
     {
         
+         # get decoded descriptor
+         $dscrpt =  Get-DescriptorFromGroup -dscriptor $item.descriptor
+         $dscrpt = "Microsoft.TeamFoundation.Identity;" + $dscrpt
+         
         Write-Host $item.displayName 
         Write-Host $item.principalName
         Write-Host $item.descriptor
         Write-Host $item.description
         
-        Write-Output "" | Out-File -FilePath $outFile -Append
-        Write-Output '  Group Name     : ' $item.displayName | Out-File -FilePath $outFile -Append -NoNewline
-        Write-Output "" | Out-File -FilePath $outFile -Append
+        $usersUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/users?api-version=4.0-preview"
 
-        Write-Output '  Principal Name : ' $item.principalName | Out-File -FilePath $outFile -Append -NoNewline
-        Write-Output "" | Out-File -FilePath $outFile -Append
+        #$usersUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/users?api-version=6.0-preview.1"
+        $grp2 =  Invoke-RestMethod -Uri $usersUri -Method Get -Headers $authorization -ContentType "application/json" 
+        
+        $fnd1 = $grp2.value | Where-Object {$_.metaType -eq "member" }
 
-        Write-Output '  Descriptor     : ' $item.descriptor | Out-File -FilePath $outFile -Append -NoNewline
-        Write-Output "" | Out-File -FilePath $outFile -Append
+              
 
-        Write-Output '  Description    : ' $item.description | Out-File -FilePath $outFile -Append -NoNewline
-        Write-Output "" | Out-File -FilePath $outFile -Append
-
-        $usersUri = "https://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/users?groupDescriptors=" + $item.descriptor + "&api-version=4.0-preview"
-        $grp =  Invoke-RestMethod -Uri $usersUri -Method Get -Headers $authorization -ContentType "application/json" 
-
-        foreach($useritem in $grp.value)
+        foreach($useritem in $fnd1)
         {
-       
-            Write-Host  $useritem.displayName  
-            Write-Host  $userItem.mailAddress 
+            # GET https://vssps.dev.azure.com/fabrikam/_apis/graph/Memberships/{subjectDescriptor}?direction=Down&api-version=6.1-preview.1
+            $memberUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "_apis/graph/Memberships/" + $useritem.descriptor + "?api-version=5.1-preview.1"
+            $mbr1 =  Invoke-RestMethod -Uri $memberUri -Method Get -Headers $authorization -ContentType "application/json" 
 
-            Write-Output '     User : ' $useritem.displayName  | Out-File -FilePath $outFile -Append -NoNewline
-            Write-Output '  Alias : ' $useritem.directoryAlias  | Out-File -FilePath $outFile -Append -NoNewline
-            Write-Output '  Email : ' $userItem.mailAddress  | Out-File -FilePath $outFile -Append -NoNewline
+
+            write-host $item.principalName
+            Write-Host $useritem.displayName  
+            Write-Host $userItem.mailAddress 
+          
+            Write-Output $item.principalName | Out-File -FilePath $outFile -Append -NoNewline
+            Write-Output ',' $useritem.displayName  | Out-File -FilePath $outFile -Append -NoNewline
+            Write-Output ',' $useritem.subjectKind  | Out-File -FilePath $outFile -Append -NoNewline
+            Write-Output ',' $useritem.origin  | Out-File -FilePath $outFile -Append -NoNewline
+            Write-Output ',' $useritem.directoryAlias  | Out-File -FilePath $outFile -Append -NoNewline
+            Write-Output ',' $userItem.mailAddress  | Out-File -FilePath $outFile -Append -NoNewline
             Write-Output "" | Out-File -FilePath $outFile -Append      
 
         }

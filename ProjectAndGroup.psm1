@@ -158,6 +158,144 @@ function AddVSTSGroupAndUsers() {
 
 }
 
+function Get-GroupMembership(){
+    Param(
+        [Parameter(Mandatory = $true)]
+        $userParams,
+        [Parameter(Mandatory = $true)]
+        $outFile,
+        [Parameter(Mandatory = $false)]
+        $getAllProjects
+    )
+
+    #
+    # this function will get a list of users from a given group using the identity api
+    #
+
+    # Base64-encodes the Personal Access Token (PAT) appropriately
+    $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
+
+    # get all teams in org. need to see if group is a team or group
+    # GET https://dev.azure.com/{organization}/_apis/teams?api-version=6.1-preview.3
+    $teamUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/teams?api-version=6.1-preview.3"
+    $allTeams = Invoke-RestMethod -Uri $teamUri -Method Get -Headers $authorization 
+
+    # find groups in all ado projects
+    $projectUri = "https://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/groups?subjectTypes=vssgp&api-version=6.0-preview.1"
+    $vssGroups = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization 
+
+    $projectUri = "https://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/groups?subjectTypes=aadgp&api-version=6.0-preview.1"
+    $aadGroups = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization 
+   
+    $allGroups = @()
+    $allGroups += $vssGroups.value
+   
+    # find groups for the current project
+    if($getAllProjects -ne "True"){
+        $fnd = $allGroups | Where-Object {$_.principalName -match  $userParams.ProjectName }
+    }else {
+        $fnd = $allGroups 
+    }
+
+    # add in the aad groups
+    $fnd += $aadGroups.value
+
+    Write-Output 'Group Name|Type|Relationship|User Name|Email Address|Fedex ID' $item.displayName | Out-File -FilePath $outFile -Append -NoNewline
+    Write-Output " " | Out-File -FilePath $outFile -Append 
+
+    foreach ($item in $fnd) {
+        # find group memberships frm identity api
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/ims/identities/read%20identities?view=azure-devops-rest-6.1#examples
+        
+        # search by name and get direct membership: need to use direct here and in the following query to get all direct members and member of
+        # to mimic whats in ADO
+        # GET https://vssps.dev.azure.com/fabrikam/_apis/identities?searchFilter=General&filterValue=jtseng@vscsi.us&queryMembership=None&api-version=6.1-preview.1
+        #
+        $grpMemberUrl = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?searchFilter=General&filterValue="  + $item.principalName + "&queryMembership=direct&api-version=6.1-preview.1"
+        $allGrpMembers = Invoke-RestMethod -Uri $grpMemberUrl -Method Get -Headers $authorization 
+
+        Write-Host $item.principalName 
+
+        # is this a team or group
+        $isTeam = $allTeams.value | Where-Object {$_.name -match  $item.displayName }
+        $teamGroup = ""
+        if ([string]::IsNullOrEmpty($isTeam)) 
+        {
+            $teamGroup = "Group"
+        }else {
+            $teamGroup = "Team"
+        }
+
+        if($allGrpMembers.value[0].members -ne 0)
+        {        
+            # get members this user is a member of
+            foreach ($member in $allGrpMembers.value[0].memberOf ) {
+
+                # now search by descriptor. sisnce we have all the direct members of the group  value[0].members
+                $memberUrl = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?descriptors="  + $member + "&queryMembership=direct&api-version=6.1-preview.1"            
+                $curUser = Invoke-RestMethod -Uri $memberUrl -Method Get -Headers $authorization 
+                                                    
+                Write-Host $item.principalName 
+                    
+                Write-Output $item.principalName "|" | Out-File -FilePath $outFile -Append -NoNewline  
+                Write-Output $teamGroup "|" | Out-File -FilePath $outFile -Append -NoNewline  
+                Write-Output  "Member-Of|" | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output $curUser.value[0].providerDisplayName "|" | Out-File -FilePath $outFile -Append -NoNewline
+                
+                $email = $curUser.value[0].properties.Account.'$value'
+                $fnd = $email | Select-String -Pattern '.com' -SimpleMatch
+                IF ([string]::IsNullOrEmpty($fnd)) {
+                    $email = " Group - No Email listed"
+                }
+
+                Write-Output $email "|" | Out-File -FilePath $outFile -Append -NoNewline 
+                Write-Output $curUser.value[0].properties.DirectoryAlias.'$value' | Out-File -FilePath $outFile -Append -NoNewline 
+                Write-Output " " | Out-File -FilePath $outFile -Append                   
+            }   
+            
+            # get members this user is a direct member
+            foreach ($member in $allGrpMembers.value[0].members ) {
+                # now search by descriptor. sisnce we have all the direct members of the group  value[0].members
+                $memberUrl = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?descriptors="  + $member + "&queryMembership=direct&api-version=6.1-preview.1"            
+                $curUser = Invoke-RestMethod -Uri $memberUrl -Method Get -Headers $authorization 
+                
+                # get list to additional memberships
+                Write-Host $curUser.value[0].providerDisplayName
+                Write-Host $item.principalName 
+
+                Write-Output $item.principalName  "|" | Out-File -FilePath $outFile -Append -NoNewline   
+                Write-Output $teamGroup "|" | Out-File -FilePath $outFile -Append -NoNewline  
+                Write-Output  "Member|" | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output $curUser.value[0].providerDisplayName  "|" | Out-File -FilePath $outFile -Append -NoNewline
+                
+                $email = ""
+                $email = $curUser.value[0].properties.Account.'$value'
+                $fnd = $email | Select-String -Pattern '.com' -SimpleMatch
+                IF ([string]::IsNullOrEmpty($fnd)) {
+                    $email = " Group - No Email listed"
+                }
+
+                Write-Output $email "|" | Out-File -FilePath $outFile -Append -NoNewline 
+                Write-Output $curUser.value[0].properties.DirectoryAlias.'$value' | Out-File -FilePath $outFile -Append -NoNewline 
+                Write-Output " " | Out-File -FilePath $outFile -Append                     
+            
+            }   
+        }
+        else {
+
+            Write-Output $item.principalName  "|" | Out-File -FilePath $outFile -Append -NoNewline            
+            Write-Output  "Member|" | Out-File -FilePath $outFile -Append -NoNewline
+            Write-Output   "No Members Found|" | Out-File -FilePath $outFile -Append -NoNewline            
+            Write-Output  "|" | Out-File -FilePath $outFile -Append -NoNewline 
+            Write-Output " " | Out-File -FilePath $outFile -Append                     
+        
+        }
+    }
+
+
+}
+
+
 function Get-GroupInfo() {
     Param(
         [Parameter(Mandatory = $true)]
@@ -804,4 +942,29 @@ function Set-BuildDefinition()
 
 
    
+}
+
+function Get-ResourceGroupBySubscription()
+{
+    #
+    # this function will return the resource groups by azure subscriptions
+    #
+    Param(
+        [Parameter(Mandatory = $true)]
+        $userParams        
+    )
+
+    # connect to selected subscription
+    Connect-AzureRmAccount -Subscription $userParams.Subscription
+
+    $rg = Get-AzureRmResourceGroup
+    $rgJson = ConvertTo-Json $rg
+    Write-Host $rgJson
+    
+    $rd = Get-AzureRmRoleDefinition
+    $rdJson = ConvertTo-Json $rd
+    Write-Host $rdJson
+    
+    return $rg
+
 }
