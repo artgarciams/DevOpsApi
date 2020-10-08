@@ -217,7 +217,11 @@ function Get-GroupMembership(){
         Write-Host $item.principalName 
 
         # is this a team or group
-        $isTeam = $allTeams.value | Where-Object {$_.name -match  $item.displayName }
+        $prName = $item.principalName.Split('\')
+        $projectName =  $prName[0].substring(1,$prname[0].length-2)
+        $tm = $prName[1]
+
+        $isTeam = $allTeams.value | Where-Object {($_.name -eq  $tm) -and ($_.projectName -eq $projectName)}
         $teamGroup = ""
         if ([string]::IsNullOrEmpty($isTeam)) 
         {
@@ -283,7 +287,8 @@ function Get-GroupMembership(){
         }
         else {
 
-            Write-Output $item.principalName  "|" | Out-File -FilePath $outFile -Append -NoNewline            
+            Write-Output $item.principalName  "|" | Out-File -FilePath $outFile -Append -NoNewline 
+            Write-Output $teamGroup "|" | Out-File -FilePath $outFile -Append -NoNewline  
             Write-Output  "Member|" | Out-File -FilePath $outFile -Append -NoNewline
             Write-Output   "No Members Found|" | Out-File -FilePath $outFile -Append -NoNewline            
             Write-Output  "|" | Out-File -FilePath $outFile -Append -NoNewline 
