@@ -6,7 +6,7 @@
 #             project. It will allow you to set security at the user and group level as needed.
 #             It will also get security permissions by team or group
 #             This script is for demonstration only not to be used as production code
-# last Update: 9/30/2020
+# last Update: 10/07/2020
 
 
 #import modules
@@ -24,22 +24,15 @@ $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 Write-Output $userParameters.ProjectName
 Write-Output $userParameters.Description
 
+#      g45olx7pfrxz47pb3axgiyhhfp4dtqrhnovhgllw3er57edcneyq
+#   cg7c46ms5tkeq5v2tkt3fsxlmuuly5gmvm6ewcj3ohc7asepldta
+#Get-SecurityByNamespaces -userParams $userParameters -NamespaceFilter "Project" -outFile "C:\temp\data1.txt" 
+
 # list of groups and teams in a and permissions for a given namespace note does not include teams
-#Get-SecuritybyGroupByNamespace -userParams $userParameters -NamespaceFilter "All" -outFile "C:\temp\dataBuild_groupsAll.txt" -getAllProjects "False"
+#Get-SecuritybyGroupByNamespace -userParams $userParameters -NamespaceFilter "All" -outFile "C:\temp\dataBuild_g_ext2.txt" -getAllProjects "False"
 
 # get list of members of group in project or all projects by adding -groupname "All"
 Get-GroupMembership  -userParams $userParameters -outFile "C:\temp\dataBuild_usersAll.txt" -getAllProjects "True"
-
-
-#Get-Teams -userParams $userParameters
-# get resource group by subscription
-# $rgList = Get-ResourceGroupBySubscription -userParams $userParameters
-
-# get list of team permissions
-#Get-TeamsAndPermsions  -userParams $userParameters  -NamespaceFilter "Project" -outFile "C:\temp\dataBuild_teamsAll.txt" -Allprojects "True"
-
-
-
 
 
 #list available branches
@@ -50,8 +43,6 @@ Get-GroupMembership  -userParams $userParameters -outFile "C:\temp\dataBuild_use
 
 #delete branch
 #DeleteGitBranchByPath -userParams $userParameters -branchPath "refs/heads/release/v4"
-
-
 
 # create project    
 #CreateVSTSProject -userParams $userParameters

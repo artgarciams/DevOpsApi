@@ -277,7 +277,14 @@ function Get-GroupMembership(){
                 $fnd = $email | Select-String -Pattern '.com' -SimpleMatch
                 IF ([string]::IsNullOrEmpty($fnd)) {
                     $email = " Group - No Email listed"
+                }else 
+                {
+                    #GET https://vsaex.dev.azure.com/{organization}/_apis/userentitlements/{userId}?api-version=5.1-preview.2
+                    ## get user info . need last access date, create date and license type
+                    $userUrl = "https://vsaex.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/userentitlements/"  + $curUser.value[0].id + "?api-version=5.1-preview.2"            
+                    $UserDetails = Invoke-RestMethod -Uri $userUrl -Method Get -Headers $authorization 
                 }
+                
 
                 Write-Output $email "|" | Out-File -FilePath $outFile -Append -NoNewline 
                 Write-Output $curUser.value[0].properties.DirectoryAlias.'$value' | Out-File -FilePath $outFile -Append -NoNewline 

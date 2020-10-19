@@ -1,7 +1,7 @@
 { 
     "VSTSMasterAcct" : "fdx-strat-pgm",
-    "userEmail"      : "argarc@microsoft.com",
-    "PAT"            : "fjqftd6bssyrqjwfeatezq7c4iopajwizti4rt5jwowuz7lg7coa",
+    "userEmail"      : "arthur.garcia.osv@fedex.com",
+    "PAT"            : "cg7c46ms5tkeq5v2tkt3fsxlmuuly5gmvm6ewcj3ohc7asepldta",
     "Subscription"   : "a14f4de1-b47a-433f-a0d1-6ac624352fdf",
     
     "ProjectName"    : "fdx-surround",
@@ -13,7 +13,7 @@
     
     "OmitTeam" :[{}],
     
-    "Namespaces" :["Analytics","Tagging","Project"],
+    "Namespaces" :["Analytics","Tagging","Project","Boards","Build","VersionControlItems","Git Repositories","ReleaseManagement"],
     
     "Namess"     :["Analytics","Tagging","AnalyticsViews","Project","Boards","Build","VersionControlItems","Git Repositories","DashboardsPrivileges"],
 
