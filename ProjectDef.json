@@ -1,8 +1,8 @@
 { 
     "VSTSMasterAcct" : "fdx-strat-pgm",
     "userEmail"      : "arthur.garcia.osv@fedex.com",
-    "PAT"            : "cg7c46ms5tkeq5v2tkt3fsxlmuuly5gmvm6ewcj3ohc7asepldta",
-    "Subscription"   : "a14f4de1-b47a-433f-a0d1-6ac624352fdf",
+    "PAT"            : "",
+    "Subscription"   : "",
     
     "ProjectName"    : "fdx-surround",
     "Description"    : "My demo project",
