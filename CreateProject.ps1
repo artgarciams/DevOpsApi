@@ -8,9 +8,7 @@
 #             This script is for demonstration only not to be used as production code
 # last Update: 10/07/2020
 
-
 #import modules
-
 $modName = $PSScriptRoot + "\SecurityHelper.psm1" 
 Import-Module -Name $modName
 
@@ -24,16 +22,13 @@ $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 Write-Output $userParameters.ProjectName
 Write-Output $userParameters.Description
 
-#      g45olx7pfrxz47pb3axgiyhhfp4dtqrhnovhgllw3er57edcneyq
-#   cg7c46ms5tkeq5v2tkt3fsxlmuuly5gmvm6ewcj3ohc7asepldta
-#Get-SecurityByNamespaces -userParams $userParameters -NamespaceFilter "Project" -outFile "C:\temp\data1.txt" 
+#GetResources -FIleName "C:\temp\RG_10_22_1.txt"
 
-# list of groups and teams in a and permissions for a given namespace note does not include teams
-#Get-SecuritybyGroupByNamespace -userParams $userParameters -NamespaceFilter "All" -outFile "C:\temp\dataBuild_g_ext2.txt" -getAllProjects "False"
+#   xu63xk2am3smqsfuysvmu7f7hwh6dttet6r3pct34rugqdj6ewlq - full access token
+Get-SecuritybyGroupByNamespace -userParams $userParameters  -rawDataDump "Rawdata-10-23-01.txt"  -getAllProjects "True" -outFile "Get-SecuritybyGroupByNamespace-10-23-0.txt" 
 
 # get list of members of group in project or all projects by adding -groupname "All"
-Get-GroupMembership  -userParams $userParameters -outFile "C:\temp\dataBuild_usersAll.txt" -getAllProjects "True"
-
+Get-AllUSerMembership  -userParams $userParameters -outFile "Get-AllUSerMembership-10-23-0.txt" -getAllProjects "True"
 
 #list available branches
 # ListGitBranches -userParams $userParameters -outFile "C:\temp\dataBuild_r001.txt"

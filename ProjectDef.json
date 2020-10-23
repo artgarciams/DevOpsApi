@@ -1,7 +1,7 @@
 { 
     "VSTSMasterAcct" : "fdx-strat-pgm",
     "userEmail"      : "arthur.garcia.osv@fedex.com",
-    "PAT"            : "cg7c46ms5tkeq5v2tkt3fsxlmuuly5gmvm6ewcj3ohc7asepldta",
+    "PAT"            : "xu63xk2am3smqsfuysvmu7f7hwh6dttet6r3pct34rugqdj6ewlq",
     "Subscription"   : "a14f4de1-b47a-433f-a0d1-6ac624352fdf",
     
     "ProjectName"    : "fdx-surround",
@@ -10,12 +10,15 @@
     "RepositoryName" : "AAG Demo",
     "BuildName"      : "Build 1",
     "AgentQueue"     : "Default",
+    "UseProxy"       : "False",
+    "DumpDirectory"  : "C:\\Temp\\RawData\\",
+    "DataDirectory"  : "C:\\Temp\\",
     
     "OmitTeam" :[{}],
     
-    "Namespaces" :["Analytics","Tagging","Project","Boards","Build","VersionControlItems","Git Repositories","ReleaseManagement"],
+    "Namespaces" :["Analytics","Tagging","Project","Build","Process","Git Repositories","Boards","Server","Favorites","Collection","AuditLog","BuildAdministration"],
     
-    "Namess"     :["Analytics","Tagging","AnalyticsViews","Project","Boards","Build","VersionControlItems","Git Repositories","DashboardsPrivileges"],
+    "Namess"     :["Analytics","Tagging","AnalyticsViews","Project","Process","Boards","Build","Server","Favorites","AuditLog","Collection","BuildAdministration","VersionControlItems","ReleaseManagement","Git Repositories","DashboardsPrivileges"],
 
     "Teams" : [ {"name": "Team AAG1","description" :"Team BB1 description", 
                  "users":["argarc@microsoft.com","mahyon@microsoft.com"] ,

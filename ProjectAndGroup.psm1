@@ -158,7 +158,7 @@ function AddVSTSGroupAndUsers() {
 
 }
 
-function Get-GroupMembership(){
+function Get-AllUSerMembership(){
     Param(
         [Parameter(Mandatory = $true)]
         $userParams,
@@ -174,6 +174,9 @@ function Get-GroupMembership(){
 
     # Base64-encodes the Personal Access Token (PAT) appropriately
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
+
+    # set output directory for data
+    $outFile = $userParams.DataDirectory + $outFile
 
     # get all teams in org. need to see if group is a team or group
     # GET https://dev.azure.com/{organization}/_apis/teams?api-version=6.1-preview.3
@@ -200,7 +203,7 @@ function Get-GroupMembership(){
     # add in the aad groups
     $fnd += $aadGroups.value
 
-    Write-Output 'Group Name|Type|Relationship|User Name|Email Address|Fedex ID' $item.displayName | Out-File -FilePath $outFile -Append -NoNewline
+    Write-Output 'Group Name|Type|Relationship|User Name|Email Address|Fedex ID' | Out-File -FilePath $outFile
     Write-Output " " | Out-File -FilePath $outFile -Append 
 
     foreach ($item in $fnd) {
@@ -281,8 +284,8 @@ function Get-GroupMembership(){
                 {
                     #GET https://vsaex.dev.azure.com/{organization}/_apis/userentitlements/{userId}?api-version=5.1-preview.2
                     ## get user info . need last access date, create date and license type
-                    $userUrl = "https://vsaex.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/userentitlements/"  + $curUser.value[0].id + "?api-version=5.1-preview.2"            
-                    $UserDetails = Invoke-RestMethod -Uri $userUrl -Method Get -Headers $authorization 
+                    #$userUrl = "https://vsaex.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/userentitlements/"  + $curUser.value[0].id + "?api-version=6.0-preview.3"            
+                    #$UserDetails = Invoke-RestMethod -Uri $userUrl -Method Get -Headers $authorization 
                 }
                 
 
@@ -755,6 +758,30 @@ function GetSecurityCMD_old()
 
     Start-Process $pth -ArgumentList $cmd -NoNewWindow
     
+}
+
+function GetResources()
+{
+
+    Param(
+        [Parameter(Mandatory = $true)]
+        $FileName
+      
+    )
+
+    Connect-AzureRmAccount     
+    $rmResources = Get-AzureRmResource 
+
+    Write-Output "Resource|Type|Resource Group|Subscription Id|Location" | Out-File $FileName  -NoNewline
+    Write-Output "" | Out-File $FileName -Append
+
+    foreach ($item in $rmResources) 
+    {
+        Write-Output $item.name "|" $item.ResourceType "|" $item.ResourceGroupName "|" $item.SubscriptionId "|" $item.Location | Out-File $FileName -Append -NoNewline
+        Write-Output "" | Out-File $FileName -Append
+    }
+
+
 }
 
 function Set-BuildDefinition()
