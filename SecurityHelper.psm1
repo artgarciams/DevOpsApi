@@ -129,9 +129,10 @@ function Get-DescriptorFromGroup()
 }
 
 #
+# this function will get a list of all groups in the org and
+# the permissions for each. it will get the direct permissions and then the extended permissions
+# for any groups this group is a member of.
 #
-#
-
 function Get-SecuritybyGroupByNamespace()
 {
     Param(
@@ -170,7 +171,6 @@ function Get-SecuritybyGroupByNamespace()
         }else {
             # find all groups for given project   
             $groups = $allGroups.value | Where-Object {$_.principalName -match $userParams.ProjectName }
-            #$groups = $allGroups.value | Where-Object {$_.displayName -eq "UX Design" }
         }
       
         Write-Output 'Namespace|Project|Group Type|Group Name|Description|Permission Type|Permission|bit|Permission Name|Decoded Value|Raw Data|Inherited From'  | Out-File $outFile  
@@ -217,8 +217,15 @@ function Get-SecuritybyGroupByNamespace()
 
 }
 
+
 Function Get-PermissionsByNamespaceByGroup()
 {
+    #
+    #   this function will get the list of permissions for a given group.
+    #   it will get either the direct or extended permissions. In order to get all the permissions
+    #   you need to first get the direct permissions and then the extended permissions for each group the
+    #   primary group is a memeber of.
+    #
     Param(
         [Parameter(Mandatory = $true)]
         $Namespaces,
@@ -272,6 +279,10 @@ Function Get-PermissionsByNamespaceByGroup()
         # get ACL for the given namespace and group( descriptor) set api to include extended  info properties        
         # for the parent group get diect membership, for the groups the parent is a member of get extended info
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/security/access%20control%20lists/query?view=azure-devops-rest-6.1#examples  
+        #
+        # link to issue and how we solved it
+        # https://developercommunity2.visualstudio.com/t/security-api-for-acl-for-given-namespace-and-descr/1230600?from=email#T-ND1232440
+        #
         if($Direct -eq $true)
         {
             #  get direct permissions
@@ -296,7 +307,6 @@ Function Get-PermissionsByNamespaceByGroup()
             Write-Output "" | Out-File $errorfile -Append
         }
        
-
         # get dump of data to process - for debugging
         if (![string]::IsNullOrEmpty($rawDataDump) )                
         {
@@ -346,18 +356,14 @@ Function Get-PermissionsByNamespaceByGroup()
                             Write-Output " " | Out-File -FilePath $outFile -Append  
                             $hasPermission = $true                                    
                         }
-                        
                     }
-
                 }
 
                 # check effective allow permissions -and ($lastDescriptor -ne $_.Value.descriptor)
                 if (![string]::IsNullOrEmpty($_.Value.extendedInfo.effectiveAllow )  )
                 {                   
-
                     if( ($_.Value.extendedInfo.effectiveAllow -gt 0)  )
                     {
-                                            
                         $effAllow = [convert]::ToString($_.Value.extendedInfo.effectiveAllow,2)
                         # make sure allow and effective allow are not the same
                         if( $permAllow -ne $effAllow)
@@ -387,79 +393,79 @@ Function Get-PermissionsByNamespaceByGroup()
                                 }
                             }
                         }
-
                     }
                 }
 
-                    # check inherited allow permissions -and ($lastDescriptor -ne $_.Value.descriptor)
-                    if (![string]::IsNullOrEmpty($_.Value.extendedInfo.inheritedAllow )   )
-                    {                   
+                # check inherited allow permissions -and ($lastDescriptor -ne $_.Value.descriptor)
+                if (![string]::IsNullOrEmpty($_.Value.extendedInfo.inheritedAllow )   )
+                {                   
 
-                        # Write-Host $_.Value.descriptor
-                        if( ($_.Value.extendedInfo.inheritedAllow -gt 0)  )
-                        {
-                
-                            $inhAllow = [convert]::ToString($_.Value.extendedInfo.inheritedAllow,2)
-
-                            # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
-                            for ($a =  $inhAllow.Length-1; $a -ge 0; $a--) 
-                            {
-                                # need to traverse the string in reverse to match the action list
-                                $inhAllowplace = ( ($a - $inhAllow.Length) * -1 )-1
-                                Write-Host "      " $ns.actions[$inhAllowplace].displayName
-
-                                if( $inhAllow.Substring($a,1) -ge 1)
-                                {
-                                $raise = [Math]::Pow(2, $inhAllowplace)
-                                $bit = $ns.actions | Where-Object {$_.bit -eq $raise }
-
-                                    Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
-                                    Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
-                                    Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
-                                    Write-Output $fnd.displayName  '|'   | Out-File $outFile -Append -NoNewline
-                                    Write-Output $fnd.description '|'  | Out-File $outFile  -Append -NoNewline
-                                    Write-Output 'Allow(Inherited)|' $bit.displayName "|" $bit.bit "|" $bit.Name  "|" | Out-File $outFile  -Append -NoNewline
-                                    Write-Output $inhAllow  "|" $_.Value.extendedInfo.inheritedAllow "|" $inheritFrom | Out-File -FilePath $outFile -Append -NoNewline
-                                    Write-Output " " | Out-File -FilePath $outFile -Append  
-                                                                            
-                                    $hasPermission = $true
-                                }
-                            }
-
-                        }
-                    }
-                    # check deny
-                    if($_.Value.deny -gt 0 )
+                    # Write-Host $_.Value.descriptor
+                    if( ($_.Value.extendedInfo.inheritedAllow -gt 0)  )
                     {
-                    
-                        $permDeny = [convert]::ToString($_.Value.deny,2)
-                    
+            
+                        $inhAllow = [convert]::ToString($_.Value.extendedInfo.inheritedAllow,2)
+
                         # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
-                        for ($a =  $permDeny.Length-1; $a -ge 0; $a--) 
+                        for ($a =  $inhAllow.Length-1; $a -ge 0; $a--) 
                         {
                             # need to traverse the string in reverse to match the action list
-                            $Denyplace = ( ($a - $permDeny.Length) * -1 )-1
-                            Write-Host "      " $ns.actions[$Denyplace].displayName
+                            $inhAllowplace = ( ($a - $inhAllow.Length) * -1 )-1
+                            Write-Host "      " $ns.actions[$inhAllowplace].displayName
 
-                            if( $permDeny.Substring($a,1) -ge 1)
+                            if( $inhAllow.Substring($a,1) -ge 1)
                             {
-                                $raise = [Math]::Pow(2, $inhAllowplace)
-                                $bit = $ns.actions | Where-Object {$_.bit -eq $raise }
+                            $raise = [Math]::Pow(2, $inhAllowplace)
+                            $bit = $ns.actions | Where-Object {$_.bit -eq $raise }
 
                                 Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
                                 Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
                                 Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
                                 Write-Output $fnd.displayName  '|'   | Out-File $outFile -Append -NoNewline
                                 Write-Output $fnd.description '|'  | Out-File $outFile  -Append -NoNewline
-                                Write-Output 'Deny|' $bit.displayName "|" $bit.bit "|" $bit.Name  "|" | Out-File $outFile  -Append -NoNewline
-                                Write-Output $permDeny  "|" $_.Value.deny  "|" $inheritFrom| Out-File $outFile -Append -NoNewline
+                                Write-Output 'Allow(Inherited)|' $bit.displayName "|" $bit.bit "|" $bit.Name  "|" | Out-File $outFile  -Append -NoNewline
+                                Write-Output $inhAllow  "|" $_.Value.extendedInfo.inheritedAllow "|" $inheritFrom | Out-File -FilePath $outFile -Append -NoNewline
                                 Write-Output " " | Out-File -FilePath $outFile -Append  
-                            
+                                                                        
                                 $hasPermission = $true
                             }
                         }
 
                     }
+                }
+
+                # check deny
+                if($_.Value.deny -gt 0 )
+                {
+                
+                    $permDeny = [convert]::ToString($_.Value.deny,2)
+                
+                    # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
+                    for ($a =  $permDeny.Length-1; $a -ge 0; $a--) 
+                    {
+                        # need to traverse the string in reverse to match the action list
+                        $Denyplace = ( ($a - $permDeny.Length) * -1 )-1
+                        Write-Host "      " $ns.actions[$Denyplace].displayName
+
+                        if( $permDeny.Substring($a,1) -ge 1)
+                        {
+                            $raise = [Math]::Pow(2, $inhAllowplace)
+                            $bit = $ns.actions | Where-Object {$_.bit -eq $raise }
+
+                            Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                            Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
+                            Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
+                            Write-Output $fnd.displayName  '|'   | Out-File $outFile -Append -NoNewline
+                            Write-Output $fnd.description '|'  | Out-File $outFile  -Append -NoNewline
+                            Write-Output 'Deny|' $bit.displayName "|" $bit.bit "|" $bit.Name  "|" | Out-File $outFile  -Append -NoNewline
+                            Write-Output $permDeny  "|" $_.Value.deny  "|" $inheritFrom| Out-File $outFile -Append -NoNewline
+                            Write-Output " " | Out-File -FilePath $outFile -Append  
+                        
+                            $hasPermission = $true
+                        }
+                    }
+
+                }
 
                 # check effective deny permissions 
                 if (![string]::IsNullOrEmpty($_.Value.extendedInfo.effectiveDeny )  )
@@ -491,6 +497,46 @@ Function Get-PermissionsByNamespaceByGroup()
                                 Write-Output $fnd.description '|'  | Out-File $outFile  -Append -NoNewline
                                 Write-Output 'Deny(Effective)|' $bit.displayName "|" $bit.bit "|" $bit.Name  "|" | Out-File $outFile  -Append -NoNewline
                                 Write-Output $effDeny  "|" $_.Value.extendedInfo.effectiveDeny "|" $inheritFrom| Out-File -FilePath $outFile -Append -NoNewline
+                                
+                                Write-Output " " | Out-File -FilePath $outFile -Append  
+                                
+                                $hasPermission = $true
+                            }
+                        }
+
+                    }
+                }
+
+                # check inherited deny permissions 
+                if (![string]::IsNullOrEmpty($_.Value.extendedInfo.InheritedDeny )  )
+                {                   
+                    
+                    # Write-Host $_.Value.descriptor
+                    if( ($_.Value.extendedInfo.InheritedDeny -gt 0)  )
+                    {
+                                            
+                        $inhDeny = [convert]::ToString($_.Value.extendedInfo.InheritedDeny,2)
+
+                        # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
+                        for ($a =  $inhDeny.Length-1; $a -ge 0; $a--) 
+                        {
+                            # need to traverse the string in reverse to match the action list
+                            $EffDenyplace = ( ($a - $inhDeny.Length) * -1 )-1
+                            Write-Host $effDeny
+
+                            if( $inhDeny.Substring($a,1) -ge 1)
+                            {
+                                
+                                $raise = [Math]::Pow(2, $EffDenyplace)
+                                $bit = $ns.actions | Where-Object {$_.bit -eq $raise }
+
+                                Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
+                                Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
+                                Write-Output $fnd.DisplayName  '|'   | Out-File $outFile -Append -NoNewline
+                                Write-Output $fnd.description '|'  | Out-File $outFile  -Append -NoNewline
+                                Write-Output 'Deny(Inherited)|' $bit.displayName "|" $bit.bit "|" $bit.Name  "|" | Out-File $outFile  -Append -NoNewline
+                                Write-Output $effDeny  "|" $_.Value.extendedInfo.InheritedDeny "|" $inheritFrom| Out-File -FilePath $outFile -Append -NoNewline
                                 
                                 Write-Output " " | Out-File -FilePath $outFile -Append  
                                 
