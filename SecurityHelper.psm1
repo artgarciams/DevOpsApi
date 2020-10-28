@@ -9,78 +9,59 @@
 #
 #   list of available areas to secure in vsts
 #
-$project =  @{
-    values = @(
-        @{area="PROJECT"; displayName = "View project-level information"; bit = 1; action ="GENERIC_READ";}
-        @{area="PROJECT"; displayName = "Edit project-level information"; bit = 2; action ="GENERIC_WRITE";}
-        @{area="PROJECT"; displayName = "Delete team project"; bit =4; action ="DELETE";}
-        @{area="PROJECT"; displayName = "Create test runs"; bit =8; action ="PUBLISH_TEST_RESULTS";}
-        @{area="PROJECT"; displayName = "Administer a build"; bit=16; action ="ADMINISTER_BUILD";}
-        @{area="PROJECT"; displayName = "Start a build"; bit=32; action ="START_BUILD"}        
-        @{area="PROJECT"; displayName = "Edit build quality"; bit=64; action ="EDIT_BUILD_STATUS";}
-        @{area="PROJECT"; displayName = "Write to build operational store"; bit=128; action ="UPDATE_BUILD";}
-        @{area="PROJECT"; displayName = "Delete test runs"; bit =256; action ="DELETE_TEST_RESULTS";}
-        @{area="PROJECT"; displayName = "View test runs"; bit =512; action ="VIEW_TEST_RESULTS";}
-        @{area="PROJECT"; displayName = "Manage test environments"; bit =2048; action ="MANAGE_TEST_ENVIRONMENTS";}
-        @{area="PROJECT"; displayName = "Manage test configurations"; bit =4096; action ="MANAGE_TEST_CONFIGURATIONS";}
-        @{area="PROJECT"; displayName = "Delete and restore work items"; bit =8192; action ="WORK_ITEM_DELETE";}
-        @{area="PROJECT"; displayName = "Move work items out of this project"; bit =16384; action ="WORK_ITEM_MOVE";}
-        @{area="PROJECT"; displayName = "Permanently delete work items"; bit =32768; action ="WORK_ITEM_PERMANENTLY_DELETE";}
-        @{area="PROJECT"; displayName = "Reaction team project"; bit =65536; action ="REaction";}
-        @{area="PROJECT"; displayName = "Manage project properties"; bit =131072; action ="MANAGE_PROPERTIES";}
-        @{area="PROJECT"; displayName = "Bypass rules on work item updates"; bit =1048576; action ="BYPASS_RULES";}
-        @{area="PROJECT"; displayName = "Bypass project property cache"; bit=524288; action ="BYPASS_PROPERTY_CACHE";} 
-        @{area="PROJECT"; displayName = "Suppress notifications for work item updates"; bit =2097152; action ="SUPPRESS_NOTIFICATIONS";}
 
-        @{area="BUILD";bit=1; action="ViewBuilds"; displayName="View builds";}
-        @{area="BUILD";bit=2; action="EditBuildQuality"; displayName="Edit build quality";}
-        @{area="BUILD";bit=4; action="RetainIndefinitely"; displayName="Retain indefinitely"; }
-        @{area="BUILD";bit=8; action="DeleteBuilds"; displayName="Delete builds";}
-        @{area="BUILD";bit=16; action="ManageBuildQualities"; displayName="Manage build qualities"; }
-        @{area="BUILD";bit=32; action="DestroyBuilds"; displayName="Destroy builds";}
-        @{area="BUILD";bit=64; action="UpdateBuildInformation"; displayName="Update build information";}
-        @{area="BUILD";bit=128; action="QueueBuilds"; displayName="Queue builds"; }
-        @{area="BUILD";bit=256; action="ManageBuildQueue"; displayName="Manage build queue";}
-        @{area="BUILD";bit=512; action="StopBuilds"; displayName="Stop builds";}
-        @{area="BUILD";bit=1024; action="ViewBuildDefinition"; displayName="View build definition"; }
-        @{area="BUILD";bit=2048; action="EditBuildDefinition"; displayName="Edit build definition";}
-        @{area="BUILD";bit=4096; action="DeleteBuildDefinition"; displayName="Delete build definition"; }
-        @{area="BUILD";bit=8192; action="OverrideBuildCheckInValidation"; displayName="Override check-in validation by build"; }
-        @{area="BUILD";bit=16384; action="AdministerBuildPermissions"; displayName="Administer build permissions";}
-
-        @{area="ReleaseManagement"; displayName = "View release definition"; bit=1; action="ViewReleaseDefinition";}
-        @{area="ReleaseManagement"; displayName = "Edit release definition"; bit=2; action="EditReleaseDefinition";}
-        @{area="ReleaseManagement"; displayName = "Delete release definition"; bit=4; action="DeleteReleaseDefinition";}
-        @{area="ReleaseManagement"; displayName = "Manage release approvers"; bit=8; action="ManageReleaseApprovers";}
-        @{area="ReleaseManagement"; displayName = "Manage releases"; bit=16; action="ManageReleases";}
-        @{area="ReleaseManagement"; displayName = "View releases"; bit=32; action="ViewReleases";}
-        @{area="ReleaseManagement"; displayName = "Create releases"; bit=64; action="CreateReleases";}
-        @{area="ReleaseManagement"; displayName = "Edit release environment"; bit=128; action="EditReleaseEnvironment";}
-        @{area="ReleaseManagement"; displayName = "Delete release environment";bit=256; action="DeleteReleaseEnvironment";}
-        @{area="ReleaseManagement"; displayName = "Administer release permissions";bit=512; action="AdministerReleasePermissions";}
-        @{area="ReleaseManagement"; displayName = "Delete releases";bit=1024; action="DeleteReleases";}
-        @{area="ReleaseManagement"; displayName = "Manage deployments";bit=2048; action="ManageDeployments";}
-        @{area="ReleaseManagement"; displayName = "Manage release settings";bit=4096; action="ManageReleaseSettings";}
-
-        @{area="Git Repositories"; displayName = "Administer"; bit=1; action="Administer";}
-        @{area="Git Repositories"; displayName = "Read"; bit=2; action="GenericRead";}
-        @{area="Git Repositories"; displayName = "Contribute"; bit=4; action="GenericContribute";}
-        @{area="Git Repositories"; displayName = "Force push (rewrite history, delete branches and tags)"; bit=8; action="ForcePush";}
-        @{area="Git Repositories"; displayName = "Create Branch"; bit=16; action="CreateBranch";}
-        @{area="Git Repositories"; displayName = "Create Tag"; bit=32; action="CreateTag";}
-        @{area="Git Repositories"; displayName = "Manage Note"; bit=64; action="ManageNote";}
-        @{area="Git Repositories"; displayName = "Exempt from policy enforcement"; bit=128; action="PolicyExempt";}
-        @{area="Git Repositories"; displayName = "Create Repository";bit=256; action="CreateRepository";}
-        @{area="Git Repositories"; displayName = "Delete Repository";bit=512; action="DeleteRepository";}
-        @{area="Git Repositories"; displayName = "Reaction Repository";bit=1024; action="ReactionRepository";}
-        @{area="Git Repositories"; displayName = "Edit Policies";bit=2048; action="EditPolicies";}
-        @{area="Git Repositories"; displayName = "Remove others\u0027 locks";bit=4096; action="RemoveOthersLocks";}
-        @{area="Git Repositories"; displayName = "Manage Permissions";bit=8192; action="ManagePermissions";}
-        @{area="Git Repositories"; displayName = "Contribute to pull requests";bit=16384; action="PullRequestContribute";}
-        
-
-    )
+$UIpermissionArray = @{ 
+    Values = @(
+        [pscustomobject]@{NameSpace="Analytics";Permission="Read";Display="View analytics";UI_Group="UI-Analytics";UI_Permission="View analytics";Bit="1"}
+        [pscustomobject]@{NameSpace="AnalyticsViews";Permission="Edit";Display="Edit shared Analytics views";UI_Group="UI-Analytics";UI_Permission="Edit shared Analytics views";Bit="2"}
+        [pscustomobject]@{NameSpace="AnalyticsViews";Permission="Delete";Display="Delete shared Analytics views";UI_Group="UI-Analytics";UI_Permission="Delete shared Analytics views";Bit="4"}
+        [pscustomobject]@{NameSpace="Project";Permission="WORK_ITEM_DELETE";Display="Delete and restore work items";UI_Group="UI-Boards";UI_Permission="Delete and restore work items";Bit="8192"}
+        [pscustomobject]@{NameSpace="Project";Permission="WORK_ITEM_MOVE";Display="Move work items out of this project";UI_Group="UI-Boards";UI_Permission="Move work items out of this project";Bit="16384"}
+        [pscustomobject]@{NameSpace="Project";Permission="WORK_ITEM_PERMANENTLY_DELETE";Display="Permanently delete work items";UI_Group="UI-Boards";UI_Permission="Permanently delete work items";Bit="32768"}
+        [pscustomobject]@{NameSpace="Project";Permission="BYPASS_RULES";Display="Bypass rules on work item updates";UI_Group="UI-Boards";UI_Permission="Bypass rules on work item updates";Bit="1048576"}
+        [pscustomobject]@{NameSpace="Project";Permission="CHANGE_PROCESS";Display="Change process of team project.";UI_Group="UI-Boards";UI_Permission="Change process of team project.";Bit="8388608"}
+        [pscustomobject]@{NameSpace="Tagging";Permission="Create";Display="Create tag definition";UI_Group="UI-Boards";UI_Permission="Create tag definition";Bit="2"}
+        [pscustomobject]@{NameSpace="Project";Permission="GENERIC_READ";Display="View project-level information";UI_Group="UI-General";UI_Permission="View project-level information";Bit="1"}
+        [pscustomobject]@{NameSpace="Project";Permission="GENERIC_WRITE";Display="Edit project-level information";UI_Group="UI-General";UI_Permission="Edit project-level information";Bit="2"}
+        [pscustomobject]@{NameSpace="Project";Permission="DELETE";Display="Delete team project";UI_Group="UI-General";UI_Permission="Delete team project";Bit="4"}
+        [pscustomobject]@{NameSpace="Project";Permission="RENAME";Display="Rename team project";UI_Group="UI-General";UI_Permission="Rename team project";Bit="65536"}
+        [pscustomobject]@{NameSpace="Project";Permission="MANAGE_PROPERTIES";Display="Manage project properties";UI_Group="UI-General";UI_Permission="Manage project properties";Bit="131072"}
+        [pscustomobject]@{NameSpace="Project";Permission="SUPPRESS_NOTIFICATIONS";Display="Suppress notifications for work item updates";UI_Group="UI-General";UI_Permission="Suppress notifications for work item updates";Bit="2097152"}
+        [pscustomobject]@{NameSpace="Project";Permission="UPDATE_VISIBILITY";Display="Update project visibility";UI_Group="UI-General";UI_Permission="Update project visibility";Bit="4194304"}
+        [pscustomobject]@{NameSpace="AuditLog";Permission="Read";Display="View audit log";UI_Group="Org-Auditing";UI_Permission="View audit log";Bit="1"}
+        [pscustomobject]@{NameSpace="AuditLog";Permission="Manage_Streams";Display="Manage audit streams";UI_Group="Org-Auditing";UI_Permission="Manage audit streams";Bit="4"}
+        [pscustomobject]@{NameSpace="AuditLog";Permission="Delete_Streams";Display="Delete audit streams";UI_Group="Org-Auditing";UI_Permission="Delete audit streams";Bit="8"}
+        [pscustomobject]@{NameSpace="Collection";Permission="DELETE_FIELD";Display="Delete field from organization";UI_Group="Org-Boards";UI_Permission="Delete field from organization";Bit="1024"}
+        [pscustomobject]@{NameSpace="Process";Permission="Edit";Display="Edit process";UI_Group="Org-Boards";UI_Permission="Edit process";Bit="1"}
+        [pscustomobject]@{NameSpace="Process";Permission="Delete";Display="Delete process";UI_Group="Org-Boards";UI_Permission="Delete process";Bit="2"}
+        [pscustomobject]@{NameSpace="Process";Permission="Create";Display="Create process";UI_Group="Org-Boards";UI_Permission="Create process";Bit="4"}
+        [pscustomobject]@{NameSpace="Process";Permission="AdministerProcessPermissions";Display="Administer process permissions";UI_Group="Org-Boards";UI_Permission="Administer process permissions";Bit="8"}
+        [pscustomobject]@{NameSpace="Collection";Permission="CREATE_PROJECTS";Display="Create new projects";UI_Group="Org-General";UI_Permission="Create new projects";Bit="4"}
+        [pscustomobject]@{NameSpace="Collection";Permission="DIAGNOSTIC_TRACE";Display="Alter trace settings";UI_Group="Org-General";UI_Permission="Alter trace settings";Bit="64"}
+        [pscustomobject]@{NameSpace="Server";Permission="GenericRead";Display="View instance-level information";UI_Group="Org-General";UI_Permission="View instance-level information";Bit="1"}
+        [pscustomobject]@{NameSpace="Server";Permission="GenericWrite";Display="Edit instance-level information";UI_Group="Org-General";UI_Permission="Edit instance-level information";Bit="2"}
+        [pscustomobject]@{NameSpace="BuildAdministration";Permission="ViewBuildResources";Display="View build resources";UI_Group="Org-Pipelines";UI_Permission="View build resources";Bit="1"}
+        [pscustomobject]@{NameSpace="BuildAdministration";Permission="ManageBuildResources";Display="Manage build resources";UI_Group="Org-Pipelines";UI_Permission="Manage build resources";Bit="2"}
+        [pscustomobject]@{NameSpace="BuildAdministration";Permission="UseBuildResources";Display="Use build resources";UI_Group="Org-Pipelines";UI_Permission="Use build resources";Bit="4"}
+        [pscustomobject]@{NameSpace="BuildAdministration";Permission="AdministerBuildResourcePermissions";Display="Administer build resource permissions";UI_Group="Org-Pipelines";UI_Permission="Administer build resource permissions";Bit="8"}
+        [pscustomobject]@{NameSpace="BuildAdministration";Permission="ManagePipelinePolicies";Display="Manage pipeline policies";UI_Group="Org-Pipelines";UI_Permission="Manage pipeline policies";Bit="16"}
+        [pscustomobject]@{NameSpace="Collection";Permission="MANAGE_ENTERPRISE_POLICIES";Display="Manage enterprise policies";UI_Group="Org-Policies";UI_Permission="Manage enterprise policies";Bit="2048"}
+        [pscustomobject]@{NameSpace="VersionControlPrivileges";Permission="CreateWorkspace";Display="Create a workspace";UI_Group="Org-Repos";UI_Permission="Create a workspace";Bit="2"}
+        [pscustomobject]@{NameSpace="VersionControlPrivileges";Permission="AdminWorkspaces";Display="Administer workspaces";UI_Group="Org-Repos";UI_Permission="Administer workspaces";Bit="4"}
+        [pscustomobject]@{NameSpace="VersionControlPrivileges";Permission="AdminShelvesets";Display="Administer shelved changes";UI_Group="Org-Repos";UI_Permission="Administer shelved changes";Bit="8"}
+        [pscustomobject]@{NameSpace="Collection";Permission="SYNCHRONIZE_READ";Display="View system synchronization information";UI_Group="Org-Service Account";UI_Permission="View system synchronization information";Bit="128"}
+        [pscustomobject]@{NameSpace="Server";Permission="Impersonate";Display="Make requests on behalf of others";UI_Group="Org-Service Account";UI_Permission="Make requests on behalf of others";Bit="4"}
+        [pscustomobject]@{NameSpace="Collection";Permission="MANAGE_TEST_CONTROLLERS";Display="Manage test controllers";UI_Group="Org-Test Plans";UI_Permission="Manage test controllers";Bit="512"}
+        [pscustomobject]@{NameSpace="Server";Permission="TriggerEvent";Display="Trigger events";UI_Group="Org-Service Account";UI_Permission="Trigger events";Bit="16"}
+        [pscustomobject]@{NameSpace="Project";Permission="PUBLISH_TEST_RESULTS";Display="Create test runs";UI_Group="UI-Test Plans";UI_Permission="Create test runs";Bit="8"}
+        [pscustomobject]@{NameSpace="Project";Permission="DELETE_TEST_RESULTS";Display="Delete test runs";UI_Group="UI-Test Plans";UI_Permission="Delete test runs";Bit="256"}
+        [pscustomobject]@{NameSpace="Project";Permission="VIEW_TEST_RESULTS";Display="View test runs";UI_Group="UI-Test Plans";UI_Permission="View test runs";Bit="512"}
+        [pscustomobject]@{NameSpace="Project";Permission="MANAGE_TEST_ENVIRONMENTS";Display="Manage test environments";UI_Group="UI-Test Plans";UI_Permission="Manage test environments";Bit="2048"}
+        [pscustomobject]@{NameSpace="Project";Permission="MANAGE_TEST_CONFIGURATIONS";Display="Manage test configurations";UI_Group="UI-Test Plans";UI_Permission="Manage test configurations";Bit="4096"}
+    
+       )
 }
+
 
 function Get-DescriptorFromGroup()
 {
@@ -171,6 +152,7 @@ function Get-SecuritybyGroupByNamespace()
         }else {
             # find all groups for given project   
             $groups = $allGroups.value | Where-Object {$_.principalName -match $userParams.ProjectName }
+            #$groups = $allGroups.value | Where-Object {$_.displayName -eq "Contributors" -and $_.principalName -match $userParams.ProjectName }
         }
       
         Write-Output 'Namespace|Project|Group Type|Group Name|Description|Permission Type|Permission|bit|Permission Name|Decoded Value|Raw Data|Inherited From'  | Out-File $outFile  
@@ -192,7 +174,7 @@ function Get-SecuritybyGroupByNamespace()
             $dumpFile = $rawDataDump
 
             #get Direct permissions
-            Get-PermissionsByNamespaceByGroup -Direct $true -Namespaces $allNamespaces -userParams $userParams -projectName $projectName -GroupType $GroupType -fnd $fnd -rawDataDump $dumpFile -outFile $outFile
+            Get-PermissionsByNamespaceByGroup -Direct "Direct" -Namespaces $allNamespaces -userParams $userParams -projectName $projectName -GroupType $GroupType -fnd $fnd -rawDataDump $dumpFile -outFile $outFile
 
             # find any groups this group is a member of
             $MemberOfGroups = Get-GroupMembership -userParams $userParams -fndGroup $fnd
@@ -202,19 +184,23 @@ function Get-SecuritybyGroupByNamespace()
                 # get decoded descriptor for the group 
                 $dscrpt =  Get-DescriptorFromGroup -dscriptor $item.containerDescriptor 
                 $dscrpt = "Microsoft.TeamFoundation.Identity;" + $dscrpt
-                
-                # get group data
-                $grpUrl = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?descriptors=" + $dscrpt 
+               
+                # get group data for group this parent group is a member of
+                $grpUrl = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups/" + $item.containerDescriptor  +"?api-version=6.1-preview.1"
                 $grpMembership = Invoke-RestMethod -Uri $grpUrl -Method Get -Headers $authorization 
-            
+               
                 # get any permissions from groups this group is a member of
-                $dumpFile = "Member_" + $rawDataDump
-                Get-PermissionsByNamespaceByGroup -Direct $false -Namespaces $allNamespaces -userParams $userParams -projectName $projectName -GroupType $GroupType -fnd $fnd -rawDataDump $dumpFile -outFile $outFile -GroupMember $grpMembership[0]
+                # $dumpFile = "_C_" + $grpMembership.displayName +"_" + $rawDataDump
+                # Get-PermissionsByNamespaceByGroup -Direct "Child" -Namespaces $allNamespaces -userParams $userParams -projectName $projectName -GroupType $GroupType -fnd $fnd -rawDataDump $dumpFile -outFile $outFile -GroupMember $grpMembership
+                
+                # get any permissions from groups this group is a member of
+                $dumpFile = "E_" + $grpMembership.displayName +"_" + $rawDataDump
+                Get-PermissionsByNamespaceByGroup -Direct "Extended" -Namespaces $allNamespaces -userParams $userParams -projectName $projectName -GroupType $GroupType -fnd $fnd -rawDataDump $dumpFile -outFile $outFile -GroupMember $grpMembership
                 
             }
 
         }
-
+       
 }
 
 
@@ -249,17 +235,18 @@ Function Get-PermissionsByNamespaceByGroup()
     )
 
     $inheritFrom = ""
-
     if ([string]::IsNullOrEmpty($GroupMember) )    
     {
         # get decoded descriptor for the group 
         $dscrpt =  Get-DescriptorFromGroup -dscriptor $fnd.descriptor
         $dscrpt = "Microsoft.TeamFoundation.Identity;" + $dscrpt
+        $inheritFrom = ""
     }else
     {
-        # get descriptor for the group         
-        $dscrpt = $GroupMember.Descriptor.IdentityType + ";" + $GroupMember.Descriptor.Identifier
-        $inheritFrom = $GroupMember.displayName
+        # get descriptor for the group   
+        $dscrpt =  Get-DescriptorFromGroup -dscriptor $GroupMember.Descriptor
+        $dscrpt = "Microsoft.TeamFoundation.Identity;" + $dscrpt      
+        $inheritFrom = $GroupMember.principalName
     }
    
     # find all access control lists for the given namespace and group
@@ -275,6 +262,9 @@ Function Get-PermissionsByNamespaceByGroup()
         $hasPermission = $false
         $errorfile = $userParams.DataDirectory + "Error.txt"
 
+         # set permissions used. use this to find permissions not set
+         $permsSet = ""
+
         # find all access control lists for the given namespace and group
         # get ACL for the given namespace and group( descriptor) set api to include extended  info properties        
         # for the parent group get diect membership, for the groups the parent is a member of get extended info
@@ -283,15 +273,25 @@ Function Get-PermissionsByNamespaceByGroup()
         # link to issue and how we solved it
         # https://developercommunity2.visualstudio.com/t/security-api-for-acl-for-given-namespace-and-descr/1230600?from=email#T-ND1232440
         #
-        if($Direct -eq $true)
-        {
-            #  get direct permissions
-            $grpUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?descriptors=" + $dscrpt + "&api-version=6.1-preview.1"
-        }else 
-        {
-            # get extended permissions
-            $grpUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?descriptors=" + $dscrpt + "&includeExtendedInfo=True&recurse=True&api-version=6.1-preview.1"
+        switch ( $Direct ) {
+           "Direct" {
+               #  get direct permissions
+               $grpUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?descriptors=" + $dscrpt + "&api-version=6.1-preview.1"
+           }
+           "Child" {
+                #  get child permissions
+                $grpUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?descriptors=" + $dscrpt + "&includeExtendedInfo=False&recurse=True&api-version=6.1-preview.1"                       
+            }
+            "Extended" {
+                #  get Extended permissions
+                $grpUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?descriptors=" + $dscrpt + "&includeExtendedInfo=True&recurse=True&api-version=6.1-preview.1"            
+            }
+            Default {}
         }
+
+        #check for CRLF in description
+        $des = $fnd.description.replace("`n",", ").replace("`r",", ")
+
         try {
             $aclListByNamespace = Invoke-RestMethod -Uri $grpUri -Method Get -Headers $authorization 
         }
@@ -320,6 +320,7 @@ Function Get-PermissionsByNamespaceByGroup()
             }
         }
 
+       
         # loop thru acesDictionary in namespace and find security
         for ($i = 0; $i -lt $aclListByNamespace.value.length; $i++) {
             
@@ -342,19 +343,30 @@ Function Get-PermissionsByNamespaceByGroup()
 
                         if( $permAllow.Substring($a,1) -ge 1)
                         {
+                            
                             # find bit in action list
                             $raise = [Math]::Pow(2, $Allowplace)
                             $bit = $ns.actions | Where-Object {$_.bit -eq $raise }
 
-                            Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                            # find ui permission
+                            $UIPerm =  Get-UIPermission -bit $bit -namespace $ns.name
+                            if (![string]::IsNullOrEmpty($UIPerm )  )
+                            {
+                                $permsSet += [convert]::ToString($bit.bit) + "|"
+                                Write-Output $UIPerm.UI_Group '|'  | Out-File $outFile  -Append -NoNewline
+                            }else {
+                                Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                            }
+
                             Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
                             Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
                             Write-Output $fnd.displayName  '|'   | Out-File $outFile -Append -NoNewline
-                            Write-Output $fnd.description '|'  | Out-File $outFile  -Append -NoNewline
+                            Write-Output $des'|'  | Out-File $outFile  -Append -NoNewline
                             Write-Output 'Allow|'  $bit.displayName "|"  $bit.bit "|"  $bit.Name  "|" | Out-File $outFile  -Append -NoNewline
                             Write-Output $permAllow  "|" $_.Value.allow "|" $inheritFrom | Out-File -FilePath $outFile -Append -NoNewline
                             Write-Output " " | Out-File -FilePath $outFile -Append  
                             $hasPermission = $true                                    
+                        
                         }
                     }
                 }
@@ -380,16 +392,25 @@ Function Get-PermissionsByNamespaceByGroup()
                                     $raise = [Math]::Pow(2, $effAllowplace)
                                     $bit = $ns.actions | Where-Object {$_.bit -eq $raise }
 
-                                    Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                    # find ui permission
+                                    $UIPerm =  Get-UIPermission -bit $bit -namespace $ns.name
+                                    if (![string]::IsNullOrEmpty($UIPerm )  )
+                                    {
+                                        $permsSet += [convert]::ToString($bit.bit) + "|"
+                                        Write-Output $UIPerm.UI_Group '|'  | Out-File $outFile  -Append -NoNewline
+                                    }else {
+                                        Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                    }
                                     Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
                                     Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
                                     Write-Output $fnd.displayName  '|'   | Out-File $outFile -Append -NoNewline
-                                    Write-Output $fnd.description '|'  | Out-File $outFile  -Append -NoNewline                                        
+                                    Write-Output $des '|'  | Out-File $outFile  -Append -NoNewline                                        
                                     Write-Output 'Allow(Effective)|' $bit.displayName "|" $bit.bit "|" $bit.Name  "|" | Out-File $outFile  -Append -NoNewline
                                     Write-Output $effAllow  "|" $_.Value.extendedInfo.effectiveAllow "|" $inheritFrom | Out-File -FilePath $outFile -Append -NoNewline
                                     Write-Output " " | Out-File -FilePath $outFile -Append  
                                     
                                     $hasPermission = $true
+                                
                                 }
                             }
                         }
@@ -415,19 +436,28 @@ Function Get-PermissionsByNamespaceByGroup()
 
                             if( $inhAllow.Substring($a,1) -ge 1)
                             {
-                            $raise = [Math]::Pow(2, $inhAllowplace)
-                            $bit = $ns.actions | Where-Object {$_.bit -eq $raise }
+                                $raise = [Math]::Pow(2, $inhAllowplace)
+                                $bit = $ns.actions | Where-Object {$_.bit -eq $raise }
 
-                                Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                # find ui permission
+                                $UIPerm =  Get-UIPermission -bit $bit -namespace $ns.name
+                                if (![string]::IsNullOrEmpty($UIPerm )  )
+                                {
+                                    $permsSet += [convert]::ToString($bit.bit) + "|"
+                                    Write-Output $UIPerm.UI_Group '|'  | Out-File $outFile  -Append -NoNewline
+                                }else {
+                                    Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                }
                                 Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
                                 Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
                                 Write-Output $fnd.displayName  '|'   | Out-File $outFile -Append -NoNewline
-                                Write-Output $fnd.description '|'  | Out-File $outFile  -Append -NoNewline
+                                Write-Output $des '|'  | Out-File $outFile  -Append -NoNewline
                                 Write-Output 'Allow(Inherited)|' $bit.displayName "|" $bit.bit "|" $bit.Name  "|" | Out-File $outFile  -Append -NoNewline
                                 Write-Output $inhAllow  "|" $_.Value.extendedInfo.inheritedAllow "|" $inheritFrom | Out-File -FilePath $outFile -Append -NoNewline
                                 Write-Output " " | Out-File -FilePath $outFile -Append  
                                                                         
                                 $hasPermission = $true
+                            
                             }
                         }
 
@@ -452,16 +482,25 @@ Function Get-PermissionsByNamespaceByGroup()
                             $raise = [Math]::Pow(2, $inhAllowplace)
                             $bit = $ns.actions | Where-Object {$_.bit -eq $raise }
 
-                            Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                            # find ui permission
+                            $UIPerm =  Get-UIPermission -bit $bit -namespace $ns.name
+                            if (![string]::IsNullOrEmpty($UIPerm )  )
+                            {
+                                $permsSet += [convert]::ToString($bit.bit) + "|"
+                                Write-Output $UIPerm.UI_Group '|'  | Out-File $outFile  -Append -NoNewline
+                            }else {
+                                Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                            }
                             Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
                             Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
                             Write-Output $fnd.displayName  '|'   | Out-File $outFile -Append -NoNewline
-                            Write-Output $fnd.description '|'  | Out-File $outFile  -Append -NoNewline
+                            Write-Output $des'|'  | Out-File $outFile  -Append -NoNewline
                             Write-Output 'Deny|' $bit.displayName "|" $bit.bit "|" $bit.Name  "|" | Out-File $outFile  -Append -NoNewline
                             Write-Output $permDeny  "|" $_.Value.deny  "|" $inheritFrom| Out-File $outFile -Append -NoNewline
                             Write-Output " " | Out-File -FilePath $outFile -Append  
                         
                             $hasPermission = $true
+                        
                         }
                     }
 
@@ -490,17 +529,26 @@ Function Get-PermissionsByNamespaceByGroup()
                                 $raise = [Math]::Pow(2, $EffDenyplace)
                                 $bit = $ns.actions | Where-Object {$_.bit -eq $raise }
 
-                                Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                # find ui permission
+                                $UIPerm =  Get-UIPermission -bit $bit -namespace $ns.name
+                                if (![string]::IsNullOrEmpty($UIPerm )  )
+                                {
+                                    $permsSet += [convert]::ToString($bit.bit) + "|"
+                                    Write-Output $UIPerm.UI_Group '|'  | Out-File $outFile  -Append -NoNewline
+                                }else {
+                                    Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                }
                                 Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
                                 Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
                                 Write-Output $fnd.DisplayName  '|'   | Out-File $outFile -Append -NoNewline
-                                Write-Output $fnd.description '|'  | Out-File $outFile  -Append -NoNewline
+                                Write-Output $des '|'  | Out-File $outFile  -Append -NoNewline
                                 Write-Output 'Deny(Effective)|' $bit.displayName "|" $bit.bit "|" $bit.Name  "|" | Out-File $outFile  -Append -NoNewline
                                 Write-Output $effDeny  "|" $_.Value.extendedInfo.effectiveDeny "|" $inheritFrom| Out-File -FilePath $outFile -Append -NoNewline
                                 
                                 Write-Output " " | Out-File -FilePath $outFile -Append  
                                 
                                 $hasPermission = $true
+                            
                             }
                         }
 
@@ -530,17 +578,26 @@ Function Get-PermissionsByNamespaceByGroup()
                                 $raise = [Math]::Pow(2, $EffDenyplace)
                                 $bit = $ns.actions | Where-Object {$_.bit -eq $raise }
 
-                                Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                # find ui permission
+                                $UIPerm =  Get-UIPermission -bit $bit -namespace $ns.name
+                                if (![string]::IsNullOrEmpty($UIPerm )  )
+                                {
+                                    $permsSet += [convert]::ToString($bit.bit) + "|"
+                                    Write-Output $UIPerm.UI_Group '|'  | Out-File $outFile  -Append -NoNewline
+                                }else {
+                                    Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                }
                                 Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
                                 Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
                                 Write-Output $fnd.DisplayName  '|'   | Out-File $outFile -Append -NoNewline
-                                Write-Output $fnd.description '|'  | Out-File $outFile  -Append -NoNewline
+                                Write-Output $des '|'  | Out-File $outFile  -Append -NoNewline
                                 Write-Output 'Deny(Inherited)|' $bit.displayName "|" $bit.bit "|" $bit.Name  "|" | Out-File $outFile  -Append -NoNewline
                                 Write-Output $effDeny  "|" $_.Value.extendedInfo.InheritedDeny "|" $inheritFrom| Out-File -FilePath $outFile -Append -NoNewline
                                 
                                 Write-Output " " | Out-File -FilePath $outFile -Append  
                                 
                                 $hasPermission = $true
+                            
                             }
                         }
 
@@ -551,22 +608,77 @@ Function Get-PermissionsByNamespaceByGroup()
 
         }
 
-        # if no permission ser still add team
+        # list permissions not set in ui
+        if($permsSet -ne "")
+        {
+            $allPermsForUiNamespace = $UIpermissionArray.Values | Where-Object {$_.NameSpace -eq $ns.name}
+            $permsetArray = $permsSet.Split('|')
+
+            foreach ($item in $allPermsForUiNamespace) 
+            {
+                if($permsetArray -contains $item.Bit )
+                {
+                    Write-Host $item
+                }else
+                {
+                    Write-Output $item.UI_group '|'  | Out-File $outFile  -Append -NoNewline
+                    Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
+                    Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
+                    Write-Output $tm  '|'   | Out-File $outFile -Append -NoNewline
+                    Write-Output $des '|'  | Out-File $outFile  -Append -NoNewline
+                    Write-Output 'Not Set|'  $item.Display '|0|0|0|0|' $inheritFrom | Out-File $outFile  -Append -NoNewline
+                    Write-Output ' '  | Out-File $outFile  -Append 
+                    $hasPermission = $true
+                }
+            }
+
+        }
+
+        # if no permission ser still add team  View analytics",UI="Analytics",UI_Permission="View analytics",Bit="1"},
         if($hasPermission -eq $false)
         {
-            #Write-Output ' '  | Out-File $outFile  -Append 
-            Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
-            Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
-            Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
-            Write-Output $tm  '|'   | Out-File $outFile -Append -NoNewline
-            Write-Output $fnd.description '|'  | Out-File $outFile  -Append -NoNewline
-            Write-Output 'No Permission set|No Permission Set|0|0|0|0|'  | Out-File $outFile  -Append -NoNewline
-            Write-Output ' '  | Out-File $outFile  -Append 
+            if( $ns.name -eq "Analytics" -and $inheritFrom -ne "")
+            {
+                Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
+                Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
+                Write-Output $tm  '|'   | Out-File $outFile -Append -NoNewline
+                Write-Output $des '|'  | Out-File $outFile  -Append -NoNewline
+                Write-Output 'Allow(inherited)|View analytics|0|0|0|0|' $inheritFrom | Out-File $outFile  -Append -NoNewline
+                Write-Output ' '  | Out-File $outFile  -Append 
+                $hasPermission = $true
+            }
+            else {
+                Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
+                Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
+                Write-Output $tm  '|'   | Out-File $outFile -Append -NoNewline
+                Write-Output $des '|'  | Out-File $outFile  -Append -NoNewline
+                Write-Output 'No Permission set|No Permission Set|0|0|0|0|' $inheritFrom | Out-File $outFile  -Append -NoNewline
+                Write-Output ' '  | Out-File $outFile  -Append 
+            }
+            
         }
     }
 }
 
+function Get-UIPermission()
+{
+    Param(
+        [Parameter(Mandatory = $true)]
+        $bit,
+        [Parameter(Mandatory = $false)]
+        $namespace
 
+    )
+
+
+
+
+    $UIPerm = $UIpermissionArray.Values | Where-Object {$_.UI_Permission -eq $bit.displayName -and $_.NameSpace -eq $namespace}
+    return $UIPerm
+    
+}
 
 function Get-MembersByTeam
 {
@@ -1609,7 +1721,7 @@ function Get-GroupMembership(){
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
                 
     #GET https://vssps.dev.azure.com/{organization}/_apis/graph/Memberships/{subjectDescriptor}?api-version=6.0-preview.1
-    $memberUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/Memberships/" + $fndGroup.descriptor +"?api-version=6.0-preview.1"
+    $memberUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/Memberships/" + $fndGroup.descriptor +"?direction=Up&api-version=6.1-preview.1"
     $Memberof = Invoke-RestMethod -Uri $memberUri -Method Get -Headers $authorization    
 
    

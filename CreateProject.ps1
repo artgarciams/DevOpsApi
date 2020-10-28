@@ -22,13 +22,13 @@ $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 Write-Output $userParameters.ProjectName
 Write-Output $userParameters.Description
 
-#GetResources -FIleName "C:\temp\RG_10_22_1.txt"
+#GetResources -FileName "C:\temp\RG_10_22_1.txt"
 
 #   xu63xk2am3smqsfuysvmu7f7hwh6dttet6r3pct34rugqdj6ewlq - full access token
-Get-SecuritybyGroupByNamespace -userParams $userParameters  -rawDataDump "Rawdata-10-23-01.txt"  -getAllProjects "True" -outFile "Get-SecuritybyGroupByNamespace-10-23-0.txt" 
+Get-SecuritybyGroupByNamespace -userParams $userParameters  -rawDataDump "Rawdata-10-27-02.txt"  -getAllProjects "False" -outFile "Get-SecuritybyGroupByNamespace-10-27-2.txt" 
 
 # get list of members of group in project or all projects by adding -groupname "All"
-Get-AllUSerMembership  -userParams $userParameters -outFile "Get-AllUSerMembership-10-23-0.txt" -getAllProjects "True"
+Get-AllUSerMembership  -userParams $userParameters -outFile "Get-AllUSerMembership-10-27-2.txt" -getAllProjects "True"
 
 #list available branches
 # ListGitBranches -userParams $userParameters -outFile "C:\temp\dataBuild_r001.txt"
