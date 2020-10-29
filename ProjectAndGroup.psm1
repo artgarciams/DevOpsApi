@@ -203,7 +203,7 @@ function Get-AllUSerMembership(){
     # add in the aad groups
     $fnd += $aadGroups.value
 
-    Write-Output 'Group Name|Type|Relationship|User Name|Email Address|Fedex ID' | Out-File -FilePath $outFile
+    Write-Output 'Project|Group Name|Type|Relationship|User Name|Email Address|Fedex ID' | Out-File -FilePath $outFile
     Write-Output " " | Out-File -FilePath $outFile -Append 
 
     foreach ($item in $fnd) {
@@ -228,9 +228,9 @@ function Get-AllUSerMembership(){
         $teamGroup = ""
         if ([string]::IsNullOrEmpty($isTeam)) 
         {
-            $teamGroup = "Group"
+            $teamGroup = "G-Delivered"
         }else {
-            $teamGroup = "Team"
+            $teamGroup = "T-Custom"
         }
 
         if($allGrpMembers.value[0].members -ne 0)
@@ -243,8 +243,13 @@ function Get-AllUSerMembership(){
                 $curUser = Invoke-RestMethod -Uri $memberUrl -Method Get -Headers $authorization 
                                                     
                 Write-Host $item.principalName 
-                    
-                Write-Output $item.principalName "|" | Out-File -FilePath $outFile -Append -NoNewline  
+                
+                # get project name
+                $prj1 = $item.principalName.SPlit('\')
+                $prjName = $prj1[0].substring(1,$prj1[0].length-2)
+
+                Write-Output $prjName"|" | Out-File -FilePath $outFile -Append -NoNewline                      
+                Write-Output $item.displayName "|" | Out-File -FilePath $outFile -Append -NoNewline  
                 Write-Output $teamGroup "|" | Out-File -FilePath $outFile -Append -NoNewline  
                 Write-Output  "Member-Of|" | Out-File -FilePath $outFile -Append -NoNewline
                 Write-Output $curUser.value[0].providerDisplayName "|" | Out-File -FilePath $outFile -Append -NoNewline
@@ -270,7 +275,12 @@ function Get-AllUSerMembership(){
                 Write-Host $curUser.value[0].providerDisplayName
                 Write-Host $item.principalName 
 
-                Write-Output $item.principalName  "|" | Out-File -FilePath $outFile -Append -NoNewline   
+                # get project name
+                $prj1 = $item.principalName.SPlit('\')
+                $prjName = $prj1[0].substring(1,$prj1[0].length-2)
+ 
+                Write-Output $prjName"|" | Out-File -FilePath $outFile -Append -NoNewline                      
+                Write-Output $item.displayName "|" | Out-File -FilePath $outFile -Append -NoNewline  
                 Write-Output $teamGroup "|" | Out-File -FilePath $outFile -Append -NoNewline  
                 Write-Output  "Member|" | Out-File -FilePath $outFile -Append -NoNewline
                 Write-Output $curUser.value[0].providerDisplayName  "|" | Out-File -FilePath $outFile -Append -NoNewline
@@ -288,7 +298,6 @@ function Get-AllUSerMembership(){
                     #$UserDetails = Invoke-RestMethod -Uri $userUrl -Method Get -Headers $authorization 
                 }
                 
-
                 Write-Output $email "|" | Out-File -FilePath $outFile -Append -NoNewline 
                 Write-Output $curUser.value[0].properties.DirectoryAlias.'$value' | Out-File -FilePath $outFile -Append -NoNewline 
                 Write-Output " " | Out-File -FilePath $outFile -Append                     
@@ -296,8 +305,13 @@ function Get-AllUSerMembership(){
             }   
         }
         else {
+            
+            # get project name
+            $prj1 = $item.principalName.SPlit('\')
+            $prjName = $prj1[0].substring(1,$prj1[0].length-2)
 
-            Write-Output $item.principalName  "|" | Out-File -FilePath $outFile -Append -NoNewline 
+            Write-Output $prjName"|" | Out-File -FilePath $outFile -Append -NoNewline                      
+            Write-Output $item.displayName "|" | Out-File -FilePath $outFile -Append -NoNewline  
             Write-Output $teamGroup "|" | Out-File -FilePath $outFile -Append -NoNewline  
             Write-Output  "Member|" | Out-File -FilePath $outFile -Append -NoNewline
             Write-Output   "No Members Found|" | Out-File -FilePath $outFile -Append -NoNewline            

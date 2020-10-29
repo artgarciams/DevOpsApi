@@ -15,12 +15,12 @@ $UIpermissionArray = @{
         [pscustomobject]@{NameSpace="Analytics";Permission="Read";Display="View analytics";UI_Group="UI-Analytics";UI_Permission="View analytics";Bit="1"}
         [pscustomobject]@{NameSpace="AnalyticsViews";Permission="Edit";Display="Edit shared Analytics views";UI_Group="UI-Analytics";UI_Permission="Edit shared Analytics views";Bit="2"}
         [pscustomobject]@{NameSpace="AnalyticsViews";Permission="Delete";Display="Delete shared Analytics views";UI_Group="UI-Analytics";UI_Permission="Delete shared Analytics views";Bit="4"}
+        [pscustomobject]@{NameSpace="Tagging";Permission="Create";Display="Create tag definition";UI_Group="UI-Boards";UI_Permission="Create tag definition";Bit="2"}
         [pscustomobject]@{NameSpace="Project";Permission="WORK_ITEM_DELETE";Display="Delete and restore work items";UI_Group="UI-Boards";UI_Permission="Delete and restore work items";Bit="8192"}
         [pscustomobject]@{NameSpace="Project";Permission="WORK_ITEM_MOVE";Display="Move work items out of this project";UI_Group="UI-Boards";UI_Permission="Move work items out of this project";Bit="16384"}
         [pscustomobject]@{NameSpace="Project";Permission="WORK_ITEM_PERMANENTLY_DELETE";Display="Permanently delete work items";UI_Group="UI-Boards";UI_Permission="Permanently delete work items";Bit="32768"}
         [pscustomobject]@{NameSpace="Project";Permission="BYPASS_RULES";Display="Bypass rules on work item updates";UI_Group="UI-Boards";UI_Permission="Bypass rules on work item updates";Bit="1048576"}
         [pscustomobject]@{NameSpace="Project";Permission="CHANGE_PROCESS";Display="Change process of team project.";UI_Group="UI-Boards";UI_Permission="Change process of team project.";Bit="8388608"}
-        [pscustomobject]@{NameSpace="Tagging";Permission="Create";Display="Create tag definition";UI_Group="UI-Boards";UI_Permission="Create tag definition";Bit="2"}
         [pscustomobject]@{NameSpace="Project";Permission="GENERIC_READ";Display="View project-level information";UI_Group="UI-General";UI_Permission="View project-level information";Bit="1"}
         [pscustomobject]@{NameSpace="Project";Permission="GENERIC_WRITE";Display="Edit project-level information";UI_Group="UI-General";UI_Permission="Edit project-level information";Bit="2"}
         [pscustomobject]@{NameSpace="Project";Permission="DELETE";Display="Delete team project";UI_Group="UI-General";UI_Permission="Delete team project";Bit="4"}
@@ -28,37 +28,37 @@ $UIpermissionArray = @{
         [pscustomobject]@{NameSpace="Project";Permission="MANAGE_PROPERTIES";Display="Manage project properties";UI_Group="UI-General";UI_Permission="Manage project properties";Bit="131072"}
         [pscustomobject]@{NameSpace="Project";Permission="SUPPRESS_NOTIFICATIONS";Display="Suppress notifications for work item updates";UI_Group="UI-General";UI_Permission="Suppress notifications for work item updates";Bit="2097152"}
         [pscustomobject]@{NameSpace="Project";Permission="UPDATE_VISIBILITY";Display="Update project visibility";UI_Group="UI-General";UI_Permission="Update project visibility";Bit="4194304"}
-        [pscustomobject]@{NameSpace="AuditLog";Permission="Read";Display="View audit log";UI_Group="Org-Auditing";UI_Permission="View audit log";Bit="1"}
-        [pscustomobject]@{NameSpace="AuditLog";Permission="Manage_Streams";Display="Manage audit streams";UI_Group="Org-Auditing";UI_Permission="Manage audit streams";Bit="4"}
-        [pscustomobject]@{NameSpace="AuditLog";Permission="Delete_Streams";Display="Delete audit streams";UI_Group="Org-Auditing";UI_Permission="Delete audit streams";Bit="8"}
-        [pscustomobject]@{NameSpace="Collection";Permission="DELETE_FIELD";Display="Delete field from organization";UI_Group="Org-Boards";UI_Permission="Delete field from organization";Bit="1024"}
-        [pscustomobject]@{NameSpace="Process";Permission="Edit";Display="Edit process";UI_Group="Org-Boards";UI_Permission="Edit process";Bit="1"}
-        [pscustomobject]@{NameSpace="Process";Permission="Delete";Display="Delete process";UI_Group="Org-Boards";UI_Permission="Delete process";Bit="2"}
-        [pscustomobject]@{NameSpace="Process";Permission="Create";Display="Create process";UI_Group="Org-Boards";UI_Permission="Create process";Bit="4"}
-        [pscustomobject]@{NameSpace="Process";Permission="AdministerProcessPermissions";Display="Administer process permissions";UI_Group="Org-Boards";UI_Permission="Administer process permissions";Bit="8"}
-        [pscustomobject]@{NameSpace="Collection";Permission="CREATE_PROJECTS";Display="Create new projects";UI_Group="Org-General";UI_Permission="Create new projects";Bit="4"}
-        [pscustomobject]@{NameSpace="Collection";Permission="DIAGNOSTIC_TRACE";Display="Alter trace settings";UI_Group="Org-General";UI_Permission="Alter trace settings";Bit="64"}
-        [pscustomobject]@{NameSpace="Server";Permission="GenericRead";Display="View instance-level information";UI_Group="Org-General";UI_Permission="View instance-level information";Bit="1"}
-        [pscustomobject]@{NameSpace="Server";Permission="GenericWrite";Display="Edit instance-level information";UI_Group="Org-General";UI_Permission="Edit instance-level information";Bit="2"}
-        [pscustomobject]@{NameSpace="BuildAdministration";Permission="ViewBuildResources";Display="View build resources";UI_Group="Org-Pipelines";UI_Permission="View build resources";Bit="1"}
-        [pscustomobject]@{NameSpace="BuildAdministration";Permission="ManageBuildResources";Display="Manage build resources";UI_Group="Org-Pipelines";UI_Permission="Manage build resources";Bit="2"}
-        [pscustomobject]@{NameSpace="BuildAdministration";Permission="UseBuildResources";Display="Use build resources";UI_Group="Org-Pipelines";UI_Permission="Use build resources";Bit="4"}
-        [pscustomobject]@{NameSpace="BuildAdministration";Permission="AdministerBuildResourcePermissions";Display="Administer build resource permissions";UI_Group="Org-Pipelines";UI_Permission="Administer build resource permissions";Bit="8"}
-        [pscustomobject]@{NameSpace="BuildAdministration";Permission="ManagePipelinePolicies";Display="Manage pipeline policies";UI_Group="Org-Pipelines";UI_Permission="Manage pipeline policies";Bit="16"}
-        [pscustomobject]@{NameSpace="Collection";Permission="MANAGE_ENTERPRISE_POLICIES";Display="Manage enterprise policies";UI_Group="Org-Policies";UI_Permission="Manage enterprise policies";Bit="2048"}
-        [pscustomobject]@{NameSpace="VersionControlPrivileges";Permission="CreateWorkspace";Display="Create a workspace";UI_Group="Org-Repos";UI_Permission="Create a workspace";Bit="2"}
-        [pscustomobject]@{NameSpace="VersionControlPrivileges";Permission="AdminWorkspaces";Display="Administer workspaces";UI_Group="Org-Repos";UI_Permission="Administer workspaces";Bit="4"}
-        [pscustomobject]@{NameSpace="VersionControlPrivileges";Permission="AdminShelvesets";Display="Administer shelved changes";UI_Group="Org-Repos";UI_Permission="Administer shelved changes";Bit="8"}
-        [pscustomobject]@{NameSpace="Collection";Permission="SYNCHRONIZE_READ";Display="View system synchronization information";UI_Group="Org-Service Account";UI_Permission="View system synchronization information";Bit="128"}
-        [pscustomobject]@{NameSpace="Server";Permission="Impersonate";Display="Make requests on behalf of others";UI_Group="Org-Service Account";UI_Permission="Make requests on behalf of others";Bit="4"}
-        [pscustomobject]@{NameSpace="Collection";Permission="MANAGE_TEST_CONTROLLERS";Display="Manage test controllers";UI_Group="Org-Test Plans";UI_Permission="Manage test controllers";Bit="512"}
-        [pscustomobject]@{NameSpace="Server";Permission="TriggerEvent";Display="Trigger events";UI_Group="Org-Service Account";UI_Permission="Trigger events";Bit="16"}
         [pscustomobject]@{NameSpace="Project";Permission="PUBLISH_TEST_RESULTS";Display="Create test runs";UI_Group="UI-Test Plans";UI_Permission="Create test runs";Bit="8"}
         [pscustomobject]@{NameSpace="Project";Permission="DELETE_TEST_RESULTS";Display="Delete test runs";UI_Group="UI-Test Plans";UI_Permission="Delete test runs";Bit="256"}
         [pscustomobject]@{NameSpace="Project";Permission="VIEW_TEST_RESULTS";Display="View test runs";UI_Group="UI-Test Plans";UI_Permission="View test runs";Bit="512"}
         [pscustomobject]@{NameSpace="Project";Permission="MANAGE_TEST_ENVIRONMENTS";Display="Manage test environments";UI_Group="UI-Test Plans";UI_Permission="Manage test environments";Bit="2048"}
         [pscustomobject]@{NameSpace="Project";Permission="MANAGE_TEST_CONFIGURATIONS";Display="Manage test configurations";UI_Group="UI-Test Plans";UI_Permission="Manage test configurations";Bit="4096"}
-    
+        [pscustomobject]@{NameSpace="AuditLog";Permission="Read";Display="View audit log";UI_Group="Org-Auditing";UI_Permission="View audit log";Bit="1"}
+        [pscustomobject]@{NameSpace="AuditLog";Permission="Manage_Streams";Display="Manage audit streams";UI_Group="Org-Auditing";UI_Permission="Manage audit streams";Bit="4"}
+        [pscustomobject]@{NameSpace="AuditLog";Permission="Delete_Streams";Display="Delete audit streams";UI_Group="Org-Auditing";UI_Permission="Delete audit streams";Bit="8"}
+        [pscustomobject]@{NameSpace="Process";Permission="Edit";Display="Edit process";UI_Group="Org-Boards";UI_Permission="Edit process";Bit="1"}
+        [pscustomobject]@{NameSpace="Process";Permission="Delete";Display="Delete process";UI_Group="Org-Boards";UI_Permission="Delete process";Bit="2"}
+        [pscustomobject]@{NameSpace="Process";Permission="Create";Display="Create process";UI_Group="Org-Boards";UI_Permission="Create process";Bit="4"}
+        [pscustomobject]@{NameSpace="Process";Permission="AdministerProcessPermissions";Display="Administer process permissions";UI_Group="Org-Boards";UI_Permission="Administer process permissions";Bit="8"}
+        [pscustomobject]@{NameSpace="Collection";Permission="DELETE_FIELD";Display="Delete field from organization";UI_Group="Org-Boards";UI_Permission="Delete field from organization";Bit="1024"}
+        [pscustomobject]@{NameSpace="Collection";Permission="CREATE_PROJECTS";Display="Create new projects";UI_Group="Org-General";UI_Permission="Create new projects";Bit="4"}
+        [pscustomobject]@{NameSpace="Collection";Permission="DIAGNOSTIC_TRACE";Display="Alter trace settings";UI_Group="Org-General";UI_Permission="Alter trace settings";Bit="64"}
+        [pscustomobject]@{NameSpace="Collection";Permission="MANAGE_ENTERPRISE_POLICIES";Display="Manage enterprise policies";UI_Group="Org-Policies";UI_Permission="Manage enterprise policies";Bit="2048"}
+        [pscustomobject]@{NameSpace="Collection";Permission="SYNCHRONIZE_READ";Display="View system synchronization information";UI_Group="Org-Service Account";UI_Permission="View system synchronization information";Bit="128"}
+        [pscustomobject]@{NameSpace="Collection";Permission="MANAGE_TEST_CONTROLLERS";Display="Manage test controllers";UI_Group="Org-Test Plans";UI_Permission="Manage test controllers";Bit="512"}
+        [pscustomobject]@{NameSpace="BuildAdministration";Permission="ViewBuildResources";Display="View build resources";UI_Group="Org-Pipelines";UI_Permission="View build resources";Bit="1"}
+        [pscustomobject]@{NameSpace="BuildAdministration";Permission="ManageBuildResources";Display="Manage build resources";UI_Group="Org-Pipelines";UI_Permission="Manage build resources";Bit="2"}
+        [pscustomobject]@{NameSpace="BuildAdministration";Permission="UseBuildResources";Display="Use build resources";UI_Group="Org-Pipelines";UI_Permission="Use build resources";Bit="4"}
+        [pscustomobject]@{NameSpace="BuildAdministration";Permission="AdministerBuildResourcePermissions";Display="Administer build resource permissions";UI_Group="Org-Pipelines";UI_Permission="Administer build resource permissions";Bit="8"}
+        [pscustomobject]@{NameSpace="BuildAdministration";Permission="ManagePipelinePolicies";Display="Manage pipeline policies";UI_Group="Org-Pipelines";UI_Permission="Manage pipeline policies";Bit="16"}
+        [pscustomobject]@{NameSpace="VersionControlPrivileges";Permission="CreateWorkspace";Display="Create a workspace";UI_Group="Org-Repos";UI_Permission="Create a workspace";Bit="2"}
+        [pscustomobject]@{NameSpace="VersionControlPrivileges";Permission="AdminWorkspaces";Display="Administer workspaces";UI_Group="Org-Repos";UI_Permission="Administer workspaces";Bit="4"}
+        [pscustomobject]@{NameSpace="VersionControlPrivileges";Permission="AdminShelvesets";Display="Administer shelved changes";UI_Group="Org-Repos";UI_Permission="Administer shelved changes";Bit="8"}
+        [pscustomobject]@{NameSpace="Server";Permission="GenericRead";Display="View instance-level information";UI_Group="Org-General";UI_Permission="View instance-level information";Bit="1"}
+        [pscustomobject]@{NameSpace="Server";Permission="GenericWrite";Display="Edit instance-level information";UI_Group="Org-General";UI_Permission="Edit instance-level information";Bit="2"}
+        [pscustomobject]@{NameSpace="Server";Permission="Impersonate";Display="Make requests on behalf of others";UI_Group="Org-Service Account";UI_Permission="Make requests on behalf of others";Bit="4"}
+        [pscustomobject]@{NameSpace="Server";Permission="TriggerEvent";Display="Trigger events";UI_Group="Org-Service Account";UI_Permission="Trigger events";Bit="16"}
+
        )
 }
 
@@ -174,7 +174,7 @@ function Get-SecuritybyGroupByNamespace()
             $dumpFile = $rawDataDump
 
             #get Direct permissions
-            Get-PermissionsByNamespaceByGroup -Direct "Direct" -Namespaces $allNamespaces -userParams $userParams -projectName $projectName -GroupType $GroupType -fnd $fnd -rawDataDump $dumpFile -outFile $outFile
+            Get-PermissionsByNamespaceByGroup -Direct "Extended" -Namespaces $allNamespaces -userParams $userParams -projectName $projectName -GroupType $GroupType -fnd $fnd -rawDataDump $dumpFile -outFile $outFile
 
             # find any groups this group is a member of
             $MemberOfGroups = Get-GroupMembership -userParams $userParams -fndGroup $fnd
@@ -188,11 +188,7 @@ function Get-SecuritybyGroupByNamespace()
                 # get group data for group this parent group is a member of
                 $grpUrl = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups/" + $item.containerDescriptor  +"?api-version=6.1-preview.1"
                 $grpMembership = Invoke-RestMethod -Uri $grpUrl -Method Get -Headers $authorization 
-               
-                # get any permissions from groups this group is a member of
-                # $dumpFile = "_C_" + $grpMembership.displayName +"_" + $rawDataDump
-                # Get-PermissionsByNamespaceByGroup -Direct "Child" -Namespaces $allNamespaces -userParams $userParams -projectName $projectName -GroupType $GroupType -fnd $fnd -rawDataDump $dumpFile -outFile $outFile -GroupMember $grpMembership
-                
+            
                 # get any permissions from groups this group is a member of
                 $dumpFile = "E_" + $grpMembership.displayName +"_" + $rawDataDump
                 Get-PermissionsByNamespaceByGroup -Direct "Extended" -Namespaces $allNamespaces -userParams $userParams -projectName $projectName -GroupType $GroupType -fnd $fnd -rawDataDump $dumpFile -outFile $outFile -GroupMember $grpMembership
@@ -319,7 +315,6 @@ Function Get-PermissionsByNamespaceByGroup()
                 Write-Output $t | Out-File $outname -Append
             }
         }
-
        
         # loop thru acesDictionary in namespace and find security
         for ($i = 0; $i -lt $aclListByNamespace.value.length; $i++) {
@@ -626,12 +621,41 @@ Function Get-PermissionsByNamespaceByGroup()
                     Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
                     Write-Output $tm  '|'   | Out-File $outFile -Append -NoNewline
                     Write-Output $des '|'  | Out-File $outFile  -Append -NoNewline
-                    Write-Output 'Not Set|'  $item.Display '|0|0|0|0|' $inheritFrom | Out-File $outFile  -Append -NoNewline
+                    Write-Output 'Not Set|'  $item.Display '|' $item.Bit '|0|0|0|' $inheritFrom | Out-File $outFile  -Append -NoNewline
                     Write-Output ' '  | Out-File $outFile  -Append 
                     $hasPermission = $true
                 }
             }
 
+        }
+        else
+        {
+            # no ui permission set for this namespace, list all as not set
+            $allPermsForUiNamespace = $UIpermissionArray.Values | Where-Object {$_.NameSpace -eq $ns.name}
+            foreach ($item in $allPermsForUiNamespace) 
+            {
+                if( $ns.name -eq "Analytics")
+                {
+                    Write-Output "UI-Analytics" '|'  | Out-File $outFile  -Append -NoNewline
+                    Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
+                    Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
+                    Write-Output $tm  '|'   | Out-File $outFile -Append -NoNewline
+                    Write-Output $des '|'  | Out-File $outFile  -Append -NoNewline
+                    Write-Output 'Allow(inherited)|View analytics|0|0|0|0|' $inheritFrom | Out-File $outFile  -Append -NoNewline
+                    Write-Output ' '  | Out-File $outFile  -Append 
+                    $hasPermission = $true
+                }else 
+                {
+                    Write-Output $item.UI_group '|'  | Out-File $outFile  -Append -NoNewline
+                    Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
+                    Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
+                    Write-Output $tm  '|'   | Out-File $outFile -Append -NoNewline
+                    Write-Output $des '|'  | Out-File $outFile  -Append -NoNewline
+                    Write-Output 'Not Set|'  $item.Display '|' $item.Bit '|0|0|0|' $inheritFrom | Out-File $outFile  -Append -NoNewline
+                    Write-Output ' '  | Out-File $outFile  -Append 
+                    $hasPermission = $true
+                }
+            }
         }
 
         # if no permission ser still add team  View analytics",UI="Analytics",UI_Permission="View analytics",Bit="1"},
@@ -639,7 +663,7 @@ Function Get-PermissionsByNamespaceByGroup()
         {
             if( $ns.name -eq "Analytics" -and $inheritFrom -ne "")
             {
-                Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                Write-Output "UI-Analytics" '|'  | Out-File $outFile  -Append -NoNewline
                 Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
                 Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
                 Write-Output $tm  '|'   | Out-File $outFile -Append -NoNewline
@@ -657,7 +681,6 @@ Function Get-PermissionsByNamespaceByGroup()
                 Write-Output 'No Permission set|No Permission Set|0|0|0|0|' $inheritFrom | Out-File $outFile  -Append -NoNewline
                 Write-Output ' '  | Out-File $outFile  -Append 
             }
-            
         }
     }
 }
@@ -669,15 +692,10 @@ function Get-UIPermission()
         $bit,
         [Parameter(Mandatory = $false)]
         $namespace
-
     )
-
-
-
 
     $UIPerm = $UIpermissionArray.Values | Where-Object {$_.UI_Permission -eq $bit.displayName -and $_.NameSpace -eq $namespace}
     return $UIPerm
-    
 }
 
 function Get-MembersByTeam
@@ -721,12 +739,7 @@ function Get-MembersByTeam
 
 }
               
-                
-             
-               
-    
-        
-    
+       
 
 
 function Get-NamespaceByGroup(){
