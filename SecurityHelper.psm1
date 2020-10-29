@@ -174,7 +174,7 @@ function Get-SecuritybyGroupByNamespace()
             $dumpFile = $rawDataDump
 
             #get Direct permissions
-            Get-PermissionsByNamespaceByGroup -Direct "Extended" -Namespaces $allNamespaces -userParams $userParams -projectName $projectName -GroupType $GroupType -fnd $fnd -rawDataDump $dumpFile -outFile $outFile
+            Get-PermissionsByNamespaceByGroup -Direct "Direct" -Namespaces $allNamespaces -userParams $userParams -projectName $projectName -GroupType $GroupType -fnd $fnd -rawDataDump $dumpFile -outFile $outFile
 
             # find any groups this group is a member of
             $MemberOfGroups = Get-GroupMembership -userParams $userParams -fndGroup $fnd
@@ -190,7 +190,10 @@ function Get-SecuritybyGroupByNamespace()
                 $grpMembership = Invoke-RestMethod -Uri $grpUrl -Method Get -Headers $authorization 
             
                 # get any permissions from groups this group is a member of
-                $dumpFile = "E_" + $grpMembership.displayName +"_" + $rawDataDump
+                if($rawDataDump -ne "")
+                {
+                    $dumpFile = "E_" + $grpMembership.displayName +"_" + $rawDataDump
+                }
                 Get-PermissionsByNamespaceByGroup -Direct "Extended" -Namespaces $allNamespaces -userParams $userParams -projectName $projectName -GroupType $GroupType -fnd $fnd -rawDataDump $dumpFile -outFile $outFile -GroupMember $grpMembership
                 
             }
