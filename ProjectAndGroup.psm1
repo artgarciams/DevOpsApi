@@ -158,6 +158,221 @@ function AddVSTSGroupAndUsers() {
 
 }
 
+function Get-BuildDetailsByProject(){
+    Param(
+        [Parameter(Mandatory = $true)]
+        $userParams,
+        [Parameter(Mandatory = $true)]
+        $outFile,
+        [Parameter(Mandatory = $false)]
+        $FolderName
+    )
+    #
+    # this function will list all builds in a given project
+    #
+
+    # Base64-encodes the Personal Access Token (PAT) appropriately
+    $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
+    
+    # get list of folders
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/folders/list?view=azure-devops-rest-6.0
+    # GET https://dev.azure.com/{organization}/{project}/_apis/build/folders/{path}?api-version=6.0-preview.2
+    $folderUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/folders?api-version=6.0-preview.2"
+    $allFlders = Invoke-RestMethod -Uri $folderUri -Method Get -Headers $authorization -Verbose
+
+    # filter by folder if needed
+    if (![string]::IsNullOrEmpty($FolderName))
+    {
+        $allFolders = $allFlders.value | Where-Object { $_.path -match $FolderName}
+    }
+    else 
+    {
+        $allFolders = $allFldrs.value
+    }
+
+    Write-Output "" $Folder.path  | Out-File $outFile 
+    Write-Output "Orginization / Project:" $userParams.VSTSMasterAcct " / " $userParams.ProjectName | Out-File $outFile -Append -NoNewline
+
+    # loop thru each folder and get build definitions
+    foreach ($Folder in $allFolders) 
+    {
+        Write-Host "Folder : " $Folder.path 
+
+        Write-Output ""  | Out-File $outFile -Append
+        Write-Output "     Folder : " $Folder.path  | Out-File $outFile -Append -NoNewline
+        Write-Output ""  | Out-File $outFile -Append
+
+        # get list build definitions by folder
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/definitions/list?view=azure-devops-rest-6.1
+        # GET https://dev.azure.com/{organization}/{project}/_apis/build/definitions?name={name}&repositoryId={repositoryId}&repositoryType={repositoryType}&queryOrder={queryOrder}&$top={$top}&continuationToken={continuationToken}&minMetricsTime={minMetricsTime}&definitionIds={definitionIds}&path={path}&builtAfter={builtAfter}&notBuiltAfter={notBuiltAfter}&includeAllProperties={includeAllProperties}&includeLatestBuilds={includeLatestBuilds}&taskIdFilter={taskIdFilter}&processType={processType}&yamlFilename={yamlFilename}&api-version=6.1-preview.7
+        $folderUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/definitions?path=" +$Folder.path + "&api-version=6.1-preview.7"
+        $AllDefinitions = Invoke-RestMethod -Uri $folderUri -Method Get -Headers $authorization 
+              
+        # get builds for each definition
+        Write-Host "       Build Definitions found: " $AllDefinitions.count
+        Write-Output "     Build Definitions Found : " $AllDefinitions.count  | Out-File $outFile -Append -NoNewline
+        Write-Output "" | Out-File $outFile -Append        
+
+        foreach ($BuildDef in $AllDefinitions.value) 
+        {
+
+            # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-6.1
+            # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds?definitions={definitions}&api-version=6.1-preview.6
+            $BuildUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds?definitions=" + $BuildDef.id + "&api-version=6.1-preview.6"
+            $allBuilds = Invoke-RestMethod -Uri $BuildUri -Method Get -Headers $authorization 
+
+            Write-Output "" | Out-File $outFile -Append        
+            Write-Host $BuildDef.name 
+            Write-Output "" | Out-File $outFile -Append
+            Write-Output "         Build Definition : "  $BuildDef.name  "   Builds in definition : " $allBuilds.count | Out-File $outFile   -Append -NoNewline
+            Write-Output ""  | Out-File $outFile -Append
+
+            Write-Host "        Builds found by definition: " $allBuilds.count
+                        
+            # get all work items associated to the build
+            foreach ($build in $allBuilds.value) 
+            {
+                Write-Host "Build ID: " $build.id " - Build Number : " $build.buildNumber    
+                Write-Host "    Build Status: " $build.Status " - Result: " $build.result
+                $def = $build.definition
+                $repo = $build.repository
+                $allTags = $build.tags
+                $allPlans = $build.plans
+
+                Write-Output ""  | Out-File $outFile -Append
+                Write-Output "        --->Build ID: " $build.id " - Build Number : " $build.buildNumber | Out-File $outFile -Append -NoNewline
+                Write-Output ""  | Out-File $outFile -Append
+                Write-Output "            Build Status: " $build.Status " - Result: " $build.result  | Out-File $outFile   -Append -NoNewline
+                Write-Output ""  | Out-File $outFile -Append
+                Write-Output "            Requested by: " $def.name " - Start Time: " $build.startTime  "  Finish Time: " $build.finishTime | Out-File $outFile   -Append -NoNewline
+                Write-Output ""  | Out-File $outFile -Append
+                Write-Output "            Source Branch: " $build.sourceBranch " Repo : " $repo.name  | Out-File $outFile   -Append -NoNewline
+                Write-Output ""  | Out-File $outFile -Append
+               
+                # get build changes
+                # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/get%20build%20changes?view=azure-devops-rest-6.1
+                # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/changes?api-version=6.1-preview.2
+                $bldChangegUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/changes?api-version=6.1-preview.2"
+                $bldChanges = Invoke-RestMethod -Uri $bldChangegUri -Method Get -Headers $authorization 
+                
+                Write-Output ""  | Out-File $outFile -Append
+                foreach ($bldChg in $bldChanges.value) 
+                {
+                    Write-Output "            Build Change: " $bldChg.message " Date Changed : " $bldChg.timestamp   "   Changed by: " $bldChg.'author'.DisplayName| Out-File $outFile   -Append -NoNewline
+                    Write-Output ""  | Out-File $outFile -Append
+                }
+                Write-Output ""  | Out-File $outFile -Append
+
+                # list all tags found
+                for ($i = 0; $i -lt $allTags.length; $i++) {
+                    Write-Output "                Tag : " $allTags[$i]  | Out-File $outFile   -Append -NoNewline
+                    Write-Output ""  | Out-File $outFile -Append
+                }
+
+                # get code coverage for build
+                # https://docs.microsoft.com/en-us/rest/api/azure/devops/test/code%20coverage/get%20build%20code%20coverage?view=azure-devops-rest-6.0
+                # GET https://dev.azure.com/{organization}/{project}/_apis/test/codecoverage?buildId={buildId}&flags={flags}&api-version=6.0-preview.1
+                $codeCvgUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/test/codecoverage?buildId=" + $Build.id + "&api-version=6.0-preview.1"
+                $codeCvgForBuild = Invoke-RestMethod -Uri $codeCvgUri -Method Get -Headers $authorization 
+                foreach ($codeCv in $codeCvgForBuild.value)
+                {
+                    Write-Host $codecv.length    
+                }
+
+                # get plan details
+                #
+              
+
+                # get all artifacts for this build
+                # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/artifacts/list?view=azure-devops-rest-6.0
+                # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/artifacts?api-version=6.0
+                $artifactUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/artifacts?api-version=6.0"
+                $allBuildartifacts = Invoke-RestMethod -Uri $artifactUri -Method Get -Headers $authorization 
+
+                Write-Host "    Build Artifacts : " $allBuildartifacts.count
+                Write-Output "            Artifacts Found: " $allBuildartifacts.count | Out-File $outFile   -Append -NoNewline
+                Write-Output ""  | Out-File $outFile -Append
+                foreach ($artifact in $allBuildartifacts.value) 
+                {
+                    $res = $artifact.resource
+                    Write-Output "            Artifacts Name: " $artifact.name "   Artifacts Type: "  $res.type | Out-File $outFile   -Append -NoNewline
+                    Write-Output ""  | Out-File $outFile -Append                    
+                }
+
+                try 
+                {
+                    #get build report
+                    # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/report/get?view=azure-devops-rest-6.0
+                    # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/report?api-version=6.0-preview.2
+                    $buildReportUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/report?api-version=6.0-preview.2"
+                    $buildReport = Invoke-RestMethod -Uri $buildReportUri -Method Get -Headers $authorization     
+
+                    $BuildRep = ConvertTo-Json -InputObject $buildReport -Depth 32
+                    Write-Host $BuildRep
+                }
+                catch 
+                {
+                    $ErrorMessage = $_.Exception.Message
+                    $FailedItem = $_.Exception.ItemName
+                    # Write-Host "Security Error : " + $ErrorMessage + " iTEM : " + $FailedItem    
+                }
+                
+                # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/get%20build%20work%20items%20refs?view=azure-devops-rest-6.1
+                # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/workitems?api-version=6.1-preview.2
+                $workItemUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/workitems?api-version=6.1-preview.2"
+                $allBuildWorkItems = Invoke-RestMethod -Uri $workItemUri -Method Get -Headers $authorization 
+                
+                Write-Host "            Work Items found in Build: " $allBuildWorkItems.count
+                
+                Write-Output "" | Out-File $outFile -Append
+                Write-Output "             Work Items Found: " $allBuildWorkItems.count  | Out-File $outFile   -Append -NoNewline
+                Write-Output "" | Out-File $outFile -Append
+
+                # get individual work items assiciated to the build
+                foreach ($workItems in $allBuildWorkItems.value) 
+                {
+                    # get individual work item
+                    # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/work%20items/get%20work%20item?view=azure-devops-rest-6.1
+                    # GET https://dev.azure.com/{organization}/{project}/_apis/wit/workitems/{id}?api-version=6.1-preview.3
+                    $BuildworkItemUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $workItems.id + "?api-version=6.1-preview.3" 
+                    $WItems = Invoke-RestMethod -Uri $BuildworkItemUri -Method Get -Headers $authorization 
+                    
+                    $fld = $WItems.fields
+                    $cls = $fld.'Microsoft.VSTS.Common.ClosedBy'
+                    $ast = $fld.'System.AssignedTo'
+
+                    Write-Host "        Work Item : " $fld.'System.Title'    $cls.displayName 
+                    
+                    Write-Output "" | Out-File $outFile -Append
+                    Write-Output "               Work Item Id: " $WItems.id   "   Status : " $fld.'System.State'   "  Name : "  $fld.'System.Title' | Out-File $outFile   -Append -NoNewline
+                    Write-Output "" | Out-File $outFile -Append
+
+                    Write-Output "               Area Path : " $fld.'System.AreaPath' "  Iteration : " $fld.'System.IterationPath' | Out-File $outFile -Append -NoNewline
+                    Write-Output "" | Out-File $outFile -Append
+                    
+                    Write-Output "               Assigned To : " $ast.displayName  "  Type : " $fld.'System.WorkItemType' | Out-File $outFile -Append -NoNewline
+                    Write-Output "" | Out-File $outFile -Append
+
+                    Write-Output "               Closed by : " $cls.displayName   " Date Closed: " $fld.'Microsoft.VSTS.Common.ClosedDate' | Out-File $outFile -Append -NoNewline
+                    Write-Output "" | Out-File $outFile -Append
+
+                    Write-Output "               Origional Estimate : " $fld.'Microsoft.VSTS.Scheduling.OrigionalEstimate'   " Actual: " $fld.'Microsoft.VSTS.Scheduling.CompletedWork' | Out-File $outFile -Append -NoNewline
+                    Write-Output "" | Out-File $outFile -Append
+
+
+                }
+                
+            }
+
+        }
+           
+        
+    }
+    
+   
+
+}
+
 function Get-AllUSerMembership(){
     Param(
         [Parameter(Mandatory = $true)]

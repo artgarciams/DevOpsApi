@@ -1,5 +1,5 @@
 #
-# FileName  : CreateProject.ps1
+# FileName  : CreateMain.ps1
 # Date      : 02/08/2018
 # Author    : Arthur A. Garcia
 # Purpose   : This script will create a project in VSTS and add groups to the
@@ -21,12 +21,6 @@ $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 
 Write-Output $userParameters.ProjectName
 Write-Output $userParameters.Description
-
-# Get all groups and there permissions
-Get-SecuritybyGroupByNamespace -userParams $userParameters  -rawDataDump ""  -getAllProjects "True" -outFile "Get-SecuritybyGroupByNamespace-10-28-2.txt" 
-
-# get list of members of group in project or all projects by adding -groupname "All"
-Get-AllUSerMembership  -userParams $userParameters -outFile "Get-AllUSerMembership-10-28-2.txt" -getAllProjects "True"
 
 #list available branches
 # ListGitBranches -userParams $userParameters -outFile "C:\temp\dataBuild_r001.txt"

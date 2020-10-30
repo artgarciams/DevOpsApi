@@ -2,11 +2,12 @@
     "VSTSMasterAcct" : "fdx-strat-pgm",
     "userEmail"     : "arthur.garcia.osv@fedex.com",
     
-    "PAT"            : "3jpr26jjt7wr6werv7rfrb5hbxlyozlwxc57hyzc5elbk3zx62mq",
+    "PAT2"             :"d7kundhe6o2z377framq7o74mgxur7dz4cwsbknq7a7sw7uqkgba",
+    "PAT"           : "qgv2a24zqeiijz5y5uj3y7qnppr372tthlsabn5af7cmcsd6eiiq",
 
     "Subscription"   : "",
     
-    "ProjectName"    : "common",
+    "ProjectName"    : "fdx-surround",
     "Description"    : "My demo project",
     "ProcessType"    : "Agile",
     "RepositoryName" : "AAG Demo",
