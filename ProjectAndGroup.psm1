@@ -158,6 +158,236 @@ function AddVSTSGroupAndUsers() {
 
 }
 
+function Get-ApprovalsByEnvironment()
+{
+    Param(
+        [Parameter(Mandatory = $true)]
+        $userParams,
+        [Parameter(Mandatory = $true)]
+        $outFile,
+        [Parameter(Mandatory = $false)]
+        $EnvToReport
+    )
+
+    # Base64-encodes the Personal Access Token (PAT) appropriately
+    $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
+
+    # get list of environments
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/distributedtask/environments/list?view=azure-devops-rest-6.1
+    # GET https://dev.azure.com/{organization}/{project}/_apis/distributedtask/environments?api-version=6.1-preview.1
+    $envUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/distributedtask/environments?api-version=6.1-preview.1"
+    $allEnvs = Invoke-RestMethod -Uri $envUri -Method Get -Headers $authorization -Verbose
+    Write-Host $allEnvs.count
+
+
+    # environments to report on null = all
+    IF (![string]::IsNullOrEmpty($EnvToReport)) 
+    {
+        $envMain = $allEnvs.value | Where-Object {$_.name -eq $EnvToReport }
+    }
+    else
+    {
+        $envMain = $allEnvs.value 
+    }
+
+    foreach ($Env in $envMain)
+    {
+        Write-Output "Environment : " $Env.name | Out-File $outFile -NoNewline
+        Write-Output "" | Out-File $outFile -Append
+
+        # get individual environment with resources if available
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/distributedtask/environments/get?view=azure-devops-rest-6.1
+        # GET https://dev.azure.com/{organization}/{project}/_apis/distributedtask/environments/{environmentId}?expands={expands}&api-version=6.1-preview.1
+        $envUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/distributedtask/environments/" + $Env.id + "?expands=resourceReferences&api-version=6.1-preview.1"
+        $EnvwResources = Invoke-RestMethod -Uri $envUri -Method Get -Headers $authorization -Verbose
+        for ($r = 0; $r -lt $EnvwResources.resources.length; $r++) 
+        {
+            # get the resources for this environment
+            switch ($EnvwResources.resources[$r].type )
+            {
+                "kubernetes" { 
+                    # https://docs.microsoft.com/en-us/rest/api/azure/devops/distributedtask/kubernetes/get?view=azure-devops-rest-6.1
+                    # GET https://dev.azure.com/{organization}/{project}/_apis/distributedtask/environments/{environmentId}/providers/kubernetes/{resourceId}?api-version=6.1-preview.1
+                    $kubUrl = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/distributedtask/environments/" + $Env.id + "/providers/kubernetes/" + $EnvwResources.resources[$r].id + "?api-version=6.1-preview.1"
+                    $KubResource = Invoke-RestMethod -Uri $kubUrl -Method Get -Headers $authorization -Verbose
+
+                 }
+
+                 "virtualMachine" {
+
+                 }
+
+                 "virtualMachine"{
+
+                 }
+
+                 "generic"{
+
+                 }
+
+                 "undefined"{
+
+                 }
+
+                Default {}
+            }
+        }      
+
+        # get environment deployment record- this is a list of deployments
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/distributedtask/environmentdeployment%20records/list?view=azure-devops-rest-6.1
+        # GET https://dev.azure.com/{organization}/{project}/_apis/distributedtask/environments/{environmentId}/environmentdeploymentrecords?api-version=6.1-preview.1
+        $envDepUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/distributedtask/environments/" + $Env.id + "/environmentdeploymentrecords?api-version=6.1-preview.1"
+        $EnvDeps = Invoke-RestMethod -Uri $envDepUri -Method Get -Headers $authorization -Verbose
+
+        Write-Output " Number of Deployments  :" $EnvDeps.count | Out-File $outFile -Append -NoNewline
+        Write-Output "" | Out-File $outFile -Append
+
+        foreach ($Deploy in $EnvDeps.value) 
+        {
+            # get build in the deployments
+            # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}?api-version=6.1-preview.6
+            $DepBuildUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $deploy.owner.id + "?api-version=6.1-preview.6"
+            $DepBuild = Invoke-RestMethod -Uri $DepBuildUri -Method Get -Headers $authorization -Verbose
+    
+            # get build timeline 
+            # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/timeline/get?view=azure-devops-rest-6.1
+            # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/timeline/{timelineId}?api-version=6.1-preview.2
+            $BuildTimelineUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $deploy.owner.id + "/timeline?api-version=6.1-preview.2"
+            $BuildTimeLine = Invoke-RestMethod -Uri $BuildTimelineUri -Method Get -Headers $authorization -Verbose
+        
+            # filter timeline by stages,job,tasks, etc
+            $tmStages = $BuildTimeLine.records | Where-Object { $_.type -eq "Stage" } | Sort-Object -Property order
+            $tmJobs = $BuildTimeLine.records | Where-Object { $_.type -eq "Job" } | Sort-Object -Property order
+            $tmTasks = $BuildTimeLine.records | Where-Object { $_.type -eq "Task" } | Sort-Object -Property order
+            $tmPhase = $BuildTimeLine.records | Where-Object { $_.type -eq "Phase" } | Sort-Object -Property order
+
+            $tmCheckPoint = $BuildTimeLine.records | Where-Object { $_.type -eq "CheckPoint" } | Sort-Object -Property order        
+            $tmCpApproval = $BuildTimeLine.records | Where-Object { $_.type -eq "Checkpoint.Approval" } | Sort-Object -Property order
+            $tmCpTaskChk = $BuildTimeLine.records | Where-Object { $_.type -match "Checkpoint.TaskCheck" } | Sort-Object -Property order
+
+            # get stages
+            # https://dev.azure.com/<ORG_NAME>/<PROJECT_NAME>/_build/results?buildId=1915&__rt=fps&__ver=2 
+            #$stagesUrl = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_build/results?buildId=" + $deploy.owner.id + "&__rt=fps&__ver=2"
+            #$stageResults = Invoke-RestMethod -Uri $stagesUrl -Method Get -Headers $authorization 
+            #$stageList = $stageResults.fps.dataProviders.data.'ms.vss-build-web.run-details-data-provider'.stages
+            
+           
+            Write-Host "   Deployment :" $Deploy.owner.name " on " $Deploy.definition.name " Status :" $DepBuild.status " Results : " $DepBuild.result
+            Write-Host "        Stage : " $stg.name " Assigned approvers : " $appData.approvals.steps.length
+
+            Write-Output "" | Out-File $outFile -Append            
+            Write-Output "   Deployment :" $Deploy.owner.name " on " $Deploy.definition.name " Status :" $DepBuild.status " Results : " $DepBuild.result | Out-File $outFile -Append -NoNewline
+            Write-Output "" | Out-File $outFile -Append
+
+            # for each stage find the list of approvers and actual approvers using undocumented API found in f12 of portal
+            foreach ($stg in $tmStages) 
+            {
+                $tmData =  @{
+                    contributionIds =  @("ms.vss-build-web.checks-panel-data-provider");
+                    dataProviderContext = @{
+                        properties = @{
+                            buildId =  $deploy.owner.id.ToString();
+                            stageIds = $stg.id ;  
+                            checkListItemType = 1;   
+                            sourcePage = @{
+                                url = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_build/results?buildId=" + $deploy.owner.id + "&view=results";
+                                routeId = "ms.vss-build-web.ci-results-hub-route";
+                                routeValues = @{
+                                    project =  $userParams.ProjectName;
+                                    viewname = "build-results";
+                                    controller = "ContributedPage";
+                                    
+                                }
+                            }                     
+                        }
+                    }
+                }
+                $acl = ConvertTo-Json -InputObject $tmData -depth 32
+            
+                # undocumented api call to get list of approvers for a given stage
+                # https://dev.azure.com/fdx-strat-pgm/_apis/Contribution/HierarchyQuery/project/633b0ef1-c219-4017-beb0-8eb49ff55c35?api-version=5.0-preview.1
+                $approvalURL = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/Contribution/HierarchyQuery/project/" + $Env.project.id + "?api-version=5.0-preview.1"
+                $ApprlResults = Invoke-RestMethod -Uri $approvalURL -Method Post -Headers $authorization  -ContentType "application/json" -Body $acl
+
+                # get the approval data
+                $appData = $ApprlResults.dataproviders.'ms.vss-build-web.checks-panel-data-provider'
+               
+                Write-Output "        Stage : " $stg.name " Assigned approvers : " $appData.approvals.steps.length | Out-File $outFile -Append -NoNewline
+                Write-Output "" | Out-File $outFile -Append
+
+                # if approvals exist for this stage get them               
+                foreach ($item in $appData.approvals.steps) {
+                    Write-Host "    Assigned approver : "  $item.assignedApprover.displayName                  
+
+                    IF (![string]::IsNullOrEmpty($item.actualApprover)) 
+                    {
+                        # if actual approver is not same as assigned approver 
+                        if($item.actualApprover.displayName -ne $item.assignedApprover.displayName )
+                        {
+                            Write-Output "          Actual approver  : " $item.actualApprover.displayName " : on behalf of :" $item.assignedApprover.displayName " Date : " $item.lastModifiedOn  " Comment : " $item.comment | Out-File $outFile -Append -NoNewline
+                            Write-Output "" | Out-File $outFile -Append    
+                        }else
+                        {
+                            Write-Output "          Actual approver  : " $item.actualApprover.displayName " Date : " $item.lastModifiedOn  " Comment : " $item.comment | Out-File $outFile -Append -NoNewline
+                            Write-Output "" | Out-File $outFile -Append                                
+                        }
+
+                    }
+                    else
+                    {
+                        #Write-Output "         Assigned approver : "  $item.assignedApprover.displayName| Out-File $outFile -Append -NoNewline
+                       # Write-Output "" | Out-File $outFile -Append
+                    }
+                }
+            }
+
+            # loop thru each approval in the pipeline and get the approval record
+            #foreach ($chApp in $tmCpApproval) 
+            #{
+            #    #Approval – Get: Get https://dev.azure.com/{organization}/{project}/_apis/pipelines/approvals/{approvalId}
+            #    $approvalURL = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/pipelines/approvals/" + $chApp.Id
+            #    $Approval = Invoke-RestMethod -Uri $approvalURL -Method Get -Headers $authorization -Verbose
+            #    Write-Host $Approval
+            #}
+
+        }
+
+    }
+
+    # get list of pipelines
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/pipelines/pipelines/list?view=azure-devops-rest-6.1
+    # GET https://dev.azure.com/{organization}/{project}/_apis/pipelines?api-version=6.1-preview.1
+   # $pipelineUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/pipelines?api-version=6.1-preview.1"
+   # $allPipelines = Invoke-RestMethod -Uri $pipelineUri -Method Get -Headers $authorization -Verbose
+   # Write-Host $allPipelines.count
+
+    # get all runs for a pipeline
+    #foreach ($pipeline in $allPipelines.value)
+    #{
+        # get runs for a pipeline
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/pipelines/runs/list?view=azure-devops-rest-6.1
+        # GET https://dev.azure.com/{organization}/{project}/_apis/pipelines/{pipelineId}/runs?api-version=6.1-preview.1
+    #    $runUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/pipelines/" + $pipeline.id + "/runs?api-version=6.1-preview.1"
+    #    $allruns = Invoke-RestMethod -Uri $runUri -Method Get -Headers $authorization -Verbose
+    #    Write-Host $allruns.count
+
+    #    foreach ($run in $allruns.value) 
+    #    {
+    #        # get detail of a run 
+    #        # https://docs.microsoft.com/en-us/rest/api/azure/devops/pipelines/runs/get?view=azure-devops-rest-6.1
+    #        # GET https://dev.azure.com/{organization}/{project}/_apis/pipelines/{pipelineId}/runs/{runId}?api-version=6.1-preview.1
+    #        $runDetailUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/pipelines/" + $pipeline.id + "/runs/" + $run.id + "?api-version=6.1-preview.1"
+    #        $runDetail = Invoke-RestMethod -Uri $runDetailUri -Method Get -Headers $authorization -Verbose
+    #        Write-Host $runDetail.count
+    #
+    #    }
+    #
+    #           
+    #}
+
+
+}
+
 function Get-BuildDetailsByProject(){
     Param(
         [Parameter(Mandatory = $true)]
@@ -179,6 +409,8 @@ function Get-BuildDetailsByProject(){
     # GET https://dev.azure.com/{organization}/{project}/_apis/build/folders/{path}?api-version=6.0-preview.2
     $folderUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/folders?api-version=6.0-preview.2"
     $allFlders = Invoke-RestMethod -Uri $folderUri -Method Get -Headers $authorization -Verbose
+
+
 
     # filter by folder if needed
     if (![string]::IsNullOrEmpty($FolderName))
@@ -205,7 +437,7 @@ function Get-BuildDetailsByProject(){
         # get list build definitions by folder
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/definitions/list?view=azure-devops-rest-6.1
         # GET https://dev.azure.com/{organization}/{project}/_apis/build/definitions?name={name}&repositoryId={repositoryId}&repositoryType={repositoryType}&queryOrder={queryOrder}&$top={$top}&continuationToken={continuationToken}&minMetricsTime={minMetricsTime}&definitionIds={definitionIds}&path={path}&builtAfter={builtAfter}&notBuiltAfter={notBuiltAfter}&includeAllProperties={includeAllProperties}&includeLatestBuilds={includeLatestBuilds}&taskIdFilter={taskIdFilter}&processType={processType}&yamlFilename={yamlFilename}&api-version=6.1-preview.7
-        $folderUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/definitions?path=" +$Folder.path + "&api-version=6.1-preview.7"
+        $folderUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/definitions?path=" +$Folder.path + "&includeAllProperties=true&includeLatestBuilds=true&api-version=6.1-preview.7"
         $AllDefinitions = Invoke-RestMethod -Uri $folderUri -Method Get -Headers $authorization 
               
         # get builds for each definition
@@ -215,10 +447,10 @@ function Get-BuildDetailsByProject(){
 
         foreach ($BuildDef in $AllDefinitions.value) 
         {
-
+            # get builds for each definition
             # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-6.1
-            # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds?definitions={definitions}&api-version=6.1-preview.6
-            $BuildUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds?definitions=" + $BuildDef.id + "&api-version=6.1-preview.6"
+            # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds?definitions={definitions}&queues={queues}&buildNumber={buildNumber}&minTime={minTime}&maxTime={maxTime}&requestedFor={requestedFor}&reasonFilter={reasonFilter}&statusFilter={statusFilter}&resultFilter={resultFilter}&tagFilters={tagFilters}&properties={properties}&$top={$top}&continuationToken={continuationToken}&maxBuildsPerDefinition={maxBuildsPerDefinition}&deletedFilter={deletedFilter}&queryOrder={queryOrder}&branchName={branchName}&buildIds={buildIds}&repositoryId={repositoryId}&repositoryType={repositoryType}&api-version=6.1-preview.6
+            $BuildUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds?definitions=" + $BuildDef.id + "&queryOrder=startTimeDescending&api-version=6.1-preview.6"
             $allBuilds = Invoke-RestMethod -Uri $BuildUri -Method Get -Headers $authorization 
 
             Write-Output "" | Out-File $outFile -Append        
@@ -228,17 +460,43 @@ function Get-BuildDetailsByProject(){
             Write-Output ""  | Out-File $outFile -Append
 
             Write-Host "        Builds found by definition: " $allBuilds.count
-                        
+            $latestCompleteBuildInfo = $BuildDef.latestCompletedBuild
+            $latest = ""
+
             # get all work items associated to the build
-            foreach ($build in $allBuilds.value) 
-            {
+            for ($b = 0; $b -lt $allBuilds.Count; $b++) {
+                
+                $build = $allBuilds.value[$b]
+                
+                # if latest build and we have already displayed the latest build skip
+                if( $latestCompleteBuildInfo.id -eq $build.id -and $latest -ne "")
+                {
+                    continue
+                }
+
+                # find latest build and print it first
+                if($latest -eq "" )
+                {
+                    $build = $allBuilds.value | Where-Object { $_.id -match $latestCompleteBuildInfo.id }
+                    # if not found ie no latest build use next build in list
+                    IF ([string]::IsNullOrEmpty($build))
+                    {
+                        $build = $allBuilds.value[$b]
+                    }else 
+                    {
+                        Write-Output ""  | Out-File $outFile -Append
+                        Write-Output "        ======> Latest Build <======" | Out-File $outFile -Append -NoNewline
+                        $latest = $build.id
+                    }
+                }
+
                 Write-Host "Build ID: " $build.id " - Build Number : " $build.buildNumber    
                 Write-Host "    Build Status: " $build.Status " - Result: " $build.result
                 $def = $build.definition
                 $repo = $build.repository
                 $allTags = $build.tags
                 $allPlans = $build.plans
-
+    
                 Write-Output ""  | Out-File $outFile -Append
                 Write-Output "        --->Build ID: " $build.id " - Build Number : " $build.buildNumber | Out-File $outFile -Append -NoNewline
                 Write-Output ""  | Out-File $outFile -Append
@@ -254,7 +512,9 @@ function Get-BuildDetailsByProject(){
                 # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/changes?api-version=6.1-preview.2
                 $bldChangegUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/changes?api-version=6.1-preview.2"
                 $bldChanges = Invoke-RestMethod -Uri $bldChangegUri -Method Get -Headers $authorization 
-                
+
+                Write-Output ""  | Out-File $outFile -Append
+                Write-Output "            Builds changes found for this build: " $bldChanges.count  | Out-File $outFile -Append -NoNewline
                 Write-Output ""  | Out-File $outFile -Append
                 foreach ($bldChg in $bldChanges.value) 
                 {
@@ -268,7 +528,7 @@ function Get-BuildDetailsByProject(){
                     Write-Output "                Tag : " $allTags[$i]  | Out-File $outFile   -Append -NoNewline
                     Write-Output ""  | Out-File $outFile -Append
                 }
-
+              
                 # get code coverage for build
                 # https://docs.microsoft.com/en-us/rest/api/azure/devops/test/code%20coverage/get%20build%20code%20coverage?view=azure-devops-rest-6.0
                 # GET https://dev.azure.com/{organization}/{project}/_apis/test/codecoverage?buildId={buildId}&flags={flags}&api-version=6.0-preview.1
@@ -317,13 +577,13 @@ function Get-BuildDetailsByProject(){
                     # Write-Host "Security Error : " + $ErrorMessage + " iTEM : " + $FailedItem    
                 }
                 
+                # get work all itemsfor this build
                 # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/get%20build%20work%20items%20refs?view=azure-devops-rest-6.1
                 # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/workitems?api-version=6.1-preview.2
                 $workItemUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/workitems?api-version=6.1-preview.2"
                 $allBuildWorkItems = Invoke-RestMethod -Uri $workItemUri -Method Get -Headers $authorization 
                 
                 Write-Host "            Work Items found in Build: " $allBuildWorkItems.count
-                
                 Write-Output "" | Out-File $outFile -Append
                 Write-Output "             Work Items Found: " $allBuildWorkItems.count  | Out-File $outFile   -Append -NoNewline
                 Write-Output "" | Out-File $outFile -Append
@@ -346,23 +606,18 @@ function Get-BuildDetailsByProject(){
                     Write-Output "" | Out-File $outFile -Append
                     Write-Output "               Work Item Id: " $WItems.id   "   Status : " $fld.'System.State'   "  Name : "  $fld.'System.Title' | Out-File $outFile   -Append -NoNewline
                     Write-Output "" | Out-File $outFile -Append
-
                     Write-Output "               Area Path : " $fld.'System.AreaPath' "  Iteration : " $fld.'System.IterationPath' | Out-File $outFile -Append -NoNewline
                     Write-Output "" | Out-File $outFile -Append
-                    
                     Write-Output "               Assigned To : " $ast.displayName  "  Type : " $fld.'System.WorkItemType' | Out-File $outFile -Append -NoNewline
                     Write-Output "" | Out-File $outFile -Append
-
                     Write-Output "               Closed by : " $cls.displayName   " Date Closed: " $fld.'Microsoft.VSTS.Common.ClosedDate' | Out-File $outFile -Append -NoNewline
                     Write-Output "" | Out-File $outFile -Append
-
                     Write-Output "               Origional Estimate : " $fld.'Microsoft.VSTS.Scheduling.OrigionalEstimate'   " Actual: " $fld.'Microsoft.VSTS.Scheduling.CompletedWork' | Out-File $outFile -Append -NoNewline
                     Write-Output "" | Out-File $outFile -Append
-
-
                 }
                 
             }
+
 
         }
            

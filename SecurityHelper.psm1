@@ -933,7 +933,7 @@ function Get-UserDescriptor () {
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
 
     # find domain id for user. need this for descriptor in accesscontrolentries
-    $descriptorURL = " https://" + $userParams.VSTSMasterAcct + ".vsaex.visualstudio.com/_apis/userentitlements?top=100&skip=0&api-version=4.1-preview"
+    $descriptorURL = " https://" + $userParams.VSTSMasterAcct + ".vsaex.visualstudio.com/_apis/userentitlements?top=1000&skip=0&api-version=4.1-preview"
     $descriptor = Invoke-RestMethod -Uri $descriptorURL -Method Get -Headers $authorization  -ContentType "application/json"  
     
     # for later use
@@ -955,6 +955,40 @@ function Get-UserDescriptor () {
 
 }
 
+
+function Get-UserDescriptorById () {
+    param(
+        [Parameter(Mandatory = $true)]
+        $userParams,
+        $id
+    )
+
+    # Base64-encodes the Personal Access Token (PAT) appropriately
+    $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
+
+    # find domain id for user. need this for descriptor in accesscontrolentries
+    $descriptorURL = " https://" + $userParams.VSTSMasterAcct + ".vsaex.visualstudio.com/_apis/userentitlements?top=1000&skip=0&api-version=4.1-preview"
+    $descriptor = Invoke-RestMethod -Uri $descriptorURL -Method Get -Headers $authorization  -ContentType "application/json"  
+    
+    # for later use
+    #descriptor = "Microsoft.IdentityModel.Claims.ClaimsIdentity;" +  $domain + "\" + $userParams.userEmail
+    #descriptor = "Microsoft.VisualStudio.Services.Identity;" + $grp.descriptor
+    $fnd = $descriptor.value | Where-Object {($_.id -eq $id)}
+    
+    # # loop thru object to find domain for given user TODO: find better way to do this
+    foreach($item in $descriptor.value)
+    {
+        foreach($usr in $item.user)
+        {
+            if($usr.id -eq $id )
+            {
+                $domain = $usr.domain;
+                return "Microsoft.IdentityModel.Claims.ClaimsIdentity;" +  $domain + "\" + $email
+            }
+        }
+    }
+
+}
 ##############################
 #.SYNOPSIS
 #Short description

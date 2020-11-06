@@ -636,3 +636,207 @@ function Get-SecurityByNamespaces()
                             $lastTOken = $aclListByNamespace.value[$i].token
                         }
                     }
+
+
+function Get-ApprovalsByEnvironment_old()
+{
+    # not archive code, just want to save what i found from hitting f12 
+    # un documented calls
+    Param(
+        [Parameter(Mandatory = $true)]
+        $userParams,
+        [Parameter(Mandatory = $true)]
+        $outFile
+    )
+
+    # Base64-encodes the Personal Access Token (PAT) appropriately
+    $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
+
+    # get list of environments
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/distributedtask/environments/list?view=azure-devops-rest-6.1
+    # GET https://dev.azure.com/{organization}/{project}/_apis/distributedtask/environments?api-version=6.1-preview.1
+    $envUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/distributedtask/environments?api-version=6.1-preview.1"
+    $allEnvs = Invoke-RestMethod -Uri $envUri -Method Get -Headers $authorization -Verbose
+    Write-Host $allEnvs.count
+
+    $envMain = $allEnvs.value | Where-Object {$_.name -eq "PROD-App"}
+
+    foreach ($Env in $envMain)
+    {
+        # get individual environment with resources if available
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/distributedtask/environments/get?view=azure-devops-rest-6.1
+        # GET https://dev.azure.com/{organization}/{project}/_apis/distributedtask/environments/{environmentId}?expands={expands}&api-version=6.1-preview.1
+        $envUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/distributedtask/environments/" + $Env.id + "?expands=resourceReferences&api-version=6.1-preview.1"
+        $EnvwResources = Invoke-RestMethod -Uri $envUri -Method Get -Headers $authorization -Verbose
+        for ($r = 0; $r -lt $EnvwResources.resources.length; $r++) 
+        {
+            # get the resources for this environment
+            switch ($EnvwResources.resources[$r].type )
+            {
+                "kubernetes" { 
+                    # https://docs.microsoft.com/en-us/rest/api/azure/devops/distributedtask/kubernetes/get?view=azure-devops-rest-6.1
+                    # GET https://dev.azure.com/{organization}/{project}/_apis/distributedtask/environments/{environmentId}/providers/kubernetes/{resourceId}?api-version=6.1-preview.1
+                    $kubUrl = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/distributedtask/environments/" + $Env.id + "/providers/kubernetes/" + $EnvwResources.resources[$r].id + "?api-version=6.1-preview.1"
+                    $KubResource = Invoke-RestMethod -Uri $kubUrl -Method Get -Headers $authorization -Verbose
+
+                    }
+
+                    "virtualMachine" {
+
+                    }
+
+                    "virtualMachine"{
+
+                    }
+
+                    "generic"{
+
+                    }
+
+                    "undefined"{
+
+                    }
+
+                Default {}
+            }
+        }
+        
+
+        $tmData =  @{
+            contributionIds = @(@{"ms.vss-build-web.checks-panel-data-provider"});
+            dataProviderContext = @{
+                properties = {
+                    buildId = "22168";
+                    stageIds = "ab2863f6-83b8-5f68-9b02-83c7be202aa7";
+                    checkListItemType= 1;                    
+                    }
+                }
+            }
+        
+        $acl = ConvertTo-Json -InputObject $tmData
+        $acl = $acl -replace """{}""", '{}'
+
+        #application/json;api-version=5.0-preview.1;excludeUrls=true;enumsAsNumbers=true;msDateFormat=true;noArrayWrap=true
+        # GET https://auditservice.dev.azure.com/{organization}/_apis/audit/auditlog?api-version=6.1-preview.1
+        $envDepUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/Contribution/HierarchyQuery/project/" + $userParams.ProjectName + "?api-version=5.0-preview.1"
+        $EnvDeps = Invoke-RestMethod -Uri $envDepUri -Method Post -Headers $authorization -ContentType "application/json" -Body $acl
+        
+
+        # get environment deployment record- this is a list of deployments
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/distributedtask/environmentdeployment%20records/list?view=azure-devops-rest-6.1
+        # GET https://dev.azure.com/{organization}/{project}/_apis/distributedtask/environments/{environmentId}/environmentdeploymentrecords?api-version=6.1-preview.1
+        $envDepUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/distributedtask/environments/" + $Env.id + "/environmentdeploymentrecords?api-version=6.1-preview.1"
+        $EnvDeps = Invoke-RestMethod -Uri $envDepUri -Method Get -Headers $authorization -Verbose
+        foreach ($Deploy in $EnvDeps.value) 
+        {
+            # get build in the deployments
+            # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}?api-version=6.1-preview.6
+            $DepBuildUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $deploy.owner.id + "?api-version=6.1-preview.6"
+            $DepBuild = Invoke-RestMethod -Uri $DepBuildUri -Method Get -Headers $authorization -Verbose
+    
+                Write-Host $Deploy
+                ConvertTo-Html -InputObject 
+
+            $DepBuildUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_build/results?buildId=" + $deploy.owner.id + "&view=results"
+            #$DepBuildUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/pipelines/approvals"
+            $DepBuild = Invoke-RestMethod -Uri $DepBuildUri -Method Get -Headers $authorization  -Verbose 
+            
+            Write-Host $DepBuild.ParsedHtml
+            
+            $e = $DepBuild | Get-Member 
+
+            $s = $DepBuild
+            
+            $first = $s.IndexOf('jobs') -1
+            
+            $t = $s.substring($first)
+            $last = $t.IndexOf('ms.vss-web.navigation-data')
+
+            
+            $n =  $t.substring(0,$last-2)
+            $data = ConvertTo-Json -InputObject $n 
+
+            #$t = $DepBuild.data.'ms.vss-build-web.run-details-data-provider'
+            Write-Host $data
+
+            # get build timeline 
+            # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/timeline/get?view=azure-devops-rest-6.1
+            # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/timeline/{timelineId}?api-version=6.1-preview.2
+            $BuildTimelineUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $deploy.owner.id + "/timeline?api-version=6.1-preview.2"
+            $BuildTimeLine = Invoke-RestMethod -Uri $BuildTimelineUri -Method Get -Headers $authorization -Verbose
+            
+            $tmStages = $BuildTimeLine.records | Where-Object { $_.type -eq "Stage" } | Sort-Object -Property order
+            $tmJobs = $BuildTimeLine.records | Where-Object { $_.type -eq "Job" } | Sort-Object -Property order
+            $tmTasks = $BuildTimeLine.records | Where-Object { $_.type -eq "Task" } | Sort-Object -Property order
+            $tmPhase = $BuildTimeLine.records | Where-Object { $_.type -eq "Phase" } | Sort-Object -Property order
+
+            $tmCheckPoint = $BuildTimeLine.records | Where-Object { $_.type -eq "CheckPoint" } | Sort-Object -Property order        
+            $tmCpApproval = $BuildTimeLine.records | Where-Object { $_.type -eq "Checkpoint.Approval" } | Sort-Object -Property order
+            $tmCpTaskChk = $BuildTimeLine.records | Where-Object { $_.type -match "Checkpoint.TaskCheck" } | Sort-Object -Property order
+
+            #loop thru stages
+            foreach ($tm in $tmStages) 
+            {
+
+                # get build timeline 
+                # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/timeline/get?view=azure-devops-rest-6.1
+                # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/timeline/{timelineId}?changeId={changeId}&planId={planId}&api-version=6.1-preview.2
+                $TimelineUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $deploy.owner.id + "/timeline/" + $tm.id + "?&api-version=6.1-preview.2"
+                $ApprovalTimeLine = Invoke-RestMethod -Uri $TimelineUri -Method Get -Headers $authorization 
+
+
+                # find approver
+                # https://dev.azure.com/fdx-strat-pgm/_apis/Contribution/HierarchyQuery/project/633b0ef1-c219-4017-beb0-8eb49ff55c35
+                # https://docs.microsoft.com/en-us/rest/api/azure/devops/ims/identities/read%20identities?view=azure-devops-rest-6.1#uri-parameters
+                # GET https://vssps.dev.azure.com/{organization}/_apis/identities?descriptors={descriptors}&identityIds={identityIds}&subjectDescriptors={subjectDescriptors}&searchFilter={searchFilter}&filterValue={filterValue}&queryMembership={queryMembership}&api-version=6.1-preview.1
+                # GET https://vssps.dev.azure.com/{organization}/_apis/graph/users/{userDescriptor}?api-version=6.1-preview.1
+                $idtf = $tm.identifier -replace('-', '')
+                $idft = Get-UserDescriptorById  -userParams $userParams -id $tm.identifier 
+                $idUrl = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/users/" + $tm.identifier + "?api-version=6.1-preview.1"
+                $idData = Invoke-RestMethod -Uri $idUrl -Method Get -Headers $authorization -Verbose
+
+                Write-Host $tm.type " - " $tm.name " - " $tm.order
+            }
+            Write-Host $BuildTimeLine
+
+    
+        }
+        
+
+
+
+    }
+
+    # get list of pipelines
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/pipelines/pipelines/list?view=azure-devops-rest-6.1
+    # GET https://dev.azure.com/{organization}/{project}/_apis/pipelines?api-version=6.1-preview.1
+    $pipelineUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/pipelines?api-version=6.1-preview.1"
+    $allPipelines = Invoke-RestMethod -Uri $pipelineUri -Method Get -Headers $authorization -Verbose
+    Write-Host $allPipelines.count
+
+    # get all runs for a pipeline
+    foreach ($pipeline in $allPipelines.value)
+    {
+        # get runs for a pipeline
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/pipelines/runs/list?view=azure-devops-rest-6.1
+        # GET https://dev.azure.com/{organization}/{project}/_apis/pipelines/{pipelineId}/runs?api-version=6.1-preview.1
+        $runUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/pipelines/" + $pipeline.id + "/runs?api-version=6.1-preview.1"
+        $allruns = Invoke-RestMethod -Uri $runUri -Method Get -Headers $authorization -Verbose
+        Write-Host $allruns.count
+
+        foreach ($run in $allruns.value) 
+        {
+            # get detail of a run 
+            # https://docs.microsoft.com/en-us/rest/api/azure/devops/pipelines/runs/get?view=azure-devops-rest-6.1
+            # GET https://dev.azure.com/{organization}/{project}/_apis/pipelines/{pipelineId}/runs/{runId}?api-version=6.1-preview.1
+            $runDetailUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/pipelines/" + $pipeline.id + "/runs/" + $run.id + "?api-version=6.1-preview.1"
+            $runDetail = Invoke-RestMethod -Uri $runDetailUri -Method Get -Headers $authorization -Verbose
+            Write-Host $runDetail.count
+
+        }
+
+                
+    }
+
+
+}

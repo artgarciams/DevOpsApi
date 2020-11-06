@@ -22,7 +22,7 @@ Write-Output $userParameters.ProjectName
 Write-Output $userParameters.Description
 
 # Get all groups and there permissions
-Get-SecuritybyGroupByNamespace -userParams $userParameters  -rawDataDump ""  -getAllProjects "True" -outFile "Get-SecuritybyGroupByNamespace-10-28-2.txt" 
+Get-SecuritybyGroupByNamespace -userParams $userParameters  -rawDataDump ""  -getAllProjects "False" -outFile "Get-SecuritybyGroupByNamespace-11-03.txt" 
 
 # get list of members of group in project or all projects by adding -groupname "All"
 Get-AllUSerMembership  -userParams $userParameters -outFile "Get-AllUSerMembership-10-28-2.txt" -getAllProjects "True"
