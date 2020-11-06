@@ -178,7 +178,7 @@ function Get-ApprovalsByEnvironment()
     $envUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/distributedtask/environments?api-version=6.1-preview.1"
     $allEnvs = Invoke-RestMethod -Uri $envUri -Method Get -Headers $authorization -Verbose
     Write-Host $allEnvs.count
-
+    Write-Output "" | Out-File $outFile 
 
     # environments to report on null = all
     IF (![string]::IsNullOrEmpty($EnvToReport)) 
@@ -192,7 +192,8 @@ function Get-ApprovalsByEnvironment()
 
     foreach ($Env in $envMain)
     {
-        Write-Output "Environment : " $Env.name | Out-File $outFile -NoNewline
+        Write-Output "" | Out-File $outFile -Append
+        Write-Output "Environment : " $Env.name | Out-File $outFile -Append -NoNewline
         Write-Output "" | Out-File $outFile -Append
 
         # get individual environment with resources if available

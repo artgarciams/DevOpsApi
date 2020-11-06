@@ -21,6 +21,6 @@ $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 Write-Output $userParameters.ProjectName
 Write-Output $userParameters.Description
 
-Get-ApprovalsByEnvironment -userParams $userParameters -outFile "C:\temp\Approvals_11_06_2020_2.txt"  -EnvToReport "Prod-App"
+Get-ApprovalsByEnvironment -userParams $userParameters -outFile "C:\temp\Approvals_11_06_2020_3.txt"  -EnvToReport ""
 
 Get-BuildDetailsByProject -userParams $userParameters -outFile "C:\temp\Build_Details_11_06_2020.txt" -FolderName "surround-common"
