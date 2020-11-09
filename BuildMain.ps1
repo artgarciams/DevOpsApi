@@ -21,6 +21,9 @@ $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 Write-Output $userParameters.ProjectName
 Write-Output $userParameters.Description
 
-Get-ApprovalsByEnvironment -userParams $userParameters -outFile "C:\temp\Approvals_11_06_2020_3.txt"  -EnvToReport ""
+# get a list of approvers for the project selected. EnvToReport will report for a given environment or all if ""
+# this uses an undocumented api to find approvers
+Get-ApprovalsByEnvironment -userParams $userParameters -outFile "C:\temp\Approvals_11_09_2020.txt"  -EnvToReport ""
 
-Get-BuildDetailsByProject -userParams $userParameters -outFile "C:\temp\Build_Details_11_06_2020.txt" -FolderName "surround-common"
+# get details for all builds based on folder given. if no folder for all folders in project
+Get-BuildDetailsByProject -userParams $userParameters -outFile "C:\temp\Build_Details_11_09_2020.txt" -FolderName "surround-common"

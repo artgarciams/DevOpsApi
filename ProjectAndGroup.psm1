@@ -234,7 +234,7 @@ function Get-ApprovalsByEnvironment()
             }
         }      
 
-        # get environment deployment record- this is a list of deployments
+        # get environment deployment record - this is a list of deployments
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/distributedtask/environmentdeployment%20records/list?view=azure-devops-rest-6.1
         # GET https://dev.azure.com/{organization}/{project}/_apis/distributedtask/environments/{environmentId}/environmentdeploymentrecords?api-version=6.1-preview.1
         $envDepUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/distributedtask/environments/" + $Env.id + "/environmentdeploymentrecords?api-version=6.1-preview.1"
@@ -272,7 +272,6 @@ function Get-ApprovalsByEnvironment()
             #$stageResults = Invoke-RestMethod -Uri $stagesUrl -Method Get -Headers $authorization 
             #$stageList = $stageResults.fps.dataProviders.data.'ms.vss-build-web.run-details-data-provider'.stages
             
-           
             Write-Host "   Deployment :" $Deploy.owner.name " on " $Deploy.definition.name " Status :" $DepBuild.status " Results : " $DepBuild.result
             Write-Host "        Stage : " $stg.name " Assigned approvers : " $appData.approvals.steps.length
 
@@ -410,8 +409,6 @@ function Get-BuildDetailsByProject(){
     # GET https://dev.azure.com/{organization}/{project}/_apis/build/folders/{path}?api-version=6.0-preview.2
     $folderUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/folders?api-version=6.0-preview.2"
     $allFlders = Invoke-RestMethod -Uri $folderUri -Method Get -Headers $authorization -Verbose
-
-
 
     # filter by folder if needed
     if (![string]::IsNullOrEmpty($FolderName))

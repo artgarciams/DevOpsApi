@@ -1,0 +1,21 @@
+{
+    "contributionIds": ["ms.vss-build-web.checks-panel-data-provider"],
+    "dataProviderContext": {
+        "properties": {
+            "buildId": "24454",
+            "stageIds": "ab2863f6-83b8-5f68-9b02-83c7be202aa7",
+            "checkListItemType": 1,
+            "sourcePage": {
+                "url": "https://dev.azure.com/fdx-strat-pgm/fdx-surround/_build/results?buildId=24454&view=results",
+                "routeId": "ms.vss-build-web.ci-results-hub-route",
+                "routeValues": {
+                    "project": "fdx-surround",
+                    "viewname": "build-results",
+                    "controller": "ContributedPage",
+                    "action": "Execute",
+                    "serviceHost": "2039e1eb-1348-4f9a-9e5f-803089e455b1 (fdx-strat-pgm)"
+                }
+            }
+        }
+    }
+}
