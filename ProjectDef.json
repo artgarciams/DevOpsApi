@@ -1,9 +1,9 @@
 { 
     "VSTSMasterAcct" : "fdx-strat-pgm",
-    "userEmail"     : "arthur.garcia.osv@fedex.com",
+    "userEmail"     : "",
     
-    "PAT"             :"d7kundhe6o2z377framq7o74mgxur7dz4cwsbknq7a7sw7uqkgba",
-    "PAT2"           : "qgv2a24zqeiijz5y5uj3y7qnppr372tthlsabn5af7cmcsd6eiiq",
+    "PAT"             :"",
+    "PAT2"           : "",
 
     "Subscription"   : "",
     
