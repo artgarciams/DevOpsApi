@@ -5,9 +5,15 @@
     "PAT"             :"d7kundhe6o2z377framq7o74mgxur7dz4cwsbknq7a7sw7uqkgba",
     "PAT2"           : "qgv2a24zqeiijz5y5uj3y7qnppr372tthlsabn5af7cmcsd6eiiq",
 
-    "Subscription"   : "",
-    
+    "Subscription"   : "surround-portal-dailybuilds",
     "ProjectName"    : "fdx-surround",
+
+    "Build Number"   : "not implemented yet",
+    "Folder"         : "",
+    "Tags"           : ["v1.1","v1.0.1"],
+    "Stages"         : ["Deploy to FDXQA", "Deploy to PROD" ],
+    "BuildResults"   : "",
+
     "Description"    : "My demo project",
     "ProcessType"    : "Agile",
     "RepositoryName" : "AAG Demo",
@@ -16,7 +22,8 @@
     "UseProxy"       : "False",
 
     "DumpDirectory"  : "C:\\Temp\\RawData\\",
-    "DataDirectory"  : "C:\\Temp\\",
+    "DataDirectory"  : "C:\\Temp\\ReleaseNotes\\",
+    "LogDirectory"   : "C:\\Temp\\ReleaseNotes\\",
     
     "OmitTeam" :[{}],
     

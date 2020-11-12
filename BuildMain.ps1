@@ -23,7 +23,9 @@ Write-Output $userParameters.Description
 
 # get a list of approvers for the project selected. EnvToReport will report for a given environment or all if ""
 # this uses an undocumented api to find approvers
-Get-ApprovalsByEnvironment -userParams $userParameters -outFile "C:\temp\Approvals_11_09_2020.txt"  -EnvToReport ""
+#Get-ApprovalsByEnvironment -userParams $userParameters -outFile "C:\temp\Approvals_11_10_2020.txt"  -EnvToReport ""
 
 # get details for all builds based on folder given. if no folder for all folders in project
-Get-BuildDetailsByProject -userParams $userParameters -outFile "C:\temp\Build_Details_11_09_2020.txt" -FolderName "surround-common"
+# Get-BuildDetailsByProject -userParams $userParameters -outFile "C:\temp\Build_Details_11_11_2020_2.txt" 
+
+Get-ReleaseNotesByTag  -userParams $userParameters 
