@@ -1,18 +1,19 @@
 { 
     "VSTSMasterAcct" : "fdx-strat-pgm",
-    "userEmail"     : "",
+    "userEmail"     : "arthur.garcia.osv@fedex.com",
     
-    "PAT"             :"",
+    "PAT"             :"37ffftez7dnwosok2ybs2j2xdmoi7szpsizsworzmcakmuzkjkva",
     "PAT2"           : "",
 
-    "Subscription"   : "surround-portal-dailybuilds",
+    "Subscription"   : "",
+    
     "ProjectName"    : "fdx-surround",
 
-    "Build Number"   : "not implemented yet",
     "Folder"         : "",
     "Tags"           : ["v1.1","v1.0.1"],
     "Stages"         : ["Deploy to FDXQA", "Deploy to PROD" ],
-    "BuildResults"   : "",
+    "BuildResults"   : ["Succeeded"],
+    "BuildNumber"    : "",
 
     "Description"    : "My demo project",
     "ProcessType"    : "Agile",

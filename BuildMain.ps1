@@ -28,4 +28,11 @@ Write-Output $userParameters.Description
 # get details for all builds based on folder given. if no folder for all folders in project
 # Get-BuildDetailsByProject -userParams $userParameters -outFile "C:\temp\Build_Details_11_11_2020_2.txt" 
 
+# generate a file for each build showing build info, work items, and approvals
+# for following parameters in ProjectDef. setting param to "" skips it
+#   "Folder"         : "",
+#    "Tags"           : ["v1.1","v1.0.1"],
+#    "Stages"         : ["Deploy to FDXQA", "Deploy to PROD" ],
+#    "BuildResults"   : ["Succeeded"],
+#    "BuildNumber"    : "",
 Get-ReleaseNotesByTag  -userParams $userParameters 

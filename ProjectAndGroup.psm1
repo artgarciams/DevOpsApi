@@ -433,16 +433,62 @@ function Get-ReleaseNotesByTag()
     Write-Output "Run Started :" $now | Out-File $runLog -NoNewline
     Write-Output ""  | Out-File $runLog -Append
 
+    Write-Output "   Run Filters: "  | Out-File $runLog -Append    
+    if( $userParams.Tags -ne "")
+    {
+        Write-Output "   Tags to Include   : "   | Out-File $runLog -Append -NoNewline
+        foreach( $tg in $userParams.Tags  )
+        {
+            Write-Output $tg " | "  | Out-File $runLog -Append -NoNewline
+        }
+        Write-Output ""  | Out-File $runLog -Append
+    }
+
     # filter by folder if needed
     if ( $userParams.Folder -ne "")
     {
         $allFolders = $allFlders.value | Where-Object { $_.path -match $userParams.Folder}
+        Write-Output "   Folder to Include :" $userParams.Folder  | Out-File $runLog -Append 
     }
     else 
     {
         $allFolders = $allFlders.value
+        Write-Output "   Folder to Include : All Folders" | Out-File $runLog -Append 
     }
     
+    if($userParams.BuildResults -ne "")
+    {
+        Write-Output "   Results to Include: "   | Out-File $runLog -Append -NoNewline
+        foreach( $br in $userParams.BuildResults  )
+        {
+            Write-Output $br " | "  | Out-File $runLog -Append -NoNewline
+        }
+        Write-Output ""  | Out-File $runLog -Append
+    }
+    else
+    {
+        Write-Output "   Results to Include: All results included"   | Out-File $runLog -Append -NoNewline
+        Write-Output ""  | Out-File $runLog -Append
+    }
+
+    if($userParams.BuildNumber -ne "")
+    {
+        Write-Output "   Build Number      : " $userParams.BuildNumber  | Out-File $runLog -Append  -NoNewline
+        Write-Output ""  | Out-File $runLog -Append
+    }
+
+    if($userParams.Stages -ne "")
+    {
+        Write-Output "   Stages to Include : "   | Out-File $runLog -Append -NoNewline
+        foreach( $st in $userParams.Stages   )
+        {
+            Write-Output $st " | "  | Out-File $runLog -Append -NoNewline
+        }
+        Write-Output ""  | Out-File $runLog -Append
+    }
+    Write-Output ""  | Out-File $runLog -Append
+    Write-Output ""  | Out-File $runLog -Append
+
     foreach ($folder in $allFolders)
     {
         # get list build definitions by folder. folders contain build definitions
@@ -451,22 +497,31 @@ function Get-ReleaseNotesByTag()
         $folderUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/definitions?path=" +$folder.path + "&includeAllProperties=true&includeLatestBuilds=true&api-version=6.1-preview.7"
         $AllDefinitions = Invoke-RestMethod -Uri $folderUri -Method Get -Headers $authorization 
 
+        Write-Host "Folder: " $folder.path 
+
         foreach ($BuildDef in $AllDefinitions.value) 
         {
+            Write-Host "Build Definition: " $BuildDef.name
             # get builds for each definition
             # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-6.1
             # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds?definitions={definitions}&queues={queues}&buildNumber={buildNumber}&minTime={minTime}&maxTime={maxTime}&requestedFor={requestedFor}&reasonFilter={reasonFilter}&statusFilter={statusFilter}&resultFilter={resultFilter}&tagFilters={tagFilters}&properties={properties}&$top={$top}&continuationToken={continuationToken}&maxBuildsPerDefinition={maxBuildsPerDefinition}&deletedFilter={deletedFilter}&queryOrder={queryOrder}&branchName={branchName}&buildIds={buildIds}&repositoryId={repositoryId}&repositoryType={repositoryType}&api-version=6.1-preview.6
             $BuildUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds?definitions=" + $BuildDef.id + "&queryOrder=startTimeDescending&api-version=6.1-preview.6"
             $allBuilds = Invoke-RestMethod -Uri $BuildUri -Method Get -Headers $authorization 
             
-            # filter on build results             
+            # filter on build results. only get builds with the results specified in projectdef array            
             if($userParams.BuildResults -ne "")
             {
-                $allBuilds = $allBuilds.value | Where-Object { $_.result -match $userParams.BuildResults }
+                $allBuilds = $allBuilds.value | Where-Object { $_.result -in $userParams.BuildResults }               
+            }
+
+            # filter on BUild number 
+            if($userParams.BuildNumber -ne "")
+            {
+                $allBuilds = $allBuilds.value | Where-Object { $_.buildNumber -in $userParams.BuildNumber }
             }
 
             # loop thru each build in the definition
-            foreach ($build in $allBuilds.value) 
+            foreach ($build in $allBuilds) 
             {
                 $tagFound = $false
                 $buildTitle = $false
@@ -477,8 +532,8 @@ function Get-ReleaseNotesByTag()
                 $workItemUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $build.id + "/workitems?api-version=6.1-preview.2"
                 $allBuildWorkItems = Invoke-RestMethod -Uri $workItemUri -Method Get -Headers $authorization 
 
-                Write-Host "Folder:" $folder.path  " Build Def:" $BuildDef.name " Build ID :" $build.buildNumber " Status : " $build.status " Number of workItems :" $allBuildWorkItems.count
-                Write-Output "Folder:" $folder.path  " Build Def:" $BuildDef.name " Build ID :" $build.buildNumber " Status : " $build.status " Number of workItems :" $allBuildWorkItems.count |  Out-File $runLog -Append -NoNewline
+                Write-Host "Folder:" $folder.path  " Build Def:" $BuildDef.name " Build ID :" $build.buildNumber "  Results: " $build.result  " Status : " $build.status " Number of workItems :" $allBuildWorkItems.count
+                Write-Output "Folder:" $folder.path  " Build Def: " $BuildDef.name " Build ID: " $build.buildNumber " Status: " $build.status "Results: " $build.result " Number of workItems: " $allBuildWorkItems.count |  Out-File $runLog -Append -NoNewline
                 Write-Output "" |  Out-File $runLog -Append 
 
                 $lm0 = 0
@@ -501,10 +556,10 @@ function Get-ReleaseNotesByTag()
                     $wkType = $fld.'System.WorkItemType'
                     $wkState = $fld.'System.State'
                     $wkTitle = $fld.'System.Title'
-                    
+                     
                     Write-Host   "     Tag:" $tg " WorkItem ID:" $workItem.id 
-                    Write-Output "     WorkItem ID:"  $workItem.id " Tag:" $tg  " Title:"  $wkTitle | Out-File $runLog -Append -NoNewline
-                    Write-Output "" | Out-File $runLog -Append
+                   # Write-Output "     WorkItem ID:"  $workItem.id " Tag:" $tg  " Title:"  $wkTitle | Out-File $runLog -Append -NoNewline
+                   # Write-Output "" | Out-File $runLog -Append
 
                     # for spacing
                     if($WItems.id.length -ge $lm0 )
@@ -528,7 +583,6 @@ function Get-ReleaseNotesByTag()
                         $lm4 =  $wkTitle.length
                     }
 
-                    
                     # loop thru tags to searc for in each workitem
                     foreach ($tag in $userParams.Tags) 
                     {
@@ -584,19 +638,22 @@ function Get-ReleaseNotesByTag()
                         if($buildTitle -eq $false )
                         {
                             $buildTitle = $true
+                            $l1 = $def.name.Trim().length - $build.buildNumber.Trim().length 
+                            $l2 = $build.startTime.Trim().length - $build.Status.Trim().length - 2
+                            $l3 = ( $def.name.Trim().length  + 13 + $build.startTime.Trim().length ) - $build.sourceBranch.Trim().length
+
                             Write-Output ""  | Out-File $outFile                             
                             Write-Output ""  | Out-File $outFile -Append
-                            Write-Output "Build Status: " $build.Status " - Result: " $build.result  | Out-File $outFile   -Append -NoNewline
+                            Write-Output "Build Number : " $build.buildNumber.Trim()  "".PadRight($l1," ") " Build Status: " $build.Status.Trim() "".PadRight($l2," ") " Result     : " $build.result  | Out-File $outFile   -Append -NoNewline
                             Write-Output ""  | Out-File $outFile -Append
-                            Write-Output "Requested by: " $def.name " - Start Time: " $build.startTime  "  Finish Time: " $build.finishTime | Out-File $outFile   -Append -NoNewline
+                            Write-Output "Requested by : " $def.name.Trim() " Start Time: " $build.startTime.Trim()  " Finish Time: " $build.finishTime | Out-File $outFile   -Append -NoNewline
                             Write-Output ""  | Out-File $outFile -Append
-                            Write-Output "Source Branch: " $build.sourceBranch " Repo : " $repo.name  | Out-File $outFile   -Append -NoNewline
+                            Write-Output "Source Branch: " $build.sourceBranch.Trim() "".PadRight($l3," ")  " Repo       : " $repo.name  | Out-File $outFile   -Append -NoNewline
                             Write-Output ""  | Out-File $outFile -Append
 
                             Write-Output ""  | Out-File $outFile -Append
                             Write-Output "     Work Items Found:"  $allBuildWorkItems.count | Out-File $outFile -Append -NoNewline
                             Write-Output ""  | Out-File $outFile -Append
-
                         }
 
                         # for spacing "".PadRight($l0," ") this will pad right $l0 number of spaces
@@ -607,7 +664,6 @@ function Get-ReleaseNotesByTag()
                         $l4 = ($lm4 + 1) - $wkTitle.length
                         Write-Output "      ID:" $WItems.Id "".PadRight($l0," ") "Status:" $wkState "".PadRight($l1," ") "Type:" $wkType "".PadRight($l2," ") " Tag:" $tg "".PadRight($l3," ") " Title:" $fld.'System.Title' "".PadRight($l4," ") " Assigned to:" $wkAssignto.displayName | Out-File $outFile   -Append -NoNewline
                         Write-Output ""  | Out-File $outFile -Append
-    
                     }
 
                     #
@@ -690,7 +746,6 @@ function Get-ReleaseNotesByTag()
                                 }
                             }
                         }
-
                        
                     }
                     
