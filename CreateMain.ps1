@@ -23,7 +23,7 @@ Write-Output $userParameters.ProjectName
 Write-Output $userParameters.Description
 
 #list available branches
-# ListGitBranches -userParams $userParameters -outFile "C:\temp\dataBuild_r001.txt"
+ListGitBranches -userParams $userParameters -outFile "C:\temp\dataBuild_r001.txt"
 
 # add a brance from master
 #AddGitBranchFromMaster -userParams $userParameters -branchToCreate "refs/heads/release/v4"
@@ -32,16 +32,16 @@ Write-Output $userParameters.Description
 #DeleteGitBranchByPath -userParams $userParameters -branchPath "refs/heads/release/v4"
 
 # create project    
-#CreateVSTSProject -userParams $userParameters
+CreateVSTSProject -userParams $userParameters
 
 # add teams to project
-#AddProjectTeams -userParams $userParameters
+AddProjectTeams -userParams $userParameters
 
 # add vsts groups
 #AddVSTSGroupAndUsers -userParams $userParameters
 
 # add repo
-#$repo = CreateVSTSGitRepo -userParams $userParameters
+$repo = CreateVSTSGitRepo -userParams $userParameters
 
 # create build
 #Set-BuildDefinition -userParams $userParameters -repo $repo

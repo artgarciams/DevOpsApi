@@ -30,9 +30,11 @@ Write-Output $userParameters.Description
 
 # generate a file for each build showing build info, work items, and approvals
 # for following parameters in ProjectDef. setting param to "" skips it
-#   "Folder"         : "",
-#    "Tags"           : ["v1.1","v1.0.1"],
+#    
+#    "BuildTags"      : "1.1.0",
 #    "Stages"         : ["Deploy to FDXQA", "Deploy to PROD" ],
+#    "WorkItemTypes"  : ["User Story","Bug"],
+#    "ParentWiType"   : "User Story",
 #    "BuildResults"   : ["Succeeded"],
-#    "BuildNumber"    : "",
-Get-ReleaseNotesByTag  -userParams $userParameters 
+#   
+Get-ReleaseNotesByBuildByTag  -userParams $userParameters 

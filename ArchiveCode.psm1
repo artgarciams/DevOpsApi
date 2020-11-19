@@ -840,3 +840,479 @@ function Get-ApprovalsByEnvironment_old()
 
 
 }
+
+
+
+function Get-ReleaseNotesByTag()
+{
+    #
+    # this function will find all builds with the given tags in the workitems and generate release
+    # notes for each build
+    #
+    Param(
+        [Parameter(Mandatory = $true)]
+        $userParams,
+        [Parameter(Mandatory = $false)]
+        $outFile,
+        [Parameter(Mandatory = $false)]
+        $FolderName
+    )
+
+    # Base64-encodes the Personal Access Token (PAT) appropriately
+    $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
+    
+    # get a list of all folders. we will loop thru each folder and find all the builds for each.
+    # if folder is specified just find builds in that folder. 
+    # if build number is specified just report on that build
+    #
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/folders/list?view=azure-devops-rest-6.0
+    # GET https://dev.azure.com/{organization}/{project}/_apis/build/folders/{path}?api-version=6.0-preview.2
+    $folderUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/folders?api-version=6.0-preview.2"
+    $allFlders = Invoke-RestMethod -Uri $folderUri -Method Get -Headers $authorization -Verbose
+
+    #build table array - list of all builds for this release
+    $buildTableArray = @()
+
+    $runLog = $userParams.LogDirectory + "runLog.txt"    
+    $now = get-Date
+    Write-Output "Run Started :" $now | Out-File $runLog -NoNewline
+    Write-Output ""  | Out-File $runLog -Append
+
+    Write-Output "   Run Filters: "  | Out-File $runLog -Append    
+    if( $userParams.Tags -ne "")
+    {
+        Write-Output "   Tags to Include   : "   | Out-File $runLog -Append -NoNewline
+        foreach( $tg in $userParams.Tags  )
+        {
+            Write-Output $tg " | "  | Out-File $runLog -Append -NoNewline
+        }
+        Write-Output ""  | Out-File $runLog -Append
+    }
+
+    # filter by folder if needed
+    if ( $userParams.Folder -ne "")
+    {
+        $allFolders = $allFlders.value | Where-Object { $_.path -match $userParams.Folder}
+        Write-Output "   Folder to Include :" $userParams.Folder  | Out-File $runLog -Append 
+    }
+    else 
+    {
+        $allFolders = $allFlders.value
+        Write-Output "   Folder to Include : All Folders" | Out-File $runLog -Append 
+    }
+    
+    if($userParams.BuildResults -ne "")
+    {
+        Write-Output "   Results to Include: "   | Out-File $runLog -Append -NoNewline
+        foreach( $br in $userParams.BuildResults  )
+        {
+            Write-Output $br " | "  | Out-File $runLog -Append -NoNewline
+        }
+        Write-Output ""  | Out-File $runLog -Append
+    }
+    else
+    {
+        Write-Output "   Results to Include: All results included"   | Out-File $runLog -Append -NoNewline
+        Write-Output ""  | Out-File $runLog -Append
+    }
+
+    if($userParams.BuildNumber -ne "")
+    {
+        Write-Output "   Build Number      : " $userParams.BuildNumber  | Out-File $runLog -Append  -NoNewline
+        Write-Output ""  | Out-File $runLog -Append
+    }
+
+    if($userParams.Stages -ne "")
+    {
+        Write-Output "   Stages to Include : "   | Out-File $runLog -Append -NoNewline
+        foreach( $st in $userParams.Stages   )
+        {
+            Write-Output $st " | "  | Out-File $runLog -Append -NoNewline
+        }
+        Write-Output ""  | Out-File $runLog -Append
+    }
+    if($userParams.Release -ne "")
+    {
+        Write-Output "   Release to Include : "   | Out-File $runLog -Append -NoNewline
+        foreach( $rl in $userParams.Release   )
+        {
+            Write-Output $rl " | "  | Out-File $runLog -Append -NoNewline
+        }
+        Write-Output ""  | Out-File $runLog -Append
+    }
+    Write-Output ""  | Out-File $runLog -Append
+    Write-Output ""  | Out-File $runLog -Append
+
+    foreach ($folder in $allFolders)
+    {
+        # get list build definitions by folder. folders contain build definitions
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/definitions/list?view=azure-devops-rest-6.1
+        # GET https://dev.azure.com/{organization}/{project}/_apis/build/definitions?name={name}&repositoryId={repositoryId}&repositoryType={repositoryType}&queryOrder={queryOrder}&$top={$top}&continuationToken={continuationToken}&minMetricsTime={minMetricsTime}&definitionIds={definitionIds}&path={path}&builtAfter={builtAfter}&notBuiltAfter={notBuiltAfter}&includeAllProperties={includeAllProperties}&includeLatestBuilds={includeLatestBuilds}&taskIdFilter={taskIdFilter}&processType={processType}&yamlFilename={yamlFilename}&api-version=6.1-preview.7
+        $folderUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/definitions?path=" +$folder.path + "&includeAllProperties=true&includeLatestBuilds=true&api-version=6.1-preview.7"
+        $AllDefinitions = Invoke-RestMethod -Uri $folderUri -Method Get -Headers $authorization 
+
+        Write-Host "Folder: " $folder.path 
+
+        foreach ($BuildDef in $AllDefinitions.value) 
+        {
+            Write-Host "Build Definition: " $BuildDef.name
+            # get builds for each definition
+            # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-6.1
+            # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds?definitions={definitions}&queues={queues}&buildNumber={buildNumber}&minTime={minTime}&maxTime={maxTime}&requestedFor={requestedFor}&reasonFilter={reasonFilter}&statusFilter={statusFilter}&resultFilter={resultFilter}&tagFilters={tagFilters}&properties={properties}&$top={$top}&continuationToken={continuationToken}&maxBuildsPerDefinition={maxBuildsPerDefinition}&deletedFilter={deletedFilter}&queryOrder={queryOrder}&branchName={branchName}&buildIds={buildIds}&repositoryId={repositoryId}&repositoryType={repositoryType}&api-version=6.1-preview.6
+            $BuildUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds?definitions=" + $BuildDef.id + "&queryOrder=startTimeDescending&api-version=6.1-preview.6"
+            $allBuilds = Invoke-RestMethod -Uri $BuildUri -Method Get -Headers $authorization 
+            
+            # filter on build results. only get builds with the results specified in projectdef array            
+            if($userParams.BuildResults -ne "")
+            {
+                $allBuilds = $allBuilds.value | Where-Object { $_.result -in $userParams.BuildResults }               
+            }
+
+            # filter on BUild number 
+            if($userParams.BuildNumber -ne "")
+            {
+                $allBuilds = $allBuilds.value | Where-Object { $_.buildNumber -in $userParams.BuildNumber }
+            }
+
+            # loop thru each build in the definition
+            foreach ($build in $allBuilds) 
+            {
+                $tagFound = $false
+                $buildTitle = $false
+
+                # get work all items for this build
+                # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/get%20build%20work%20items%20refs?view=azure-devops-rest-6.1
+                # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/workitems?api-version=6.1-preview.2
+                $workItemUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $build.id + "/workitems?api-version=6.1-preview.2"
+                $allBuildWorkItems = Invoke-RestMethod -Uri $workItemUri -Method Get -Headers $authorization 
+
+                Write-Host "Folder:" $folder.path  " Build Def:" $BuildDef.name " Build ID :" $build.buildNumber "  Results: " $build.result  " Status : " $build.status " Number of workItems :" $allBuildWorkItems.count
+                Write-Output "Folder:" $folder.path  " Build Def: " $BuildDef.name " Build ID: " $build.buildNumber " Status: " $build.status "Results: " $build.result " Number of workItems: " $allBuildWorkItems.count |  Out-File $runLog -Append -NoNewline
+                Write-Output "" |  Out-File $runLog -Append 
+
+                $buildTags = $build.Tags
+
+                $lm0 = 0
+                $lm1 = 0
+                $lm2 = 0
+                $lm3 = 0
+                $lm4 = 0
+                
+                $lstBuild = ""
+                $ArrayList = New-Object System.Collections.ArrayList
+                $ArrayList = [System.Collections.ArrayList]::new()
+                $fndUserStory = $false
+
+                # loop thru all workitems looking for tag
+                foreach ($workItem in $allBuildWorkItems.value)
+                {
+                    # get individual work item
+                    # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/work%20items/get%20work%20item?view=azure-devops-rest-6.1
+                    # GET https://dev.azure.com/{organization}/{project}/_apis/wit/workitems/{id}?api-version=6.1-preview.3
+                    $BuildworkItemUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $workItem.id + "?$" + "expand=All&api-version=6.1-preview.3" 
+                    $WItems = Invoke-RestMethod -Uri $BuildworkItemUri -Method Get -Headers $authorization 
+                    
+                    $fld = $WItems.fields
+                    $tg = $fld.'System.Tags'
+                    $rel = $fld.'Custom.Release#'
+
+                    $EnvName = $fld.'Custom.Environment'
+                    $Area = $fld.'System.NodeName'
+
+                    $wkType = $fld.'System.WorkItemType'
+                    $wkState = $fld.'System.State'
+                    $wkTitle = $fld.'System.Title'
+                    
+                    # reuse url field to house work item type. this will allow sorting of workitems by type
+                    $WItems.url = $wktype
+
+                    # save work items into an array to sort if tag was found
+                    $ArrayList.Add($WItems) | Out-Null
+
+                    Write-Host   "     Tag:" $tg " WorkItem ID:" $workItem.id 
+                   # Write-Output "     WorkItem ID:"  $workItem.id " Tag:" $tg  " Title:"  $wkTitle | Out-File $runLog -Append -NoNewline
+                   # Write-Output "" | Out-File $runLog -Append
+
+                    # for spacing
+                    if( $WItems.id.Length -gt $lm0 )
+                    {
+                       # $lm0 = ($wkType +  ":" + $WItems.id).Length
+                        $lm0 =  $WItems.id.Length
+                    }
+                    if($wkState.length -gt $lm1 )
+                    {
+                        $lm1 =  $wkState.length
+                    }
+                    if($wkType.length -gt $lm2  )
+                    {
+                        $lm2 =  $wkType.length
+                    }
+                    if($tg.length -gt $lm3 )
+                    {
+                        $lm3 =  $tg.length
+                    }
+                    if($wkTitle.length -gt $lm4 )
+                    {
+                        $lm4 =  $wkTitle.length
+                    }
+
+                    # loop thru tags to searc for in each workitem
+                    foreach ($tag in $userParams.Tags) 
+                    {
+                        if($tg -match $tag)    
+                        {
+                            Write-Host $tg 
+                            Write-Host "     Tag: " $tg " WorkItem ID:" $workItem.id " Title :" $fld.'System.Title' " Iteration:" $fld.'System.IterationPath'
+                            
+                            Write-Output "     Tag: " $tg " WorkItem ID:" $workItem.id " Title :" $fld.'System.Title' " Iteration:" $fld.'System.IterationPath' "    Environment :" $EnvName | Out-File $runLog -Append -NoNewline
+                            Write-Output "" |  Out-File $runLog -Append  
+
+                            $tagFound = $true
+
+                            #write build record
+                            if($build.id -ne $lstBuild)
+                            {
+                                $bld = $BuildDef.Id.ToString() + "|" + $BuildDef.name.ToString() + "|" + $build.id.ToString() + "|"  + $build.buildNumber.ToString() + "|" + $Area.ToString() + "|" + $rel
+                                $buildTableArray += $bld
+                                $lstBuild = $build.id
+                            }
+                        }
+                    }
+
+                    # loop thru each release to search for value
+                    # Release# is a custom field user will populate with release number
+                    if (![string]::IsNullOrEmpty($rel ))
+                    {
+                        Write-Host "     Release: " $rel 
+                        foreach ($rlData in $userParams.Release) 
+                        {
+                            if($rel -match $rlData)
+                            {
+                                Write-Host $rel
+                                Write-Host "     Release: " $rel " WorkItem ID:" $workItem.id " Title :" $fld.'System.Title' " Iteration:" $fld.'System.IterationPath'
+
+                                Write-Output "     Release: " $rel " WorkItem ID:" $workItem.id " Title :" $fld.'System.Title' " Iteration:" $fld.'System.IterationPath' | Out-File $runLog -Append -NoNewline
+                                Write-Output "" |  Out-File $runLog -Append  
+                                
+                                $tagFound = $true
+                                
+                                # write build record
+                                if($build.id -ne $lstBuild)
+                                {
+                                    $bld = $BuildDef.Id.ToString() + "|" + $BuildDef.name.ToString() + "|" + $build.id.ToString() + "|"  + $build.buildNumber.ToString() + "|" + $Area.ToString() + "|" + $rel
+                                    $buildTableArray += $bld
+                                    $lstBuild = $build.id
+                                }
+
+                            }    
+                        }
+                    }
+
+                }
+
+                #
+                # tag found. now report on this build
+                #
+                if($tagFound -eq $true)
+                {
+                    $pth = $userParams.DataDirectory +  $folder.path + "\" + $build.status + "\" +  $build.result
+                    $pth = $pth -replace ' ','' 
+                    if(!(test-path  $pth))
+                    {
+                        New-Item -ItemType directory -Path $pth
+                    }
+                    # remove special characters
+                    $defName = $BuildDef.name -replace '[\W]','_'
+                    $outFile = $pth + "\" + $folder.path + "_" + $defName + "_" + $build.buildNumber + ".txt"
+                    
+                    # sort by url( work item type) decending
+                    $allBuildWorkItemsSorted =  $ArrayList | Sort-Object -Property url -Descending
+
+                    $UserStoryList = New-Object System.Collections.ArrayList
+                    $UserStoryList = [System.Collections.ArrayList]::new()
+                    
+                    # loop thru workitems again and display
+                    foreach ($workItem in $allBuildWorkItemsSorted)
+                    {
+                        # get individual work item from array list
+                        $WItems = $workItem
+                        $noUserStory = ""  
+
+                        $wiRel = $WItems.'relations'
+                        $fld = $WItems.fields
+
+                        $tg = $fld.'System.Tags'
+                        $rel = $fld.'Custom.Release#'
+                        $EnvName = $fld.'Custom.Environment'
+    
+                        $wkType = $fld.'System.WorkItemType'
+                        $wkState = $fld.'System.State'
+                        $wkAssignto = $fld.'System.AssignedTo'
+                        $wkTitle = $fld.'System.Title'
+                        
+
+                        if($wkType -notin "User Story", "Bug")
+                        {
+                            $origId =   $workItem.id 
+                            #$origId =  $wkType +  ":" + $workItem.id 
+                        }
+                        else
+                        {
+                            $origId =  $workItem.id
+                        }
+
+                        # if not user story find parent user story
+                        if($wkType -notin "User Story", "Bug")
+                        {
+                            $relAted = $wiRel | Where-Object { ($_.rel -eq "System.LinkTypes.Related") -or ($_.rel -eq "System.LinkTypes.Hierarchy-Reverse")}
+                            Write-Host $relAted
+
+                            # find related (parent work items)
+                            if( ![string]::IsNullOrEmpty($relAted))
+                            {
+                                foreach ($item in $relAted) 
+                                {
+                                    # get individual work item
+                                    # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/work%20items/get%20work%20item?view=azure-devops-rest-6.1
+                                    # GET https://dev.azure.com/{organization}/{project}/_apis/wit/workitems/{id}?api-version=6.1-preview.3
+                                    $relworkItemUri = $item.url + "?$" + "expand=All&api-version=6.1-preview.3" 
+                                    $relWkItem = Invoke-RestMethod -Uri $relworkItemUri -Method Get -Headers $authorization 
+                                    
+                                    $fld = $relWkItem.fields
+                                    $wiType = $fld.'System.WorkItemType'
+
+                                    if($wiType -eq "User Story")
+                                    {
+                                        Write-Host $relWkItem
+
+                                        $fld = $relWkItem.fields
+                                        $tg = $fld.'System.Tags'
+                                        $rel = $fld.'Custom.Release#'
+                                        $EnvName = $fld.'Custom.Environment'
+                
+                                        $wkType = $fld.'System.WorkItemType'
+                                        $wkState = $fld.'System.State'
+                                        $wkAssignto = $fld.'System.AssignedTo'
+                                        $wkTitle = $fld.'System.Title'
+                                        
+                                        $noUserStory = ""
+                                        $origId  =  $fld.'System.Id'
+                                        #$origId  =  $origId + "->" + $fld.'System.Id'
+                                        continue 
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                # task with no parent user story
+                                $noUserStory = "***"    
+                            }
+                        }
+                                               
+                        $def = $build.definition
+                        $repo = $build.repository
+
+                        if($buildTitle -eq $false )
+                        {
+                            $buildTitle = $true
+                            $l1 = $def.name.Trim().length - $build.buildNumber.Trim().length 
+                            $l2 = $build.startTime.Trim().length - $build.Status.Trim().length - 2
+                            $l3 = ( $def.name.Trim().length  + 13 + $build.startTime.Trim().length ) - $build.sourceBranch.Trim().length
+
+                            Write-Output ""  | Out-File $outFile                             
+                            Write-Output ""  | Out-File $outFile -Append
+                            Write-Output "Build Number : " $build.buildNumber.Trim()  "".PadRight($l1," ") " Build Status: " $build.Status.Trim() "".PadRight($l2," ") " Result     : " $build.result  | Out-File $outFile   -Append -NoNewline
+                            Write-Output ""  | Out-File $outFile -Append
+                            Write-Output "Requested by : " $def.name.Trim() " Start Time: " $build.startTime.Trim()  " Finish Time: " $build.finishTime | Out-File $outFile   -Append -NoNewline
+                            Write-Output ""  | Out-File $outFile -Append
+                            Write-Output "Source Branch: " $build.sourceBranch.Trim() "".PadRight($l3," ")  " Repo       : " $repo.name  | Out-File $outFile   -Append -NoNewline
+                            Write-Output ""  | Out-File $outFile -Append
+                            Write-Output "Environment  : " $EnvName  | Out-File $outFile   -Append -NoNewline
+                            Write-Output ""  | Out-File $outFile -Append
+
+                            if( ![string]::IsNullOrEmpty($rel))
+                            {
+                                Write-Output "  Release#:" $rel | Out-File $runLog -Append -NoNewline
+                                Write-Output ""  | Out-File $runLog -Append
+
+                                Write-Output "  Release#:" $rel | Out-File $outFile   -Append -NoNewline
+                                Write-Output ""  | Out-File $outFile -Append
+                            }
+
+                            Write-Output " "  | Out-File $outFile -Append
+                            Write-Output "     Work Items :"  | Out-File $outFile -Append -NoNewline
+                            #Write-Output "     Work Items Found:"  $allBuildWorkItems.count  "        *** - No User Story found for Task " | Out-File $outFile -Append -NoNewline
+                            Write-Output " "  | Out-File $outFile -Append
+                            Write-Output " "  | Out-File $outFile -Append
+                           
+                        }
+
+                       
+                        # for spacing "".PadRight($l0," ") this will pad right $l0 number of spaces
+                        $l0 = ($lm0 + 4) - $origId.length
+                        if($l0 -lt 0)
+                        {
+                            $l0 = 20 - $origId.length
+                        }
+                        $l1 = ($lm1 + 1) - $wkState.length
+                        if($l1 -lt 0)
+                        {
+                            $l1 = $lm1
+                        }
+                        $l2 = ($lm2 + 1) - $wkType.length
+                        if($l2 -lt 0)
+                        {
+                            $l2 = $lm2
+                        }
+                        $l3 = ($lm3 + 1 )- $tg.length 
+                        if($l3 -lt 0)
+                        {
+                            $l3 = $lm3
+                        }
+                        $l4 = ($lm4 + 1) - $wkTitle.length
+
+                        $fndUserStory = $UserStoryList.Contains( $fld.'System.Id' )
+
+                        # if no user story found display it
+                        if(!$fndUserStory)
+                        {
+                            if($noUserStory -ne "")
+                            {
+                                #Write-Output $noUserStory " for " $wkType " ID :" $WItems.Id | Out-File $runLog -Append -NoNewline
+                                #Write-Output ""  | Out-File $runLog -Append
+                                
+                                #Write-Output  $noUserStory "   ID:" $origId "".PadRight($l0," ") "Status:" $wkState "".PadRight($l1," ") "Type:" $wkType "".PadRight($l2," ") " Tag:" $tg "".PadRight($l3," ") " Title:" $fld.'System.Title' "".PadRight($l4," ") " Assigned to:" $wkAssignto.displayName | Out-File $outFile   -Append -NoNewline                            
+                                #Write-Output ""  | Out-File $outFile -Append
+                            }
+                            else
+                            {
+                                Write-Output "      ID:" $origId "".PadRight($l0," ") "Status:" $wkState "".PadRight($l1," ") "Type:" $wkType "".PadRight($l2," ") " Tag:" $tg "".PadRight($l3," ") " Title:" $fld.'System.Title' "".PadRight($l4," ") " Assigned to:" $wkAssignto.displayName | Out-File $outFile   -Append -NoNewline                            
+                                Write-Output ""  | Out-File $outFile -Append
+                            }
+                        }
+                        $UserStoryList.Add($fld.'System.Id') | Out-Null
+                      
+
+                    }
+
+                    #
+                    # get approvals.
+                    #
+                    Get-BuildApprovers -userParams $userParams -build $build -outFile $outFile
+                                        
+                }
+                        
+            }
+        }
+    }
+
+    # generate build release table
+    $out = $userParams.DataDirectory + "BuildTable.txt"
+    Get-BuildReleaseTable -userParams $userParams -buildTableArray $buildTableArray -BuildTable $out
+
+    $now = get-Date
+    Write-Output ""  | Out-File $runLog -Append
+    Write-Output "Run Ended :" $now | Out-File $runLog -Append -NoNewline
+    Write-Output ""  | Out-File $runLog -Append
+
+}

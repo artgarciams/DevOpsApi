@@ -11,9 +11,12 @@
 
     "Folder"         : "",
     "Tags"           : ["v1.1","v1.0.1"],
+    "Release"        : ["1.1","2.0.0"],
+
+    "BuildTags"      : "1.1.0",
     "Stages"         : ["Deploy to FDXQA", "Deploy to PROD" ],
+    "WorkItemTypes"  : ["User Story","Bug"],
     "BuildResults"   : ["Succeeded"],
-    "BuildNumber"    : "",
 
     "Description"    : "My demo project",
     "ProcessType"    : "Agile",
@@ -23,7 +26,7 @@
     "UseProxy"       : "False",
 
     "DumpDirectory"  : "C:\\Temp\\RawData\\",
-    "DataDirectory"  : "C:\\Temp\\ReleaseNotes\\",
+    "DataDirectory"  : "C:\\Temp\\ReleaseNotes\\BuildNotes\\",
     "LogDirectory"   : "C:\\Temp\\ReleaseNotes\\",
     
     "OmitTeam" :[{}],

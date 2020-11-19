@@ -401,7 +401,7 @@ function Get-ApprovalsByEnvironment()
 
 }
 
-function Get-ReleaseNotesByTag()
+function Get-ReleaseNotesByBuildByTag()
 {
     #
     # this function will find all builds with the given tags in the workitems and generate release
@@ -418,15 +418,9 @@ function Get-ReleaseNotesByTag()
 
     # Base64-encodes the Personal Access Token (PAT) appropriately
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
-    
-    # get a list of all folders. we will loop thru each folder and find all the builds for each.
-    # if folder is specified just find builds in that folder. 
-    # if build number is specified just report on that build
-    #
-    # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/folders/list?view=azure-devops-rest-6.0
-    # GET https://dev.azure.com/{organization}/{project}/_apis/build/folders/{path}?api-version=6.0-preview.2
-    $folderUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/folders?api-version=6.0-preview.2"
-    $allFlders = Invoke-RestMethod -Uri $folderUri -Method Get -Headers $authorization -Verbose
+   
+    #build table array - list of all builds for this release
+    $buildTableArray = @()
 
     $runLog = $userParams.LogDirectory + "runLog.txt"    
     $now = get-Date
@@ -434,31 +428,26 @@ function Get-ReleaseNotesByTag()
     Write-Output ""  | Out-File $runLog -Append
 
     Write-Output "   Run Filters: "  | Out-File $runLog -Append    
-    if( $userParams.Tags -ne "")
+    if( $userParams.BuildTags -ne "")
     {
-        Write-Output "   Tags to Include   : "   | Out-File $runLog -Append -NoNewline
-        foreach( $tg in $userParams.Tags  )
+        Write-Output "   Build tags to Include     : "   | Out-File $runLog -Append -NoNewline
+        Write-Output $userParams.BuildTags  | Out-File $runLog -Append -NoNewline
+        Write-Output ""  | Out-File $runLog -Append
+    }
+
+    if($userParams.WorkItemTypes -ne "")
+    {
+        Write-Output "   Work Item Types to Include: "   | Out-File $runLog -Append -NoNewline
+        foreach( $br in $userParams.WorkItemTypes  )
         {
-            Write-Output $tg " | "  | Out-File $runLog -Append -NoNewline
+            Write-Output $br " | "  | Out-File $runLog -Append -NoNewline
         }
         Write-Output ""  | Out-File $runLog -Append
     }
 
-    # filter by folder if needed
-    if ( $userParams.Folder -ne "")
-    {
-        $allFolders = $allFlders.value | Where-Object { $_.path -match $userParams.Folder}
-        Write-Output "   Folder to Include :" $userParams.Folder  | Out-File $runLog -Append 
-    }
-    else 
-    {
-        $allFolders = $allFlders.value
-        Write-Output "   Folder to Include : All Folders" | Out-File $runLog -Append 
-    }
-    
     if($userParams.BuildResults -ne "")
     {
-        Write-Output "   Results to Include: "   | Out-File $runLog -Append -NoNewline
+        Write-Output "   Results to Include        : "   | Out-File $runLog -Append -NoNewline
         foreach( $br in $userParams.BuildResults  )
         {
             Write-Output $br " | "  | Out-File $runLog -Append -NoNewline
@@ -470,298 +459,495 @@ function Get-ReleaseNotesByTag()
         Write-Output "   Results to Include: All results included"   | Out-File $runLog -Append -NoNewline
         Write-Output ""  | Out-File $runLog -Append
     }
+    
+   # if($userParams.Stages -ne "")
+   # {
+   #     Write-Output "   Stages to Include : "   | Out-File $runLog -Append -NoNewline
+   #     foreach( $st in $userParams.Stages   )
+   #     {
+   #         Write-Output $st " | "  | Out-File $runLog -Append -NoNewline
+   #     }
+   #     Write-Output ""  | Out-File $runLog -Append
+   # }
 
-    if($userParams.BuildNumber -ne "")
-    {
-        Write-Output "   Build Number      : " $userParams.BuildNumber  | Out-File $runLog -Append  -NoNewline
-        Write-Output ""  | Out-File $runLog -Append
-    }
-
-    if($userParams.Stages -ne "")
-    {
-        Write-Output "   Stages to Include : "   | Out-File $runLog -Append -NoNewline
-        foreach( $st in $userParams.Stages   )
-        {
-            Write-Output $st " | "  | Out-File $runLog -Append -NoNewline
-        }
-        Write-Output ""  | Out-File $runLog -Append
-    }
-    Write-Output ""  | Out-File $runLog -Append
     Write-Output ""  | Out-File $runLog -Append
 
-    foreach ($folder in $allFolders)
+    # Get a list of all builds with a specific tag
+    # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds?definitions={definitions}&queues={queues}&buildNumber={buildNumber}&minTime={minTime}&maxTime={maxTime}&requestedFor={requestedFor}&reasonFilter={reasonFilter}&statusFilter={statusFilter}&resultFilter={resultFilter}&tagFilters={tagFilters}&properties={properties}&$top={$top}&continuationToken={continuationToken}&maxBuildsPerDefinition={maxBuildsPerDefinition}&deletedFilter={deletedFilter}&queryOrder={queryOrder}&branchName={branchName}&buildIds={buildIds}&repositoryId={repositoryId}&repositoryType={repositoryType}&api-version=6.1-preview.6
+    $AllBuildsUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds?tagFilters=" + $userParams.BuildTags + "&api-version=6.1-preview.6"
+    $AllBuildswithTags = Invoke-RestMethod -Uri $AllBuildsUri -Method Get -Headers $authorization 
+
+    Write-Host "Builds found :" $AllBuildswithTags.count
+
+    Write-Output "" |  Out-File $runLog -Append 
+    Write-Output "Builds found :" $AllBuildswithTags.count |  Out-File $runLog -Append -NoNewline
+    Write-Output "" |  Out-File $runLog -Append 
+
+    # work items for all builds found
+    $ReleaseWorkItems = New-Object System.Collections.ArrayList
+    $ReleaseWorkItems = [System.Collections.ArrayList]::new()
+
+    # loop thru each build in list found
+    foreach ($build in $AllBuildswithTags.value) 
     {
-        # get list build definitions by folder. folders contain build definitions
-        # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/definitions/list?view=azure-devops-rest-6.1
-        # GET https://dev.azure.com/{organization}/{project}/_apis/build/definitions?name={name}&repositoryId={repositoryId}&repositoryType={repositoryType}&queryOrder={queryOrder}&$top={$top}&continuationToken={continuationToken}&minMetricsTime={minMetricsTime}&definitionIds={definitionIds}&path={path}&builtAfter={builtAfter}&notBuiltAfter={notBuiltAfter}&includeAllProperties={includeAllProperties}&includeLatestBuilds={includeLatestBuilds}&taskIdFilter={taskIdFilter}&processType={processType}&yamlFilename={yamlFilename}&api-version=6.1-preview.7
-        $folderUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/definitions?path=" +$folder.path + "&includeAllProperties=true&includeLatestBuilds=true&api-version=6.1-preview.7"
-        $AllDefinitions = Invoke-RestMethod -Uri $folderUri -Method Get -Headers $authorization 
 
-        Write-Host "Folder: " $folder.path 
+        # get work all items for this build
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/get%20build%20work%20items%20refs?view=azure-devops-rest-6.1
+        # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/workitems?api-version=6.1-preview.2
+        $workItemUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $build.id + "/workitems?api-version=6.1-preview.2"
+        $allBuildWorkItems = Invoke-RestMethod -Uri $workItemUri -Method Get -Headers $authorization 
+       
+        Write-Host   "   Build Number:" $build.buildNumber " Build Definition :" $build.definition.name "  Results: " $build.result  " Status : " $build.status 
 
-        foreach ($BuildDef in $AllDefinitions.value) 
+        Write-Output "" |  Out-File $runLog -Append 
+        Write-Output "   Build Number:" $build.buildNumber " Build Definition :" $build.definition.name " Status: " $build.status " Results: " $build.result  " Build Tags: " $build.Tags |  Out-File $runLog -Append -NoNewline
+        Write-Output "" |  Out-File $runLog -Append 
+
+        $buildTitle = $false
+        $fndUserStory = $false
+
+        $lm0 = 0
+        $lm1 = 0
+        $lm2 = 0
+        $lm3 = 0
+        $lm4 = 0
+        
+        # array of workitems to report on
+        $ArrayList = New-Object System.Collections.ArrayList
+        $ArrayList = [System.Collections.ArrayList]::new()
+
+        Write-Output "     Raw Work Item Data - Number of workItems Found: " $allBuildWorkItems.count  |  Out-File $runLog -Append -NoNewline
+        Write-Output "" |  Out-File $runLog -Append 
+
+        # loop thru all workitems get work items and find spacing for report
+        foreach ($workItem in $allBuildWorkItems.value)
         {
-            Write-Host "Build Definition: " $BuildDef.name
-            # get builds for each definition
-            # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-6.1
-            # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds?definitions={definitions}&queues={queues}&buildNumber={buildNumber}&minTime={minTime}&maxTime={maxTime}&requestedFor={requestedFor}&reasonFilter={reasonFilter}&statusFilter={statusFilter}&resultFilter={resultFilter}&tagFilters={tagFilters}&properties={properties}&$top={$top}&continuationToken={continuationToken}&maxBuildsPerDefinition={maxBuildsPerDefinition}&deletedFilter={deletedFilter}&queryOrder={queryOrder}&branchName={branchName}&buildIds={buildIds}&repositoryId={repositoryId}&repositoryType={repositoryType}&api-version=6.1-preview.6
-            $BuildUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds?definitions=" + $BuildDef.id + "&queryOrder=startTimeDescending&api-version=6.1-preview.6"
-            $allBuilds = Invoke-RestMethod -Uri $BuildUri -Method Get -Headers $authorization 
+            # get individual work item
+            # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/work%20items/get%20work%20item?view=azure-devops-rest-6.1
+            # GET https://dev.azure.com/{organization}/{project}/_apis/wit/workitems/{id}?api-version=6.1-preview.3
+            $BuildworkItemUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $workItem.id + "?$" + "expand=All&api-version=6.1-preview.3" 
+            $WItems = Invoke-RestMethod -Uri $BuildworkItemUri -Method Get -Headers $authorization 
             
-            # filter on build results. only get builds with the results specified in projectdef array            
-            if($userParams.BuildResults -ne "")
+            $fld = $WItems.fields
+            $tg = $fld.'System.Tags'
+            $Area = $fld.'System.NodeName'
+
+            $wkType = $fld.'System.WorkItemType'
+            $wkAssignto = $fld.'System.AssignedTo'
+            $wkState = $fld.'System.State'
+            
+            # add field to house work item type. this will allow sorting of workitems by type
+            $WItems | Add-Member -MemberType NoteProperty -name "WorkItemType" -Value $wkType
+            $WItems | Add-Member -MemberType NoteProperty -name "Version" -Value $build.buildNumber
+            $WItems | Add-Member -MemberType NoteProperty -name "PipeLine" -Value $build.definition.name
+
+            # save work items into an array to sort if tag was found
+            $ArrayList.Add($WItems) | Out-Null
+
+            # add item to log
+            $LogWorkItems.Add($WItems) | Out-Null
+
+            Write-Host   " WorkItem ID:" $workItem.id " Version : "  $build.buildNumber.ToString()
+         
+            # for spacing
+            if( $WItems.id.ToString().Length -gt $lm0 )
             {
-                $allBuilds = $allBuilds.value | Where-Object { $_.result -in $userParams.BuildResults }               
+                $lm0 =  $WItems.id.ToString().Length
+            }
+            if($wkState.length -gt $lm1 )
+            {
+                $lm1 =  $wkState.length
+            }
+            if($wkType.length -gt $lm2  )
+            {
+                $lm2 =  $wkType.length
+            }
+            if($tg.length -gt $lm3 )
+            {
+                $lm3 =  $tg.length
+            }
+            if($wkAssignto.displayName.length -gt $lm4 )
+            {
+                $lm4 =  $wkAssignto.displayName.length
             }
 
-            # filter on BUild number 
-            if($userParams.BuildNumber -ne "")
+            Write-Output "     ID :" $WItems.id "".PadRight(10 - $WItems.id.length," ") " Status :" $wkState "".PadRight(10 - $wkState.length," ") " Type :" $wkType "".PadRight(15 - $wkType.length," ") " Assigned to:" $wkAssignto.displayName  "".PadRight(30 - $wkAssignto.displayName.length," ") " Title :" $fld.'System.Title' | Out-File $runLog  -Append -NoNewline                            
+            Write-Output ""  | Out-File $runLog -Append
+        }
+
+        # write build record table . this arraylist will hold all builds found
+        $bld = New-Object -TypeName PSObject -Property @{
+            Solution = $Area.ToString()
+            Pipeline = $build.definition.name.ToString()
+            Sequence = $build.id.ToString() 
+            Version = $build.buildNumber.ToString()
+        }
+        $buildTableArray += $bld
+
+        # create release output file        
+        $nme =  $build.definition.name -replace '[\W]','_' 
+        $pth = $userParams.DataDirectory + $nme + " _" + $build.buildNumber + ".txt"
+        $pth = $pth -replace ' ',''
+        $outfile = $pth
+        if(!(test-path  $userParams.DataDirectory))
+        {
+            New-Item -ItemType directory -Path $userParams.DataDirectory
+        }
+        Write-Output "" | Out-File $outfile
+
+        # sort by url( work item type) decending
+        $allBuildWorkItemsSorted =  $ArrayList | Sort-Object -Property WorkItemType -Descending
+        
+        # array list for build table
+        $UserStoryList = New-Object System.Collections.ArrayList
+        $UserStoryList = [System.Collections.ArrayList]::new()
+
+        Write-Output "      Included in Release Notes " | Out-File $runLog -Append
+
+        # loop thru workitems again and display
+        foreach ($workItem in $allBuildWorkItemsSorted)
+        {
+            # get individual work item from array list
+            $WItems = $workItem
+           
+            $wiRel = $WItems.'relations'
+            $fld = $WItems.fields
+
+            $tg = $fld.'System.Tags'
+            $EnvName = $fld.'Custom.Environment'
+
+            $wkType = $fld.'System.WorkItemType'
+            $wkState = $fld.'System.State'
+            $wkAssignto = $fld.'System.AssignedTo'
+            $origId =   $fld.'System.Id' 
+            $noUserStory = ""
+            $useRelWkItem = $false
+            
+            # for debugging
+            #if( $fld.'System.Id'.ToString().Trim() -eq "24711")
+            #{
+            #    Write-Host $fld.'System.Id'.ToString()
+            #}
+
+            # if not user story find parent user story  "User Story", "Bug"
+            if( !$userParams.WorkItemTypes.Contains($wkType) )
             {
-                $allBuilds = $allBuilds.value | Where-Object { $_.buildNumber -in $userParams.BuildNumber }
-            }
+                $relAted = $wiRel | Where-Object { ($_.rel -eq "System.LinkTypes.Related") -or ($_.rel -eq "System.LinkTypes.Hierarchy-Reverse")}
+                Write-Host $relAted
 
-            # loop thru each build in the definition
-            foreach ($build in $allBuilds) 
-            {
-                $tagFound = $false
-                $buildTitle = $false
-
-                # get work all items for this build
-                # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/get%20build%20work%20items%20refs?view=azure-devops-rest-6.1
-                # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/workitems?api-version=6.1-preview.2
-                $workItemUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $build.id + "/workitems?api-version=6.1-preview.2"
-                $allBuildWorkItems = Invoke-RestMethod -Uri $workItemUri -Method Get -Headers $authorization 
-
-                Write-Host "Folder:" $folder.path  " Build Def:" $BuildDef.name " Build ID :" $build.buildNumber "  Results: " $build.result  " Status : " $build.status " Number of workItems :" $allBuildWorkItems.count
-                Write-Output "Folder:" $folder.path  " Build Def: " $BuildDef.name " Build ID: " $build.buildNumber " Status: " $build.status "Results: " $build.result " Number of workItems: " $allBuildWorkItems.count |  Out-File $runLog -Append -NoNewline
-                Write-Output "" |  Out-File $runLog -Append 
-
-                $lm0 = 0
-                $lm1 = 0
-                $lm2 = 0
-                $lm3 = 0
-                $lm4 = 0
-
-                # loop thru all workitems looking for tag
-                foreach ($workItem in $allBuildWorkItems.value)
+                # find related (parent work items)
+                if( ![string]::IsNullOrEmpty($relAted))
                 {
-                    # get individual work item
-                    # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/work%20items/get%20work%20item?view=azure-devops-rest-6.1
-                    # GET https://dev.azure.com/{organization}/{project}/_apis/wit/workitems/{id}?api-version=6.1-preview.3
-                    $BuildworkItemUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $workItem.id + "?$" + "expand=all&api-version=6.1-preview.3" 
-                    $WItems = Invoke-RestMethod -Uri $BuildworkItemUri -Method Get -Headers $authorization 
-                            
-                    $fld = $WItems.fields
-                    $tg = $fld.'System.Tags'
-                    $wkType = $fld.'System.WorkItemType'
-                    $wkState = $fld.'System.State'
-                    $wkTitle = $fld.'System.Title'
-                     
-                    Write-Host   "     Tag:" $tg " WorkItem ID:" $workItem.id 
-                   # Write-Output "     WorkItem ID:"  $workItem.id " Tag:" $tg  " Title:"  $wkTitle | Out-File $runLog -Append -NoNewline
-                   # Write-Output "" | Out-File $runLog -Append
-
-                    # for spacing
-                    if($WItems.id.length -ge $lm0 )
-                    {
-                        $lm0 =  $WItems.id.length
-                    }
-                    if($wkState.length -ge $lm1 )
-                    {
-                        $lm1 =  $wkState.length
-                    }
-                    if($wkType.length -ge $lm2  )
-                    {
-                        $lm2 =  $wkType.length
-                    }
-                    if($tg.length -ge $lm3 )
-                    {
-                        $lm3 =  $tg.length
-                    }
-                    if($wkTitle.length -ge $lm4 )
-                    {
-                        $lm4 =  $wkTitle.length
-                    }
-
-                    # loop thru tags to searc for in each workitem
-                    foreach ($tag in $userParams.Tags) 
-                    {
-                        if($tg -match $tag)    
-                        {
-                            Write-Host $tg 
-                            Write-Host "     Tag: " $tg " WorkItem ID:" $workItem.id " Title :" $fld.'System.Title' " Iteration:" $fld.'System.IterationPath'
-                            
-                            Write-Output "     Tag: " $tg " WorkItem ID:" $workItem.id " Title :" $fld.'System.Title' " Iteration:" $fld.'System.IterationPath' | Out-File $runLog -Append -NoNewline
-                            Write-Output "" |  Out-File $runLog -Append  
-
-                            $tagFound = $true
-                        }
-                    }
-                }
-
-                #
-                # tag found. now report on this build
-                #
-                if($tagFound -eq $true)
-                {
-                    $pth = $userParams.DataDirectory +  $folder.path + "\" + $build.status + "\" +  $build.result
-                    $pth = $pth -replace ' ','' 
-                    if(!(test-path  $pth))
-                    {
-                        New-Item -ItemType directory -Path $pth
-                    }
-                    $defName = $BuildDef.name -replace '[\W]','_'
-                    $outFile = $pth + "\" + $folder.path + "_" + $defName + "_" + $build.buildNumber + ".txt"
-                    
-                    $allBuildWorkItemsSorted =  $allBuildWorkItems.value| Sort-Object -Property id -Descending
-
-                    # loop thru workitems again and display
-                    foreach ($workItem in $allBuildWorkItemsSorted)
+                    foreach ($item in $relAted) 
                     {
                         # get individual work item
                         # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/work%20items/get%20work%20item?view=azure-devops-rest-6.1
                         # GET https://dev.azure.com/{organization}/{project}/_apis/wit/workitems/{id}?api-version=6.1-preview.3
-                        $BuildworkItemUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $workItem.id + "?$" + "expand=all&api-version=6.1-preview.3" 
-                        $WItems = Invoke-RestMethod -Uri $BuildworkItemUri -Method Get -Headers $authorization 
+                        $relworkItemUri = $item.url + "?$" + "expand=All&api-version=6.1-preview.3" 
+                        $relWkItem = Invoke-RestMethod -Uri $relworkItemUri -Method Get -Headers $authorization 
+                        
+                        $fld = $relWkItem.fields
+                        $wiType = $fld.'System.WorkItemType'
+
+                        # if its one of the selected types add the relationship
+                        if( $userParams.WorkItemTypes.Contains($wiType))
+                        {
+                            Write-Host $wiType " - " $build.definition.name
                             
-                        $fld = $WItems.fields
-                        $tg = $fld.'System.Tags'
-                        
-                        $wkType = $fld.'System.WorkItemType'
-                        $wkState = $fld.'System.State'
-                        $wkAssignto = $fld.'System.AssignedTo'
-                        $wkTitle = $fld.'System.Title'
+                            # add field to house work item type. this will allow sorting of workitems by type
+                            $relWkItem | Add-Member -MemberType NoteProperty -name "WorkItemType" -Value $wiType
+                            $relWkItem | Add-Member -MemberType NoteProperty -name "Version" -Value $build.buildNumber.ToString()
+                            $relWkItem | Add-Member -MemberType NoteProperty -name "PipeLine" -Value $build.definition.name
 
-                        $def = $build.definition
-                        $repo = $build.repository
-
-                        if($buildTitle -eq $false )
-                        {
-                            $buildTitle = $true
-                            $l1 = $def.name.Trim().length - $build.buildNumber.Trim().length 
-                            $l2 = $build.startTime.Trim().length - $build.Status.Trim().length - 2
-                            $l3 = ( $def.name.Trim().length  + 13 + $build.startTime.Trim().length ) - $build.sourceBranch.Trim().length
-
-                            Write-Output ""  | Out-File $outFile                             
-                            Write-Output ""  | Out-File $outFile -Append
-                            Write-Output "Build Number : " $build.buildNumber.Trim()  "".PadRight($l1," ") " Build Status: " $build.Status.Trim() "".PadRight($l2," ") " Result     : " $build.result  | Out-File $outFile   -Append -NoNewline
-                            Write-Output ""  | Out-File $outFile -Append
-                            Write-Output "Requested by : " $def.name.Trim() " Start Time: " $build.startTime.Trim()  " Finish Time: " $build.finishTime | Out-File $outFile   -Append -NoNewline
-                            Write-Output ""  | Out-File $outFile -Append
-                            Write-Output "Source Branch: " $build.sourceBranch.Trim() "".PadRight($l3," ")  " Repo       : " $repo.name  | Out-File $outFile   -Append -NoNewline
-                            Write-Output ""  | Out-File $outFile -Append
-
-                            Write-Output ""  | Out-File $outFile -Append
-                            Write-Output "     Work Items Found:"  $allBuildWorkItems.count | Out-File $outFile -Append -NoNewline
-                            Write-Output ""  | Out-File $outFile -Append
+                            $fld = $relWkItem.fields
+                            $tg = $fld.'System.Tags'
+                            $EnvName = $fld.'Custom.Environment'
+    
+                            $wkType = $fld.'System.WorkItemType'
+                            $wkState = $fld.'System.State'
+                            $wkAssignto = $fld.'System.AssignedTo'
+                            
+                            $noUserStory = ""
+                            $useRelWkItem = $true
+                            $origId  =  $fld.'System.Id'
+                            continue 
                         }
-
-                        # for spacing "".PadRight($l0," ") this will pad right $l0 number of spaces
-                        $l0 = ($lm0 + 1) - $WItems.id.length
-                        $l1 = ($lm1 + 1) - $wkState.length
-                        $l2 = ($lm2 + 1) - $wkType.length
-                        $l3 = ($lm3 + 1 )- $tg.length 
-                        $l4 = ($lm4 + 1) - $wkTitle.length
-                        Write-Output "      ID:" $WItems.Id "".PadRight($l0," ") "Status:" $wkState "".PadRight($l1," ") "Type:" $wkType "".PadRight($l2," ") " Tag:" $tg "".PadRight($l3," ") " Title:" $fld.'System.Title' "".PadRight($l4," ") " Assigned to:" $wkAssignto.displayName | Out-File $outFile   -Append -NoNewline
-                        Write-Output ""  | Out-File $outFile -Append
                     }
-
-                    #
-                    # get approvals. first get timeline for this build
-                    #
-                    # get build timeline 
-                    # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/timeline/get?view=azure-devops-rest-6.1
-                    # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/timeline/{timelineId}?api-version=6.1-preview.2
-                    $BuildTimelineUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $build.id + "/timeline?api-version=6.1-preview.2"
-                    $BuildTimeLine = Invoke-RestMethod -Uri $BuildTimelineUri -Method Get -Headers $authorization -Verbose
-
-                    # get stages for this build
-                    $tmStages = $BuildTimeLine.records | Where-Object { $_.type -eq "Stage" } | Sort-Object -Property order -Descending
-                    
-                    Write-Output "" | Out-File $outFile -Append                
-                    Write-Output "     Approvals:" | Out-File $outFile -Append -NoNewline
-                    Write-Output "" | Out-File $outFile -Append
-
-                    # for each stage find the list of approvers and actual approvers using undocumented API found in f12 of portal
-                    foreach ($stg in $tmStages) 
-                    {
-                        $tmData =  @{
-                            contributionIds =  @("ms.vss-build-web.checks-panel-data-provider");
-                            dataProviderContext = @{
-                                properties = @{
-                                    buildId =  $build.id.ToString();
-                                    stageIds = $stg.id ;  
-                                    checkListItemType = 1;   
-                                    sourcePage = @{
-                                        url = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_build/results?buildId=" + $build.id + "&view=results";
-                                        routeId = "ms.vss-build-web.ci-results-hub-route";
-                                        routeValues = @{
-                                            project =  $userParams.ProjectName;
-                                            viewname = "build-results";
-                                            controller = "ContributedPage";
-                                        }
-                                    }                     
-                                }
-                            }
-                        }
-                        $acl = ConvertTo-Json -InputObject $tmData -depth 32
-                    
-                        # undocumented api call to get list of approvers for a given stage
-                        # https://dev.azure.com/fdx-strat-pgm/_apis/Contribution/HierarchyQuery/project/633b0ef1-c219-4017-beb0-8eb49ff55c35?api-version=5.0-preview.1
-                        $approvalURL = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/Contribution/HierarchyQuery/project/" + $Env.project.id + "?api-version=5.0-preview.1"
-                        $ApprlResults = Invoke-RestMethod -Uri $approvalURL -Method Post -Headers $authorization  -ContentType "application/json" -Body $acl
-
-                        # get the approval data
-                        $appData = $ApprlResults.dataproviders.'ms.vss-build-web.checks-panel-data-provider'
-                    
-                        foreach ($stItem in $userParams.Stages) 
-                        {
-                            if($stItem -eq $stg.name )
-                            {
-                                # if approvals exist for this stage get them               
-                                foreach ($item in $appData.approvals.steps)
-                                {
-                                    Write-Host "    Assigned approver : "  $item.assignedApprover.displayName  
-                                    IF (![string]::IsNullOrEmpty($item.actualApprover) ) 
-                                    {
-                                        Write-Host "    Assigned approver : "  $item.assignedApprover.displayName   |  Out-File $runLog -Append -NoNewline
-                                        Write-Output "" |  Out-File $runLog -Append    
-                                        # if actual approver is not same as assigned approver 
-                                        if($item.actualApprover.displayName -ne $item.assignedApprover.displayName )
-                                        {
-                                            Write-Output "       Stage:" $stg.name " Approver:" $item.actualApprover.displayName " : on behalf of :" $item.assignedApprover.displayName " Date:" $item.lastModifiedOn  " Comment:" $item.comment| Out-File $outFile -Append -NoNewline
-                                            Write-Output "" | Out-File $outFile -Append    
-                                            
-                                            Write-Output "       Stage:" $stg.name " Approver:" $item.actualApprover.displayName " : on behalf of :" $item.assignedApprover.displayName " Date:" $item.lastModifiedOn  " Comment:" $item.comment| Out-File $runLog -Append -NoNewline
-                                            Write-Output "" | Out-File $runLog -Append   
-                                        }else
-                                        {
-                                            Write-Output "       Stage:" $stg.name " Approver:" $item.actualApprover.displayName " Date:" $item.lastModifiedOn  " Comment:" $item.comment | Out-File $outFile -Append -NoNewline
-                                            Write-Output "" | Out-File $outFile -Append     
-                                            
-                                            Write-Output "       Stage:" $stg.name " Approver:" $item.actualApprover.displayName " Date:" $item.lastModifiedOn  " Comment:" $item.comment | Out-File $runLog -Append -NoNewline
-                                            Write-Output "" | Out-File $runLog -Append    
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                       
-                    }
-                    
                 }
-                        
+                else
+                {
+                    # task with no parent user story
+                    $noUserStory = "***"    
+                }
             }
+                                    
+            $def = $build.definition
+            $repo = $build.repository
+
+            if($buildTitle -eq $false )
+            {
+                $buildTitle = $true
+                $l1 = $def.name.Trim().length - $build.buildNumber.Trim().length 
+                $l2 = $build.startTime.Trim().length - $build.Status.Trim().length - 2
+                $l3 = ( $def.name.Trim().length  + 13 + $build.startTime.Trim().length ) - $build.sourceBranch.Trim().length
+
+                Write-Output ""  | Out-File $outFile                             
+                Write-Output ""  | Out-File $outFile -Append
+                Write-Output "Build Number : " $build.buildNumber.Trim()  "".PadRight($l1," ") " Build Status: " $build.Status.Trim() "".PadRight($l2," ") " Result     : " $build.result  | Out-File $outFile   -Append -NoNewline
+                Write-Output ""  | Out-File $outFile -Append
+                Write-Output "Requested by : " $def.name.Trim() " Start Time: " $build.startTime.Trim()  " Finish Time: " $build.finishTime | Out-File $outFile   -Append -NoNewline
+                Write-Output ""  | Out-File $outFile -Append
+                Write-Output "Source Branch: " $build.sourceBranch.Trim() "".PadRight($l3," ")  " Repo       : " $repo.name  | Out-File $outFile   -Append -NoNewline
+                Write-Output ""  | Out-File $outFile -Append
+                Write-Output "Environment  : " $EnvName  | Out-File $outFile   -Append -NoNewline
+                Write-Output ""  | Out-File $outFile -Append
+
+                Write-Output " "  | Out-File $outFile -Append
+                Write-Output "     Work Items :"  | Out-File $outFile -Append -NoNewline
+                Write-Output " "  | Out-File $outFile -Append
+                Write-Output " "  | Out-File $outFile -Append
+                
+                $lm2 = $lm2 - 4
+                if($lm2 -lt 0)
+                {
+                    $lm2 = 3
+                }
+
+                Write-Output "      ID" "".PadRight($lm0," ") "  Status" "".PadRight($lm1-5," ") "Type" "".PadRight($lm2," ") " Assigned to" "".PadRight($lm4-10," ") "Title" | Out-File $outFile   -Append -NoNewline                            
+                Write-Output " "  | Out-File $outFile -Append
+
+            }
+
+            # for spacing "".PadRight($l0," ") this will pad right $l0 number of spaces
+            $l0 = ($lm0 + 4) - $origId.ToString().length
+            if($l0 -lt 0)
+            {
+                $l0 = 20 - $origId.ToString().length
+            }
+            $l1 = ($lm1 + 1) - $wkState.length
+            if($l1 -lt 0)
+            {
+                $l1 = $lm1
+            }
+            $l2 = ($lm2 + 1) - $wkType.length
+            if($l2 -lt 0)
+            {
+                $l2 = $lm2
+            }
+            $l4 = ($lm4 + 1) - $wkAssignto.displayName.length
+            if($l4 -lt 0)
+            {
+                $l4 = $lm4
+            }
+            
+            $fndUserStory = $UserStoryList.Contains( $fld.'System.Id' )
+            # if no user story found display it
+            if(!$fndUserStory)
+            {
+                # only bus and user stories
+                if ($noUserStory -eq "")
+                {
+                    # add work it em to final list
+                    if($useRelWkItem)
+                    {
+                        $ReleaseWorkItems.add($relWkItem) | Out-Null
+                    }else
+                    {
+                        $ReleaseWorkItems.add($workItem) | Out-Null
+                    }
+
+                    Write-Output "      " $origId  "".PadRight($l0," ")  $wkState "".PadRight($l1," ")  $wkType "".PadRight($l2," ")  $wkAssignto.displayName "".PadRight($l4," ")  $fld.'System.Title' | Out-File $outFile   -Append -NoNewline                            
+                    Write-Output ""  | Out-File $outFile -Append
+
+                    Write-Output "      ID:" $origId  "".PadRight($l0," ") "Status:" $wkState "".PadRight($l1," ") "Type:" $wkType "".PadRight($l2," ") " Assigned to:" $wkAssignto.displayName "".PadRight($l4," ") " Title:" $fld.'System.Title' | Out-File $runLog   -Append -NoNewline                            
+                    Write-Output ""  | Out-File $runLog -Append
+
+                }
+            }
+            $UserStoryList.Add($fld.'System.Id') | Out-Null
         }
+    
     }
+
+    # generate build release table
+    $out = $userParams.LogDirectory + "BuildTable.txt"
+    Get-BuildReleaseTable -userParams $userParams -buildTableArray $buildTableArray -BuildTable $out -ReleaseWorkItems $ReleaseWorkItems
 
     $now = get-Date
     Write-Output ""  | Out-File $runLog -Append
+    Write-Output ""  | Out-File $runLog -Append
     Write-Output "Run Ended :" $now | Out-File $runLog -Append -NoNewline
     Write-Output ""  | Out-File $runLog -Append
+}
+
+function Get-BuildReleaseTable()
+{
+    Param(
+        [Parameter(Mandatory = $true)]
+        $userParams,
+        [Parameter(Mandatory = $true)]
+        $buildTableArray,
+        [Parameter(Mandatory = $true)]
+        $BuildTable,
+        [Parameter(Mandatory = $true)]
+        $ReleaseWorkItems
+    )
+
+    #
+    # display build release table
+    #
+    Write-Output "Build Table for Release : "  | Out-File $BuildTable 
+    if($userParams.BuildTags -ne "")
+    {
+        Write-Output "        Build Release Tags: "  $userParams.BuildTags | Out-File $BuildTable -Append -NoNewline       
+        Write-Output ""  | Out-File $BuildTable -Append
+    }
+
+     # write out build table
+     Write-Output ""  | Out-File $BuildTable -Append
+     Write-Output "Solution" "".PadRight(12 ," ") "Pipeline" "".PadRight(27 ," ")  "Sequence" "".PadRight(17 ," ") "Version     "  | Out-File $BuildTable -Append -NoNewline
+     Write-Output ""  | Out-File $BuildTable -Append
+     Write-Output ""  | Out-File $BuildTable -Append
+     
+     $buildTableArray = $buildTableArray | Sort-Object -Property PipeLine,Version -Descending 
+     foreach ($item in $buildTableArray) 
+     {       
+        Write-Output $item.Solution  "".PadRight(20 - $item.Solution.length ," ")  $item.Pipeline "".PadRight(35 - $item.Pipeline.length ," ") $item.Sequence "".PadRight(25 - $item.Sequence.length ," ") $item.Version    | Out-File $BuildTable -Append -NoNewline
+        Write-Output ""  | Out-File $BuildTable -Append
+     }
+
+    # get all work items sort by type and remove any duplicates @{Expression={$_.Minor} ;Descending=$true}, @{Expression={$_.Bugfix}; Descending=$true})
+    $SortedItems = $ReleaseWorkItems | Sort-Object -Property PipeLine,Version,WorkItemType -Descending 
+    Write-Output ""  | Out-File $BuildTable -Append
+    Write-Output "Work Items associated with above builds"  | Out-File $BuildTable -Append
+    Write-Output ""  | Out-File $BuildTable -Append
+    Write-Output "   ID"  "".PadRight(6," ") "Pipeline" "".PadRight(27," ") "Version" "".PadRight(8 ," ") "Status " "".PadRight(5 ," ") "Type" "".PadRight(10," ")  " Assigned to"  "".PadRight(18," ") " Title " | Out-File $BuildTable   -Append -NoNewline                            
+    Write-Output ""  | Out-File $BuildTable -Append
+    
+    $lstVersion =""
+    foreach ($workItem in $SortedItems)
+    {
+        if($lstVersion -ne $workItem.Version)
+        {
+            Write-Output ""  | Out-File $BuildTable -Append
+        }
+
+        $fld = $workItem.fields
+        $wkType = $fld.'System.WorkItemType'
+        $wkState = $fld.'System.State'
+        $wkAssignto = $fld.'System.AssignedTo'
+        $wkTitle = $fld.'System.Title'
+        $origId  =  $fld.'System.Id'
+
+        $tm1 = 8  - $origId.ToString().length 
+        $tm2 = 35 - $workItem.PipeLine.length 
+        $tm3 = 15 - $workItem.Version.length
+        $tm4 = 12 - $wkState.length 
+        $tm5 = 15 - $wkType.length
+        $tm6 = 30 - $wkAssignto.displayName.length
+
+        Write-Output "   " $origId "".PadRight($tm1," ") $workItem.PipeLine "".PadRight($tm2 ," ") $workItem.Version "".PadRight($tm3 ," ")   $wkState "".PadRight($tm4 ," ") $wkType "".PadRight($tm5," ")  $wkAssignto.displayName "".PadRight($tm6," ") $wkTitle | Out-File $BuildTable   -Append -NoNewline                            
+        Write-Output ""  | Out-File $BuildTable -Append
+        $lstVersion = $workItem.Version
+    }
 
 }
 
+function Get-BuildApprovers()
+{
+    Param(
+        [Parameter(Mandatory = $true)]
+        $userParams,
+        [Parameter(Mandatory = $true)]
+        $build,
+        [Parameter(Mandatory = $true)]
+        $outFile
+
+    )
+    
+    #
+    # get approvals. first get timeline for this build
+    #
+    # get build timeline 
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/timeline/get?view=azure-devops-rest-6.1
+    # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/timeline/{timelineId}?api-version=6.1-preview.2
+    $BuildTimelineUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $build.id + "/timeline?api-version=6.1-preview.2"
+    $BuildTimeLine = Invoke-RestMethod -Uri $BuildTimelineUri -Method Get -Headers $authorization -Verbose
+
+    # get stages for this build
+    $tmStages = $BuildTimeLine.records | Where-Object { $_.type -eq "Stage" } | Sort-Object -Property order -Descending
+    
+    Write-Output "" | Out-File $outFile -Append                
+    Write-Output "     Approvals:" | Out-File $outFile -Append -NoNewline
+    Write-Output "" | Out-File $outFile -Append
+
+    # for each stage find the list of approvers and actual approvers using undocumented API found in f12 of portal
+    foreach ($stg in $tmStages) 
+    {
+        $tmData =  @{
+            contributionIds =  @("ms.vss-build-web.checks-panel-data-provider");
+            dataProviderContext = @{
+                properties = @{
+                    buildId =  $build.id.ToString();
+                    stageIds = $stg.id ;  
+                    checkListItemType = 1;   
+                    sourcePage = @{
+                        url = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_build/results?buildId=" + $build.id + "&view=results";
+                        routeId = "ms.vss-build-web.ci-results-hub-route";
+                        routeValues = @{
+                            project =  $userParams.ProjectName;
+                            viewname = "build-results";
+                            controller = "ContributedPage";
+                        }
+                    }                     
+                }
+            }
+        }
+        $acl = ConvertTo-Json -InputObject $tmData -depth 32
+    
+        # undocumented api call to get list of approvers for a given stage
+        # https://dev.azure.com/fdx-strat-pgm/_apis/Contribution/HierarchyQuery/project/633b0ef1-c219-4017-beb0-8eb49ff55c35?api-version=5.0-preview.1
+        $approvalURL = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/Contribution/HierarchyQuery/project/" + $build.project.id + "?api-version=5.0-preview.1"
+        $ApprlResults = Invoke-RestMethod -Uri $approvalURL -Method Post -Headers $authorization  -ContentType "application/json" -Body $acl
+
+        # get the approval data
+        $appData = $ApprlResults.dataproviders.'ms.vss-build-web.checks-panel-data-provider'
+    
+        foreach ($stItem in $userParams.Stages) 
+        {
+            if($stItem -eq $stg.name )
+            {
+                # if approvals exist for this stage get them               
+                foreach ($item in $appData.approvals.steps)
+                {
+                    Write-Host "    Assigned approver : "  $item.assignedApprover.displayName  
+                    IF (![string]::IsNullOrEmpty($item.actualApprover) ) 
+                    {
+                        Write-Host "    Assigned approver : "  $item.assignedApprover.displayName   |  Out-File $runLog -Append -NoNewline
+                        Write-Output "" |  Out-File $runLog -Append    
+                        # if actual approver is not same as assigned approver 
+                        if($item.actualApprover.displayName -ne $item.assignedApprover.displayName )
+                        {
+                            Write-Output "       Stage:" $stg.name " Approver:" $item.actualApprover.displayName " : on behalf of :" $item.assignedApprover.displayName " Date:" $item.lastModifiedOn  " Comment:" $item.comment| Out-File $outFile -Append -NoNewline
+                            Write-Output "" | Out-File $outFile -Append    
+                            
+                            Write-Output "       Stage:" $stg.name " Approver:" $item.actualApprover.displayName " : on behalf of :" $item.assignedApprover.displayName " Date:" $item.lastModifiedOn  " Comment:" $item.comment| Out-File $runLog -Append -NoNewline
+                            Write-Output "" | Out-File $runLog -Append   
+                        }else
+                        {
+                            Write-Output "       Stage:" $stg.name " Approver:" $item.actualApprover.displayName " Date:" $item.lastModifiedOn  " Comment:" $item.comment | Out-File $outFile -Append -NoNewline
+                            Write-Output "" | Out-File $outFile -Append     
+                            
+                            Write-Output "       Stage:" $stg.name " Approver:" $item.actualApprover.displayName " Date:" $item.lastModifiedOn  " Comment:" $item.comment | Out-File $runLog -Append -NoNewline
+                            Write-Output "" | Out-File $runLog -Append    
+                        }
+                    }
+                }
+            }
+        }
+        
+    }
+}
 
 function Get-BuildDetailsByProject(){
     Param(
