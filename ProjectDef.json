@@ -26,6 +26,7 @@
     "UserFileName"   : "Get-AllUSerMembership-12-2.txt",
     "rawDataFile"    : "rawdump.txt",
     "ReleaseFile"    : "BuildTable.txt",
+    "GitListFile"    : "dataBuild_r001.txt",
 
     "Namespaces"     : ["Analytics","Tagging","Project","AnalyticsViews","AuditLog","BuildAdministration","Server","VersionControlPrivileges","Process","Collection"],
     "AvailableNamespaces"  :["Analytics","Tagging","AnalyticsViews","Project","Process","Boards","Build","Server","Favorites","AuditLog","Collection","BuildAdministration","VersionControlItems","ReleaseManagement","Git Repositories","DashboardsPrivileges"],
