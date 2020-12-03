@@ -1,12 +1,7 @@
 { 
     "VSTSMasterAcct" : "fdx-strat-pgm",
-    "userEmail"     : "arthur.garcia.osv@fedex.com",
-    
-    "PAT"             :"37ffftez7dnwosok2ybs2j2xdmoi7szpsizsworzmcakmuzkjkva",
-    "PAT2"           : "",
-
-    "Subscription"   : "",
-    
+    "userEmail"      : "arthur.garcia.osv@fedex.com",
+    "PAT"            : "",       
     "ProjectName"    : "fdx-surround",
 
     "Folder"         : "",
@@ -18,17 +13,19 @@
     "WorkItemTypes"  : ["User Story","Bug"],
     "BuildResults"   : ["Succeeded"],
 
+    "HTTP_preFix"    : "https",
+    
+    "DirRoot"        : "C:\\TempData",
+    "DumpDirectory"  : "\\RawData\\",
+    "SecurityDir"    : "\\Security\\",
+    "ReleaseDir"     : "\\BuildNotes\\",
+    "LogDirectory"   : "\\Logs\\",
+        
     "Description"    : "My demo project",
     "ProcessType"    : "Agile",
     "RepositoryName" : "AAG Demo",
     "BuildName"      : "Build 1",
     "AgentQueue"     : "Default",
-    "UseProxy"       : "False",
-
-    "DumpDirectory"  : "C:\\Temp\\RawData\\",
-    "DataDirectory"  : "C:\\Temp\\ReleaseNotes\\BuildNotes\\",
-    "LogDirectory"   : "C:\\Temp\\ReleaseNotes\\",
-    
     "OmitTeam" :[{}],
     
     "Namespaces" :["Analytics","Tagging","Project","AnalyticsViews","AuditLog","BuildAdministration","Server","VersionControlPrivileges","Process","Collection"],

@@ -4,7 +4,7 @@
 # Author    : Arthur A. Garcia
 # Purpose   : 
 #             It will get security permissions by team or group
-#             This script is for demonstration only not to be used as production code
+#             
 # last Update: 10/07/2020
 
 #import modules
@@ -21,8 +21,27 @@ $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 Write-Output $userParameters.ProjectName
 Write-Output $userParameters.Description
 
+# make sure directory structure exists
+#    "DirRoot"        : "C:\\TempData",
+#    "ReleaseDir"     : "\\BuildNotes\\",
+#    "LogDirectory"   : "\\Logs\\",
+#    "DumpDirectory"  : "\\RawData\\",
+#    "SecurityDir"    : "\\Security\\",
+#    
+Set-DirectoryStructure -userParams $userParameters 
+
 # Get all groups and there permissions
-Get-SecuritybyGroupByNamespace -userParams $userParameters  -rawDataDump ""  -getAllProjects "False" -outFile "Get-SecuritybyGroupByNamespace-11-03.txt" 
+#       "VSTSMasterAcct" : "fdx-strat-pgm",
+#       "userEmail"      : "arthur.garcia.osv@fedex.com",
+#       "PAT"            : "",       
+#       "ProjectName"    : "fdx-surround",
+#       "HTTP_preFix"    : "https",
+Get-SecuritybyGroupByNamespace -userParams $userParameters  -rawDataDump "rawdump.txt"  -getAllProjects "True" -outFile "Get-SecuritybyGroupByNamespace-12-2.txt" 
 
 # get list of members of group in project or all projects by adding -groupname "All"
-Get-AllUSerMembership  -userParams $userParameters -outFile "Get-AllUSerMembership-10-28-2.txt" -getAllProjects "True"
+#       "VSTSMasterAcct" : "fdx-strat-pgm",
+#       "userEmail"      : "arthur.garcia.osv@fedex.com",
+#       "PAT"            : "",       
+#       "ProjectName"    : "fdx-surround",
+#       "HTTP_preFix"    : "https",
+Get-AllUSerMembership  -userParams $userParameters -outFile "Get-AllUSerMembership-12-2.txt" -getAllProjects "True"

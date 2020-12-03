@@ -3,8 +3,7 @@
 # Data     : 03/20/2018
 # Purpose  : this module has methods to allow for user and group security to be administered in a given VSTS project
 #          : This script is for demonstration only not to be used as production code
-
-      
+    
 
 #
 #   list of available areas to secure in vsts
@@ -131,20 +130,20 @@ function Get-SecuritybyGroupByNamespace()
         $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
         
         # set output file directory and name
-        $outFile = $userParams.DataDirectory + $outFile
+        $outFile = $userParams.DirRoot + $userParams.SecurityDir + $outFile
 
         # get list of all security namespaces for organization
-        $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/securitynamespaces?api-version=5.0"
+        $projectUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/securitynamespaces?api-version=5.0"
         $allNamespaces = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization 
           
         # find all Teams in Org. needed to determine if group is a team or group
         # GET https://dev.azure.com/{organization}/_apis/teams?api-version=6.0-preview.3        
-        $tmUrl = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/teams?api-version=6.0-preview.3"
+        $tmUrl = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/teams?api-version=6.0-preview.3"
         $allteams = Invoke-RestMethod -Uri $tmUrl -Method Get -Headers $authorization 
         
         # get all groups in org or just for a given project
         # vssgp,aadgp are the subject types use vssgp to get groups for a given project
-        $projectUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?subjectTypes=vssgp&api-version=6.0-preview.1"
+        $projectUri = $userParams.HTTP_preFix  + "://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?subjectTypes=vssgp&api-version=6.0-preview.1"
         $allGroups = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization    
         if( $getAllProjects -eq "True")
         {
@@ -171,10 +170,10 @@ function Get-SecuritybyGroupByNamespace()
             } 
 
             Write-Host $fnd.displayname
-            $dumpFile = $rawDataDump
+           # $dumpFile =  $userParams.DirRoot + $userParams.DumpDirectory  + $rawDataDump
 
             #get Direct permissions
-            Get-PermissionsByNamespaceByGroup -Direct "Direct" -Namespaces $allNamespaces -userParams $userParams -projectName $projectName -GroupType $GroupType -fnd $fnd -rawDataDump $dumpFile -outFile $outFile
+            Get-PermissionsByNamespaceByGroup -Direct "Direct" -Namespaces $allNamespaces -userParams $userParams -projectName $projectName -GroupType $GroupType -fnd $fnd -rawDataDump $rawDataDump -outFile $outFile
 
             # find any groups this group is a member of
             $MemberOfGroups = Get-GroupMembership -userParams $userParams -fndGroup $fnd
@@ -186,13 +185,13 @@ function Get-SecuritybyGroupByNamespace()
                 $dscrpt = "Microsoft.TeamFoundation.Identity;" + $dscrpt
                
                 # get group data for group this parent group is a member of
-                $grpUrl = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups/" + $item.containerDescriptor  +"?api-version=6.1-preview.1"
+                $grpUrl = $userParams.HTTP_preFix  + "://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups/" + $item.containerDescriptor  +"?api-version=6.1-preview.1"
                 $grpMembership = Invoke-RestMethod -Uri $grpUrl -Method Get -Headers $authorization 
             
                 # get any permissions from groups this group is a member of
                 if($rawDataDump -ne "")
                 {
-                    $dumpFile = "E_" + $grpMembership.displayName +"_" + $rawDataDump
+                    $dumpFile =  "E_" + $grpMembership.displayName +"_" + $rawDataDump
                 }
                 Get-PermissionsByNamespaceByGroup -Direct "Extended" -Namespaces $allNamespaces -userParams $userParams -projectName $projectName -GroupType $GroupType -fnd $fnd -rawDataDump $dumpFile -outFile $outFile -GroupMember $grpMembership
                 
@@ -259,7 +258,7 @@ Function Get-PermissionsByNamespaceByGroup()
 
         $aclListByNamespace = ""
         $hasPermission = $false
-        $errorfile = $userParams.DataDirectory + "Error.txt"
+        $errorfile = $userParams.DirRoot + $userParams.LogDirectory + "Error.txt"
 
          # set permissions used. use this to find permissions not set
          $permsSet = ""
@@ -275,15 +274,15 @@ Function Get-PermissionsByNamespaceByGroup()
         switch ( $Direct ) {
            "Direct" {
                #  get direct permissions
-               $grpUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?descriptors=" + $dscrpt + "&api-version=6.1-preview.1"
+               $grpUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?descriptors=" + $dscrpt + "&api-version=6.1-preview.1"
            }
            "Child" {
                 #  get child permissions
-                $grpUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?descriptors=" + $dscrpt + "&includeExtendedInfo=False&recurse=True&api-version=6.1-preview.1"                       
+                $grpUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?descriptors=" + $dscrpt + "&includeExtendedInfo=False&recurse=True&api-version=6.1-preview.1"                       
             }
             "Extended" {
                 #  get Extended permissions
-                $grpUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?descriptors=" + $dscrpt + "&includeExtendedInfo=True&recurse=True&api-version=6.1-preview.1"            
+                $grpUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?descriptors=" + $dscrpt + "&includeExtendedInfo=True&recurse=True&api-version=6.1-preview.1"            
             }
             Default {}
         }
@@ -309,7 +308,7 @@ Function Get-PermissionsByNamespaceByGroup()
         # get dump of data to process - for debugging
         if (![string]::IsNullOrEmpty($rawDataDump) )                
         {
-            $outname =  $userParams.DumpDirectory + $projectName +"_" + $fnd.displayname + "_" + $ns.name + "_" + $rawDataDump
+            $outname =  $userParams.DirRoot + $userParams.DumpDirectory + $projectName +"_" + $fnd.displayname + "_" + $ns.name + "_" + $rawDataDump
             Write-Output $projectName  " - " $fnd.displayname " - " $ns.name | Out-File $outname -Append -NoNewline
             Write-Output " " | Out-File $outname -Append
 
@@ -717,7 +716,7 @@ function Get-MembersByTeam
 
      # get project id
      #GET https://dev.azure.com/{organization}/_apis/projects?api-version=5.0
-     $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects?api-version=5.0"
+     $projectUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects?api-version=5.0"
      $currProjects = Invoke-RestMethod -Uri $projectUri -Method Get -ContentType "application/json" -Headers $authorization 
 
      $fnd = $currProjects.value | Where-Object {$_.name -eq $userParams.ProjectName}
@@ -726,7 +725,7 @@ function Get-MembersByTeam
      } 
 
      # get all teams and then specific team. need team id
-     $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/teams?api-version=5.0-preview.2"
+     $projectUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/teams?api-version=5.0-preview.2"
      $allTeams = Invoke-RestMethod -Uri $projectUri -Method Get -ContentType "application/json" -Headers $authorization 
 
      $fndTeam = $allTeams.value | Where-Object {$_.name -eq $teamId}
@@ -736,7 +735,7 @@ function Get-MembersByTeam
 
      # get liest of memners of given team
      #GET https://dev.azure.com/{organization}/_apis/projects/{projectId}/teams/{teamId}/members?api-version=5.0
-     $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/" + $fnd.id+ "/teams/" + $teamId + "/members?api-version=5.0"
+     $projectUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/" + $fnd.id+ "/teams/" + $teamId + "/members?api-version=5.0"
      $allTeamMembers = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization 
 
 
@@ -757,14 +756,14 @@ function Get-NamespaceByGroup(){
           $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
 
           # get list of all security namespaces for organization
-          $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/securitynamespaces?api-version=5.0"
+          $projectUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/securitynamespaces?api-version=5.0"
           $allNamespaces = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization 
           
           # filter out the namespace to look for
           $oneNamespace = $allNamespaces.value | Where-Object {$_.displayName -match "Project"}
           
           # find all groups in organization and then filter by project
-          $projectUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?api-version=5.0-preview.1"
+          $projectUri = $userParams.HTTP_preFix + "://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?api-version=5.0-preview.1"
           $allGroups = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization 
 
           # find all groups for given project
@@ -781,7 +780,7 @@ function Get-NamespaceByGroup(){
                 foreach( $ns in $oneNamespace)
                 {
                     #Write-Host "Namespace : " + $ns.namespaceId + "   " + $ns.displayName
-                    $grpUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?api-version=5.1"
+                    $grpUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?api-version=5.1"
                     $aclListByGroup = Invoke-RestMethod -Uri $grpUri -Method Get -Headers $authorization 
                     
                     # loop thru each acl looking for matck
@@ -802,7 +801,6 @@ function Get-NamespaceByGroup(){
             }
             
            
-
             # get ACL list by descriptor
             # https://spsprodeus23.vssps.visualstudio.com/{organization}/_apis/Identities?searchFilter=DisplayName&filterValue={groupName}&options=None&queryMembership=None
             # GET https://dev.azure.com/{organization}/_apis/accesscontrollists/{securityNamespaceId}?api-version=5.1
@@ -853,12 +851,12 @@ function Set-UserSecurity()
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
        
     # find project id and then token. this token is for project level permisions TODO: find tokens for build, git, etc.
-    $projectUri = "https://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/projects?api-version=1.0"
+    $projectUri = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/projects?api-version=1.0"
     $allPrjects = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json"  
     $prjId = $allPrjects.value | Where-Object {$_.name -eq $userParams.ProjectName}
 
     # find security namespaces for area given ie : project, build, etc
-    $secURL = " https://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/securitynamespaces/00000000-0000-0000-0000-000000000000/?api-version=1.0"
+    $secURL = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/securitynamespaces/00000000-0000-0000-0000-000000000000/?api-version=1.0"
     $namespaces = Invoke-RestMethod -Uri $secURL -Method Get -Headers $authorization -ContentType "application/json" 
 
     # loop thru the security list for each user
@@ -1013,12 +1011,12 @@ function Set-GroupSecurity()
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
        
     # find project id and then token. this token is for project level permisions TODO: find tokens for build, git, etc.
-    $projectUri = "https://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/projects?api-version=1.0"
+    $projectUri = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/projects?api-version=1.0"
     $allPrjects = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json"  
     $prjId = $allPrjects.value | Where-Object {$_.name -eq $userParams.ProjectName}
 
     # find security namespaces for area given ie : project, build, etc
-    $secURL = " https://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/securitynamespaces/00000000-0000-0000-0000-000000000000/?api-version=1.0"
+    $secURL = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/securitynamespaces/00000000-0000-0000-0000-000000000000/?api-version=1.0"
     $namespaces = Invoke-RestMethod -Uri $secURL -Method Get -Headers $authorization -ContentType "application/json" 
 
     
@@ -1026,7 +1024,7 @@ function Set-GroupSecurity()
     foreach ($secGroup in $groupSecurity)
     {
         # find group info
-        $projectUri = "https://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/projects/"+  $prjId.Id + "/teams?api-version=2.2"
+        $projectUri = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/projects/"+  $prjId.Id + "/teams?api-version=2.2"
         $allPrjects = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json"  
         
         # get access control list for namespace
@@ -1036,13 +1034,13 @@ function Set-GroupSecurity()
 
         
         # get all enabled groups
-        $aclUrl = "https://" + $userParams.VSTSMasterAcct + ".visualstudio.com/_apis/graph/groups?api-version=3.0-preview.2"
+        $aclUrl = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".visualstudio.com/_apis/graph/groups?api-version=3.0-preview.2"
         $aclList = Invoke-RestMethod -Uri $aclUrl -Method Get -Headers $authorization -ContentType "application/json" 
 
         $js =ConvertTo-Json -InputObject $aclList -Depth 4
         Out-File -FilePath "C:\temp\groups.json"  -InputObject $js 
 
-        $aclUrl = "https://" + $userParams.VSTSMasterAcct + ".visualstudio.com/_apis/accesscontrollists/" + $nsp.namespaceId + "?api-version=4.1-preview.1"
+        $aclUrl = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".visualstudio.com/_apis/accesscontrollists/" + $nsp.namespaceId + "?api-version=4.1-preview.1"
         $aclList = Invoke-RestMethod -Uri $aclUrl -Method Get -Headers $authorization -ContentType "application/json" 
         $js =ConvertTo-Json -InputObject $aclList -Depth 4
         Out-File -FilePath "C:\temp\aclList_build1.json"  -InputObject $js 
@@ -1133,7 +1131,7 @@ function Add-GroupSecurity()
     )
        
     # get project id and then token
-    $projectUri = "https://" + $VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/projects?api-version=1.0"
+    $projectUri = $userParams.HTTP_preFix + "://" + $VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/projects?api-version=1.0"
     $allPrjects = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json"  
     $fnd = $allPrjects.value | Where-Object {$_.name -eq $ProjectName}
 
@@ -1216,7 +1214,7 @@ function Get-GroupSecurityTFS()
      $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
 
     # find list of all Groups  # https://vssps.dev.azure.com/{organization}/_apis/graph/groups?api-version=5.1-preview.1
-    $projectUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?api-version=5.1-preview.1"
+    $projectUri = $userParams.HTTP_preFix + "://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?api-version=5.1-preview.1"
     $allGroups = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json"  
    
     # find groups for the current project
@@ -1272,14 +1270,14 @@ function Get-Teams()
      $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
 
     # first get project id
-    $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/" + $userParams.ProjectName +"?api-version=5.0"
+    $projectUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/" + $userParams.ProjectName +"?api-version=5.0"
     $prj = Invoke-RestMethod -Uri $projectUri -Method Get -ContentType "application/json" -Headers $authorization 
  
     # find all teams in a given project
     # https://docs.microsoft.com/en-us/rest/api/azure/devops/core/teams/get%20teams?view=azure-devops-rest-5.0
     # GET https://dev.azure.com/{organization}/_apis/projects/{projectId}/teams?api-version=5.0
     #
-    $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/"  + $prj.id +   "/teams?api-version=5.0"
+    $projectUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/"  + $prj.id +   "/teams?api-version=5.0"
     $allTeams = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json" 
 
    # foreach ($item in $allTeams.value) {
@@ -1321,7 +1319,7 @@ function Get-TeamsAndPermsions()
     # list of backlog items
     # $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/fdx-surround" +  "/_apis/wit/recyclebin?api-version=5.0"
     
-    $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/securitynamespaces?api-version=5.0"
+    $projectUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/securitynamespaces?api-version=5.0"
     $allNamespaces = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization 
     
     # find namespace for given category or all categories
@@ -1335,15 +1333,15 @@ function Get-TeamsAndPermsions()
     if($Allprojects -eq "True")
     {
         #GET https://dev.azure.com/{organization}/_apis/teams?api-version=6.0-preview.3
-        $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/teams?api-version=6.0-preview.3"
+        $projectUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/teams?api-version=6.0-preview.3"
         $allTeams = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json" 
     }
     else {
         # get project id
-        $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/" + $userParams.ProjectName +"?api-version=5.0"
+        $projectUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/" + $userParams.ProjectName +"?api-version=5.0"
         $prj = Invoke-RestMethod -Uri $projectUri -Method Get -ContentType "application/json" -Headers $authorization 
 
-        $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/"  + $prj.id +   "/teams?api-version=5.0"
+        $projectUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/"  + $prj.id +   "/teams?api-version=5.0"
         $allTeams = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json"             
     }
     
@@ -1351,7 +1349,7 @@ function Get-TeamsAndPermsions()
 
     foreach ($item in $allTeams.value) {
         # GET https://vssps.dev.azure.com/{organization}/_apis/identities?descriptors={descriptors}&identityIds={identityIds}&subjectDescriptors={subjectDescriptors}&searchFilter={searchFilter}&filterValue={filterValue}&queryMembership={queryMembership}&api-version=6.0
-         $teamUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?identityIds="  + $item.id +   "&api-version=6.0"
+         $teamUri = $userParams.HTTP_preFix + "://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?identityIds="  + $item.id +   "&api-version=6.0"
          $teamIdentity = Invoke-RestMethod -Uri $teamUri -Method Get -Headers $authorization  -ContentType "application/json" 
          
          $desc = $item.description
@@ -1365,7 +1363,7 @@ function Get-TeamsAndPermsions()
             $aclListByNamespace = ""
             try {
                 #find all access control lists for the given namespace and group
-                $grpUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?descriptors=" + $teamIdentity.value[0].descriptor + "&includeExtendedInfo=True&api-version=6.0-preview.1"
+                $grpUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/accesscontrollists/" + $ns.namespaceId + "?descriptors=" + $teamIdentity.value[0].descriptor + "&includeExtendedInfo=True&api-version=6.0-preview.1"
                 $aclListByNamespace = Invoke-RestMethod -Uri $grpUri -Method Get -Headers $authorization 
             }
             catch {
@@ -1385,7 +1383,7 @@ function Get-TeamsAndPermsions()
                                                                       
                         # undocumented api to get groupname  from descriptor
                         # https://stackoverflow.com/questions/55735054/translate-acl-descriptors-to-security-group-names
-                        $aseList = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?descriptors=" + $_.Value.descriptor
+                        $aseList = $userParams.HTTP_preFix + "://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?descriptors=" + $_.Value.descriptor
                         $aselistRetrun = Invoke-RestMethod -Uri $aseList -Method Get -Headers $authorization 
                         
                         # decode bit. convert to base 2 and find the accompaning permission
@@ -1565,18 +1563,18 @@ function Get-TeamsAndMemberstoCSV()
      $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
 
     # first get project id
-    $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/" + $userParams.ProjectName +"?api-version=5.0"
+    $projectUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/" + $userParams.ProjectName +"?api-version=5.0"
     $prj = Invoke-RestMethod -Uri $projectUri -Method Get -ContentType "application/json" -Headers $authorization 
  
     # find all teams in a given project    
-    $projectUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/"  + $prj.id +   "/teams?api-version=5.0"
+    $projectUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/"  + $prj.id +   "/teams?api-version=5.0"
     $allTeams = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json" 
 
     Write-Output "Team/Group,Name,Member,Email Address"  | Out-File -FilePath $outFile -Append 
     foreach ($item in $allTeams.value) {
         # get all members of given team
         # GET https://dev.azure.com/{organization}/_apis/projects/{projectId}/teams/{teamId}/members?api-version=6.1-preview.2
-         $teamUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/"  + $prj.id +   "/teams/" + $item.id + "/members?api-version=6.1-preview.2"
+         $teamUri = $userParams.HTTP_preFix +  "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects/"  + $prj.id +   "/teams/" + $item.id + "/members?api-version=6.1-preview.2"
          $allTeamMembers = Invoke-RestMethod -Uri $teamUri -Method Get -Headers $authorization  -ContentType "application/json" 
 
          foreach ($member in $allTeamMembers.value) {
@@ -1601,7 +1599,7 @@ function Get-AllGroups()
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
 
      # find list of all Groups  # https://vssps.dev.azure.com/{organization}/_apis/graph/groups?api-version=5.1-preview.1
-     $projectUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?api-version=5.1-preview.1"
+     $projectUri = $userParams.HTTP_preFix + "://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?api-version=5.1-preview.1"
      $allGroups = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json"  
     
      # loop thru all groups and get all users in each group
@@ -1611,7 +1609,7 @@ function Get-AllGroups()
          Write-Host $item.principalName
          Write-Host $item.descriptor
           
-         $usersUri = "https://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/users?groupDescriptors=" + $item.descriptor + "&api-version=4.0-preview"
+         $usersUri = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/users?groupDescriptors=" + $item.descriptor + "&api-version=4.0-preview"
          $grp =  Invoke-RestMethod -Uri $usersUri -Method Get -Headers $authorization -ContentType "application/json" 
  
          Write-Host ConvertTo-Json -InputObject $grp.value -Depth 42
@@ -1634,7 +1632,7 @@ function Get-GroupListbyGroup()
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
      
     # find list of all Groups  # https://vssps.dev.azure.com/{organization}/_apis/graph/groups?api-version=5.1-preview.1
-    $projectUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?api-version=5.1-preview.1"
+    $projectUri = $userParams.HTTP_preFix + "://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?api-version=5.1-preview.1"
     $allGroups = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json"  
    
     # find namespace for given category or all categories
@@ -1665,7 +1663,7 @@ function Get-GroupListbyGroup()
         Write-Output '       Description    : ' $item.description | Out-File -FilePath $outFile -Append -NoNewline
         Write-Output "" | Out-File -FilePath $outFile -Append
 
-        $usersUri = "https://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/users?groupDescriptors=" + $item.descriptor + "&api-version=4.0-preview"
+        $usersUri = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/users?groupDescriptors=" + $item.descriptor + "&api-version=4.0-preview"
         $grp =  Invoke-RestMethod -Uri $usersUri -Method Get -Headers $authorization -ContentType "application/json" 
 
         foreach($useritem in $grp.value)
@@ -1698,7 +1696,7 @@ function Get-GroupList()
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
      
     # find list of all Groups  # https://vssps.dev.azure.com/{organization}/_apis/graph/groups?api-version=5.1-preview.1
-    $projectUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?api-version=5.1-preview.1"
+    $projectUri = $userParams.HTTP_preFix + "://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/groups?api-version=5.1-preview.1"
     $allGroups = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json"  
    
       # find groups for the current project
@@ -1724,8 +1722,7 @@ function Get-GroupList()
         Write-Host $item.descriptor
         Write-Host $item.description
         
-        $usersUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/users?api-version=4.0-preview"
-
+        $usersUri = $userParams.HTTP_preFix + "://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/users?api-version=4.0-preview"
         #$usersUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/users?api-version=6.0-preview.1"
         $grp2 =  Invoke-RestMethod -Uri $usersUri -Method Get -Headers $authorization -ContentType "application/json" 
         
@@ -1736,7 +1733,7 @@ function Get-GroupList()
         foreach($useritem in $fnd1)
         {
             # GET https://vssps.dev.azure.com/fabrikam/_apis/graph/Memberships/{subjectDescriptor}?direction=Down&api-version=6.1-preview.1
-            $memberUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "_apis/graph/Memberships/" + $useritem.descriptor + "?api-version=5.1-preview.1"
+            $memberUri = $userParams.HTTP_preFix +  "://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "_apis/graph/Memberships/" + $useritem.descriptor + "?api-version=5.1-preview.1"
             $mbr1 =  Invoke-RestMethod -Uri $memberUri -Method Get -Headers $authorization -ContentType "application/json" 
 
 
@@ -1771,7 +1768,7 @@ function Get-GroupMembership(){
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
                 
     #GET https://vssps.dev.azure.com/{organization}/_apis/graph/Memberships/{subjectDescriptor}?api-version=6.0-preview.1
-    $memberUri = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/Memberships/" + $fndGroup.descriptor +"?direction=Up&api-version=6.1-preview.1"
+    $memberUri = $userParams.HTTP_preFix +  "://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/graph/Memberships/" + $fndGroup.descriptor +"?direction=Up&api-version=6.1-preview.1"
     $Memberof = Invoke-RestMethod -Uri $memberUri -Method Get -Headers $authorization    
 
    

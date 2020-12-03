@@ -32,7 +32,7 @@ function CreateVSTSProject () {
    
     try {
         # check if project already exists
-        $projectUri = "https://" + $userParams.VSTSMasterAcct + ".visualstudio.com/defaultcollection/_apis/projects?api-version=2.0-preview"
+        $projectUri = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".visualstudio.com/defaultcollection/_apis/projects?api-version=2.0-preview"
         $currProjects = Invoke-RestMethod -Uri $projectUri -Method Get -ContentType "application/json" -Headers $authorization 
 
         $fnd = $currProjects.value | Where-Object {$_.name -eq $name}
@@ -42,7 +42,7 @@ function CreateVSTSProject () {
         } 
         
         # project does not exist, create new one
-        $projectUri = "https://" + $userParams.VSTSMasterAcct + ".visualstudio.com/defaultcollection/_apis/projects?api-version=2.0-preview"
+        $projectUri = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".visualstudio.com/defaultcollection/_apis/projects?api-version=2.0-preview"
         $return = Invoke-RestMethod -Uri $projectUri -Method Post -ContentType "application/json" -Headers $authorization -Body $valJson
         return $return
     }
@@ -69,7 +69,7 @@ Function AddProjectTeams() {
         }
 
         $tmJson = ConvertTo-Json -InputObject $tmData
-        $projectUri = "https://" + $userParams.VSTSMasterAcct + ".VisualStudio.com/DefaultCollection/_apis/projects/" + $userParams.ProjectName + "/teams?api-version=2.2"
+        $projectUri = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".VisualStudio.com/DefaultCollection/_apis/projects/" + $userParams.ProjectName + "/teams?api-version=2.2"
 
         # Add team
         try {
@@ -115,7 +115,7 @@ function AddVSTSGroupAndUsers() {
                     $userData = @{principalName = $usr}
                     $json = ConvertTo-Json -InputObject $userData
 
-                    $adduserUri = "https://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/users?groupDescriptors=" + $fnd.descriptor + "&api-version=4.0-preview"
+                    $adduserUri = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/users?groupDescriptors=" + $fnd.descriptor + "&api-version=4.0-preview"
                     $grp =  Invoke-RestMethod -Uri $adduserUri -Method Post -Headers $authorization -ContentType "application/json" -Body $json
                 }
             } 
@@ -131,7 +131,7 @@ function AddVSTSGroupAndUsers() {
             $tmJson = ConvertTo-Json -InputObject $tmData
 
             # add / group 
-            $projectUri = "https://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/groups?api-version=4.0-preview"
+            $projectUri = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/groups?api-version=4.0-preview"
             $fnd = Invoke-RestMethod -Uri $projectUri -Method Post -Headers $authorization  -ContentType "application/json" -Body $tmJson       
     
             IF (![string]::IsNullOrEmpty($fnd)) {
@@ -144,7 +144,7 @@ function AddVSTSGroupAndUsers() {
                     $userData = @{principalName = $usr}
                     $json = ConvertTo-Json -InputObject $userData
 
-                    $adduserUri = "https://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/users?groupDescriptors=" + $fnd.descriptor + "&api-version=4.0-preview"
+                    $adduserUri = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/users?groupDescriptors=" + $fnd.descriptor + "&api-version=4.0-preview"
                     $grp =  Invoke-RestMethod -Uri $adduserUri -Method Post -Headers $authorization -ContentType "application/json" -Body $json
                 }
             } 
@@ -156,6 +156,43 @@ function AddVSTSGroupAndUsers() {
         Write-Host "Error : " + $ErrorMessage + " iTEM : " + $FailedItem
     }
 
+}
+
+function Set-DirectoryStructure()
+{
+    # this function will setup the directory structure for files that this powershell script will need.
+    Param(
+        [Parameter(Mandatory = $true)]
+        $userParams
+    )
+ 
+    # make sure directory structure exists
+    if(!(test-path  $userParams.DirRoot))
+    {
+        New-Item -ItemType directory -Path $userParams.DirRoot
+    }
+
+    if(!(test-path  ($userParams.DirRoot + $userParams.SecurityDir) ))
+    {
+        New-Item -ItemType directory -Path ($userParams.DirRoot + $userParams.SecurityDir)
+    }
+
+    if(!(test-path  ($userParams.DirRoot + $userParams.DumpDirectory) ))
+    {
+        New-Item -ItemType directory -Path ($userParams.DirRoot + $userParams.DumpDirectory)
+    }
+    
+    if(!(test-path  ($userParams.DirRoot + $userParams.LogDirectory) ))
+    {
+        New-Item -ItemType directory -Path ($userParams.DirRoot + $userParams.LogDirectory)
+    }
+
+    if(!(test-path  ($userParams.DirRoot + $userParams.ReleaseDir) ))
+    {
+        New-Item -ItemType directory -Path ($userParams.DirRoot + $userParams.ReleaseDir)
+    }
+
+    
 }
 
 function Get-ApprovalsByEnvironment()
@@ -175,7 +212,7 @@ function Get-ApprovalsByEnvironment()
     # get list of environments
     # https://docs.microsoft.com/en-us/rest/api/azure/devops/distributedtask/environments/list?view=azure-devops-rest-6.1
     # GET https://dev.azure.com/{organization}/{project}/_apis/distributedtask/environments?api-version=6.1-preview.1
-    $envUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/distributedtask/environments?api-version=6.1-preview.1"
+    $envUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/distributedtask/environments?api-version=6.1-preview.1"
     $allEnvs = Invoke-RestMethod -Uri $envUri -Method Get -Headers $authorization -Verbose
     Write-Host $allEnvs.count
     Write-Output "" | Out-File $outFile 
@@ -199,7 +236,7 @@ function Get-ApprovalsByEnvironment()
         # get individual environment with resources if available
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/distributedtask/environments/get?view=azure-devops-rest-6.1
         # GET https://dev.azure.com/{organization}/{project}/_apis/distributedtask/environments/{environmentId}?expands={expands}&api-version=6.1-preview.1
-        $envUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/distributedtask/environments/" + $Env.id + "?expands=resourceReferences&api-version=6.1-preview.1"
+        $envUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/distributedtask/environments/" + $Env.id + "?expands=resourceReferences&api-version=6.1-preview.1"
         $EnvwResources = Invoke-RestMethod -Uri $envUri -Method Get -Headers $authorization -Verbose
         for ($r = 0; $r -lt $EnvwResources.resources.length; $r++) 
         {
@@ -209,7 +246,7 @@ function Get-ApprovalsByEnvironment()
                 "kubernetes" { 
                     # https://docs.microsoft.com/en-us/rest/api/azure/devops/distributedtask/kubernetes/get?view=azure-devops-rest-6.1
                     # GET https://dev.azure.com/{organization}/{project}/_apis/distributedtask/environments/{environmentId}/providers/kubernetes/{resourceId}?api-version=6.1-preview.1
-                    $kubUrl = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/distributedtask/environments/" + $Env.id + "/providers/kubernetes/" + $EnvwResources.resources[$r].id + "?api-version=6.1-preview.1"
+                    $kubUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/distributedtask/environments/" + $Env.id + "/providers/kubernetes/" + $EnvwResources.resources[$r].id + "?api-version=6.1-preview.1"
                     $KubResource = Invoke-RestMethod -Uri $kubUrl -Method Get -Headers $authorization -Verbose
                     
                     Write-Output "     Resource: " $KubResource.name  " Type : " $KubResource.type | Out-File $outFile -Append -NoNewline
@@ -240,7 +277,7 @@ function Get-ApprovalsByEnvironment()
         # get environment deployment record - this is a list of deployments
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/distributedtask/environmentdeployment%20records/list?view=azure-devops-rest-6.1
         # GET https://dev.azure.com/{organization}/{project}/_apis/distributedtask/environments/{environmentId}/environmentdeploymentrecords?api-version=6.1-preview.1
-        $envDepUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/distributedtask/environments/" + $Env.id + "/environmentdeploymentrecords?api-version=6.1-preview.1"
+        $envDepUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/distributedtask/environments/" + $Env.id + "/environmentdeploymentrecords?api-version=6.1-preview.1"
         $EnvDeps = Invoke-RestMethod -Uri $envDepUri -Method Get -Headers $authorization -Verbose
 
         Write-Output " Number of Deployments  :" $EnvDeps.count | Out-File $outFile -Append -NoNewline
@@ -254,13 +291,13 @@ function Get-ApprovalsByEnvironment()
             {
                 # get build in the deployments
                 # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}?api-version=6.1-preview.6
-                $DepBuildUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $deploy.owner.id + "?api-version=6.1-preview.6"
+                $DepBuildUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $deploy.owner.id + "?api-version=6.1-preview.6"
                 $DepBuild = Invoke-RestMethod -Uri $DepBuildUri -Method Get -Headers $authorization -Verbose
 
                 # get build timeline 
                 # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/timeline/get?view=azure-devops-rest-6.1
                 # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/timeline/{timelineId}?api-version=6.1-preview.2
-                $BuildTimelineUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $deploy.owner.id + "/timeline?api-version=6.1-preview.2"
+                $BuildTimelineUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $deploy.owner.id + "/timeline?api-version=6.1-preview.2"
                 $BuildTimeLine = Invoke-RestMethod -Uri $BuildTimelineUri -Method Get -Headers $authorization -Verbose
             }
             catch 
@@ -304,7 +341,7 @@ function Get-ApprovalsByEnvironment()
                             stageIds = $stg.id ;  
                             checkListItemType = 1;   
                             sourcePage = @{
-                                url = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_build/results?buildId=" + $deploy.owner.id + "&view=results";
+                                url = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_build/results?buildId=" + $deploy.owner.id + "&view=results";
                                 routeId = "ms.vss-build-web.ci-results-hub-route";
                                 routeValues = @{
                                     project =  $userParams.ProjectName;
@@ -319,7 +356,7 @@ function Get-ApprovalsByEnvironment()
             
                 # undocumented api call to get list of approvers for a given stage
                 # https://dev.azure.com/fdx-strat-pgm/_apis/Contribution/HierarchyQuery/project/633b0ef1-c219-4017-beb0-8eb49ff55c35?api-version=5.0-preview.1
-                $approvalURL = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/Contribution/HierarchyQuery/project/" + $Env.project.id + "?api-version=5.0-preview.1"
+                $approvalURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/Contribution/HierarchyQuery/project/" + $Env.project.id + "?api-version=5.0-preview.1"
                 $ApprlResults = Invoke-RestMethod -Uri $approvalURL -Method Post -Headers $authorization  -ContentType "application/json" -Body $acl
 
                 # get the approval data
@@ -353,15 +390,6 @@ function Get-ApprovalsByEnvironment()
                     }
                 }
             }
-
-            # loop thru each approval in the pipeline and get the approval record
-            #foreach ($chApp in $tmCpApproval) 
-            #{
-            #    #Approval – Get: Get https://dev.azure.com/{organization}/{project}/_apis/pipelines/approvals/{approvalId}
-            #    $approvalURL = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/pipelines/approvals/" + $chApp.Id
-            #    $Approval = Invoke-RestMethod -Uri $approvalURL -Method Get -Headers $authorization -Verbose
-            #    Write-Host $Approval
-            #}
 
         }
 
@@ -422,7 +450,9 @@ function Get-ReleaseNotesByBuildByTag()
     #build table array - list of all builds for this release
     $buildTableArray = @()
 
-    $runLog = $userParams.LogDirectory + "runLog.txt"    
+    # set log directory
+    $runLog = $userParams.DirRoot + $userParams.LogDirectory + "runLog.txt"    
+
     $now = get-Date
     Write-Output "Run Started :" $now | Out-File $runLog -NoNewline
     Write-Output ""  | Out-File $runLog -Append
@@ -459,22 +489,12 @@ function Get-ReleaseNotesByBuildByTag()
         Write-Output "   Results to Include: All results included"   | Out-File $runLog -Append -NoNewline
         Write-Output ""  | Out-File $runLog -Append
     }
-    
-   # if($userParams.Stages -ne "")
-   # {
-   #     Write-Output "   Stages to Include : "   | Out-File $runLog -Append -NoNewline
-   #     foreach( $st in $userParams.Stages   )
-   #     {
-   #         Write-Output $st " | "  | Out-File $runLog -Append -NoNewline
-   #     }
-   #     Write-Output ""  | Out-File $runLog -Append
-   # }
-
+   
     Write-Output ""  | Out-File $runLog -Append
 
     # Get a list of all builds with a specific tag
     # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds?definitions={definitions}&queues={queues}&buildNumber={buildNumber}&minTime={minTime}&maxTime={maxTime}&requestedFor={requestedFor}&reasonFilter={reasonFilter}&statusFilter={statusFilter}&resultFilter={resultFilter}&tagFilters={tagFilters}&properties={properties}&$top={$top}&continuationToken={continuationToken}&maxBuildsPerDefinition={maxBuildsPerDefinition}&deletedFilter={deletedFilter}&queryOrder={queryOrder}&branchName={branchName}&buildIds={buildIds}&repositoryId={repositoryId}&repositoryType={repositoryType}&api-version=6.1-preview.6
-    $AllBuildsUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds?tagFilters=" + $userParams.BuildTags + "&api-version=6.1-preview.6"
+    $AllBuildsUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds?tagFilters=" + $userParams.BuildTags + "&api-version=6.1-preview.6"
     $AllBuildswithTags = Invoke-RestMethod -Uri $AllBuildsUri -Method Get -Headers $authorization 
 
     Write-Host "Builds found :" $AllBuildswithTags.count
@@ -490,11 +510,10 @@ function Get-ReleaseNotesByBuildByTag()
     # loop thru each build in list found
     foreach ($build in $AllBuildswithTags.value) 
     {
-
         # get work all items for this build
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/get%20build%20work%20items%20refs?view=azure-devops-rest-6.1
         # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/workitems?api-version=6.1-preview.2
-        $workItemUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $build.id + "/workitems?api-version=6.1-preview.2"
+        $workItemUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $build.id + "/workitems?api-version=6.1-preview.2"
         $allBuildWorkItems = Invoke-RestMethod -Uri $workItemUri -Method Get -Headers $authorization 
        
         Write-Host   "   Build Number:" $build.buildNumber " Build Definition :" $build.definition.name "  Results: " $build.result  " Status : " $build.status 
@@ -525,7 +544,7 @@ function Get-ReleaseNotesByBuildByTag()
             # get individual work item
             # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/work%20items/get%20work%20item?view=azure-devops-rest-6.1
             # GET https://dev.azure.com/{organization}/{project}/_apis/wit/workitems/{id}?api-version=6.1-preview.3
-            $BuildworkItemUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $workItem.id + "?$" + "expand=All&api-version=6.1-preview.3" 
+            $BuildworkItemUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $workItem.id + "?$" + "expand=All&api-version=6.1-preview.3" 
             $WItems = Invoke-RestMethod -Uri $BuildworkItemUri -Method Get -Headers $authorization 
             
             $fld = $WItems.fields
@@ -544,9 +563,6 @@ function Get-ReleaseNotesByBuildByTag()
             # save work items into an array to sort if tag was found
             $ArrayList.Add($WItems) | Out-Null
 
-            # add item to log
-            $LogWorkItems.Add($WItems) | Out-Null
-
             Write-Host   " WorkItem ID:" $workItem.id " Version : "  $build.buildNumber.ToString()
          
             # for spacing
@@ -562,16 +578,13 @@ function Get-ReleaseNotesByBuildByTag()
             {
                 $lm2 =  $wkType.length
             }
-            if($tg.length -gt $lm3 )
-            {
-                $lm3 =  $tg.length
-            }
+           
             if($wkAssignto.displayName.length -gt $lm4 )
             {
                 $lm4 =  $wkAssignto.displayName.length
             }
 
-            Write-Output "     ID :" $WItems.id "".PadRight(10 - $WItems.id.length," ") " Status :" $wkState "".PadRight(10 - $wkState.length," ") " Type :" $wkType "".PadRight(15 - $wkType.length," ") " Assigned to:" $wkAssignto.displayName  "".PadRight(30 - $wkAssignto.displayName.length," ") " Title :" $fld.'System.Title' | Out-File $runLog  -Append -NoNewline                            
+            Write-Output "     ID :" $WItems.id "".PadRight(5 ," ") " Status :" $wkState "".PadRight(10 - $wkState.length ," ") " Type :" $wkType "".PadRight(15 - $wkType.length," ") " Assigned to:" $wkAssignto.displayName  "".PadRight(30 - $wkAssignto.displayName.Length, " ") " Title :" $fld.'System.Title' | Out-File $runLog  -Append -NoNewline                            
             Write-Output ""  | Out-File $runLog -Append
         }
 
@@ -586,13 +599,10 @@ function Get-ReleaseNotesByBuildByTag()
 
         # create release output file        
         $nme =  $build.definition.name -replace '[\W]','_' 
-        $pth = $userParams.DataDirectory + $nme + " _" + $build.buildNumber + ".txt"
+        $pth = $userParams.DirRoot + $userParams.ReleaseDir + $nme + " _" + $build.buildNumber + ".txt"
         $pth = $pth -replace ' ',''
         $outfile = $pth
-        if(!(test-path  $userParams.DataDirectory))
-        {
-            New-Item -ItemType directory -Path $userParams.DataDirectory
-        }
+        
         Write-Output "" | Out-File $outfile
 
         # sort by url( work item type) decending
@@ -620,15 +630,10 @@ function Get-ReleaseNotesByBuildByTag()
             $wkState = $fld.'System.State'
             $wkAssignto = $fld.'System.AssignedTo'
             $origId =   $fld.'System.Id' 
+          
             $noUserStory = ""
             $useRelWkItem = $false
             
-            # for debugging
-            #if( $fld.'System.Id'.ToString().Trim() -eq "24711")
-            #{
-            #    Write-Host $fld.'System.Id'.ToString()
-            #}
-
             # if not user story find parent user story  "User Story", "Bug"
             if( !$userParams.WorkItemTypes.Contains($wkType) )
             {
@@ -654,6 +659,15 @@ function Get-ReleaseNotesByBuildByTag()
                         {
                             Write-Host $wiType " - " $build.definition.name
                             
+                            # for auditing. this will show origional task and the user story parent it found.
+                            # output may have multiple tasks with same user story as many tasks can be associated to the same user story or parent
+                            Write-Output ""  | Out-File $runLog -Append
+                            Write-Output "      -->Origional ID :" $workItem.id "".PadRight(9 ," ") "Type :" $wkType "".PadRight(15," ")  | Out-File $runLog  -Append -NoNewline                            
+                            Write-Output ""  | Out-File $runLog -Append
+
+                            Write-Output "      -->Relation ID  :" $fld.'System.Id' "".PadRight(9 ," ") "Type :" $wiType "".PadRight(10," ")  "Relation :" $item.attributes.name  | Out-File $runLog  -Append -NoNewline                            
+                            Write-Output ""  | Out-File $runLog -Append
+
                             # add field to house work item type. this will allow sorting of workitems by type
                             $relWkItem | Add-Member -MemberType NoteProperty -name "WorkItemType" -Value $wiType
                             $relWkItem | Add-Member -MemberType NoteProperty -name "Version" -Value $build.buildNumber.ToString()
@@ -670,7 +684,7 @@ function Get-ReleaseNotesByBuildByTag()
                             $noUserStory = ""
                             $useRelWkItem = $true
                             $origId  =  $fld.'System.Id'
-                            continue 
+                            break 
                         }
                     }
                 }
@@ -707,41 +721,42 @@ function Get-ReleaseNotesByBuildByTag()
                 Write-Output " "  | Out-File $outFile -Append
                 Write-Output " "  | Out-File $outFile -Append
                 
-                $lm2 = $lm2 - 4
+                #$lm2 = $lm2 - 4
                 if($lm2 -lt 0)
                 {
                     $lm2 = 3
                 }
 
-                Write-Output "      ID" "".PadRight($lm0," ") "  Status" "".PadRight($lm1-5," ") "Type" "".PadRight($lm2," ") " Assigned to" "".PadRight($lm4-10," ") "Title" | Out-File $outFile   -Append -NoNewline                            
+                # write to output ( build file)
+                Write-Output "      ID" "".PadRight($lm0," ") "Status" "".PadRight($lm1," ") "Type" "".PadRight($lm2," ") "Assigned to" "".PadRight($lm4," ") "Title" | Out-File $outFile   -Append -NoNewline                            
                 Write-Output " "  | Out-File $outFile -Append
 
             }
 
             # for spacing "".PadRight($l0," ") this will pad right $l0 number of spaces
-            $l0 = ($lm0 + 4) - $origId.ToString().length
+            $l0 = ($lm0 + 2) - $origId.ToString().length
             if($l0 -lt 0)
             {
-                $l0 = 20 - $origId.ToString().length
+                $l0 = $origId.ToString().length + 1
             }
-            $l1 = ($lm1 + 1) - $wkState.length
+            $l1 = ($lm1 + 6) - $wkState.length
             if($l1 -lt 0)
             {
                 $l1 = $lm1
             }
-            $l2 = ($lm2 + 1) - $wkType.length
+            $l2 = ($lm2 + 4) - $wkType.length
             if($l2 -lt 0)
             {
                 $l2 = $lm2
             }
-            $l4 = ($lm4 + 1) - $wkAssignto.displayName.length
+            $l4 = ($lm4 + 11) - $wkAssignto.displayName.length
             if($l4 -lt 0)
             {
                 $l4 = $lm4
             }
             
             $fndUserStory = $UserStoryList.Contains( $fld.'System.Id' )
-            # if no user story found display it
+            # if no user story found display it. this will avoid duplicate user stories in build results. multile tasks may be assiciated to same userstory
             if(!$fndUserStory)
             {
                 # only bus and user stories
@@ -756,9 +771,11 @@ function Get-ReleaseNotesByBuildByTag()
                         $ReleaseWorkItems.add($workItem) | Out-Null
                     }
 
+                    #write to output ( build file)
                     Write-Output "      " $origId  "".PadRight($l0," ")  $wkState "".PadRight($l1," ")  $wkType "".PadRight($l2," ")  $wkAssignto.displayName "".PadRight($l4," ")  $fld.'System.Title' | Out-File $outFile   -Append -NoNewline                            
                     Write-Output ""  | Out-File $outFile -Append
 
+                    # write to log
                     Write-Output "      ID:" $origId  "".PadRight($l0," ") "Status:" $wkState "".PadRight($l1," ") "Type:" $wkType "".PadRight($l2," ") " Assigned to:" $wkAssignto.displayName "".PadRight($l4," ") " Title:" $fld.'System.Title' | Out-File $runLog   -Append -NoNewline                            
                     Write-Output ""  | Out-File $runLog -Append
 
@@ -770,7 +787,7 @@ function Get-ReleaseNotesByBuildByTag()
     }
 
     # generate build release table
-    $out = $userParams.LogDirectory + "BuildTable.txt"
+    $out = $userParams.DirRoot + $userParams.LogDirectory + "BuildTable.txt"
     Get-BuildReleaseTable -userParams $userParams -buildTableArray $buildTableArray -BuildTable $out -ReleaseWorkItems $ReleaseWorkItems
 
     $now = get-Date
@@ -779,6 +796,7 @@ function Get-ReleaseNotesByBuildByTag()
     Write-Output "Run Ended :" $now | Out-File $runLog -Append -NoNewline
     Write-Output ""  | Out-File $runLog -Append
 }
+
 
 function Get-BuildReleaseTable()
 {
@@ -821,7 +839,8 @@ function Get-BuildReleaseTable()
     Write-Output ""  | Out-File $BuildTable -Append
     Write-Output "Work Items associated with above builds"  | Out-File $BuildTable -Append
     Write-Output ""  | Out-File $BuildTable -Append
-    Write-Output "   ID"  "".PadRight(6," ") "Pipeline" "".PadRight(27," ") "Version" "".PadRight(8 ," ") "Status " "".PadRight(5 ," ") "Type" "".PadRight(10," ")  " Assigned to"  "".PadRight(18," ") " Title " | Out-File $BuildTable   -Append -NoNewline                            
+    #Write-Output "   ID"  "".PadRight(6," ") "Pipeline" "".PadRight(27," ") "Version" "".PadRight(8 ," ") "Status " "".PadRight(5 ," ") "Type" "".PadRight(10," ")  " Assigned to"  "".PadRight(18," ") " Title " | Out-File $BuildTable   -Append -NoNewline                            
+    Write-Output "   ID"  "".PadRight(6," ") "Pipeline" "".PadRight(27," ") "Version" "".PadRight(8 ," ")  "Type" "".PadRight(10," ")  "Title " | Out-File $BuildTable   -Append -NoNewline                            
     Write-Output ""  | Out-File $BuildTable -Append
     
     $lstVersion =""
@@ -834,19 +853,19 @@ function Get-BuildReleaseTable()
 
         $fld = $workItem.fields
         $wkType = $fld.'System.WorkItemType'
-        $wkState = $fld.'System.State'
-        $wkAssignto = $fld.'System.AssignedTo'
+        #$wkState = $fld.'System.State'
+        #$wkAssignto = $fld.'System.AssignedTo'
         $wkTitle = $fld.'System.Title'
         $origId  =  $fld.'System.Id'
 
         $tm1 = 8  - $origId.ToString().length 
         $tm2 = 35 - $workItem.PipeLine.length 
         $tm3 = 15 - $workItem.Version.length
-        $tm4 = 12 - $wkState.length 
+        #$tm4 = 12 - $wkState.length 
         $tm5 = 15 - $wkType.length
-        $tm6 = 30 - $wkAssignto.displayName.length
+        #$tm6 = 30 - $wkAssignto.displayName.length
 
-        Write-Output "   " $origId "".PadRight($tm1," ") $workItem.PipeLine "".PadRight($tm2 ," ") $workItem.Version "".PadRight($tm3 ," ")   $wkState "".PadRight($tm4 ," ") $wkType "".PadRight($tm5," ")  $wkAssignto.displayName "".PadRight($tm6," ") $wkTitle | Out-File $BuildTable   -Append -NoNewline                            
+        Write-Output "   " $origId "".PadRight($tm1," ") $workItem.PipeLine "".PadRight($tm2 ," ") $workItem.Version "".PadRight($tm3 ," ")  $wkType "".PadRight($tm5," ") $wkTitle | Out-File $BuildTable   -Append -NoNewline                            
         Write-Output ""  | Out-File $BuildTable -Append
         $lstVersion = $workItem.Version
     }
@@ -871,7 +890,7 @@ function Get-BuildApprovers()
     # get build timeline 
     # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/timeline/get?view=azure-devops-rest-6.1
     # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/timeline/{timelineId}?api-version=6.1-preview.2
-    $BuildTimelineUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $build.id + "/timeline?api-version=6.1-preview.2"
+    $BuildTimelineUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $build.id + "/timeline?api-version=6.1-preview.2"
     $BuildTimeLine = Invoke-RestMethod -Uri $BuildTimelineUri -Method Get -Headers $authorization -Verbose
 
     # get stages for this build
@@ -892,7 +911,7 @@ function Get-BuildApprovers()
                     stageIds = $stg.id ;  
                     checkListItemType = 1;   
                     sourcePage = @{
-                        url = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_build/results?buildId=" + $build.id + "&view=results";
+                        url = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_build/results?buildId=" + $build.id + "&view=results";
                         routeId = "ms.vss-build-web.ci-results-hub-route";
                         routeValues = @{
                             project =  $userParams.ProjectName;
@@ -907,7 +926,7 @@ function Get-BuildApprovers()
     
         # undocumented api call to get list of approvers for a given stage
         # https://dev.azure.com/fdx-strat-pgm/_apis/Contribution/HierarchyQuery/project/633b0ef1-c219-4017-beb0-8eb49ff55c35?api-version=5.0-preview.1
-        $approvalURL = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/Contribution/HierarchyQuery/project/" + $build.project.id + "?api-version=5.0-preview.1"
+        $approvalURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/Contribution/HierarchyQuery/project/" + $build.project.id + "?api-version=5.0-preview.1"
         $ApprlResults = Invoke-RestMethod -Uri $approvalURL -Method Post -Headers $authorization  -ContentType "application/json" -Body $acl
 
         # get the approval data
@@ -968,7 +987,7 @@ function Get-BuildDetailsByProject(){
     # get list of folders
     # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/folders/list?view=azure-devops-rest-6.0
     # GET https://dev.azure.com/{organization}/{project}/_apis/build/folders/{path}?api-version=6.0-preview.2
-    $folderUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/folders?api-version=6.0-preview.2"
+    $folderUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/folders?api-version=6.0-preview.2"
     $allFlders = Invoke-RestMethod -Uri $folderUri -Method Get -Headers $authorization -Verbose
 
     # filter by folder if needed
@@ -996,7 +1015,7 @@ function Get-BuildDetailsByProject(){
         # get list build definitions by folder
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/definitions/list?view=azure-devops-rest-6.1
         # GET https://dev.azure.com/{organization}/{project}/_apis/build/definitions?name={name}&repositoryId={repositoryId}&repositoryType={repositoryType}&queryOrder={queryOrder}&$top={$top}&continuationToken={continuationToken}&minMetricsTime={minMetricsTime}&definitionIds={definitionIds}&path={path}&builtAfter={builtAfter}&notBuiltAfter={notBuiltAfter}&includeAllProperties={includeAllProperties}&includeLatestBuilds={includeLatestBuilds}&taskIdFilter={taskIdFilter}&processType={processType}&yamlFilename={yamlFilename}&api-version=6.1-preview.7
-        $folderUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/definitions?path=" +$Folder.path + "&includeAllProperties=true&includeLatestBuilds=true&api-version=6.1-preview.7"
+        $folderUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/definitions?path=" +$Folder.path + "&includeAllProperties=true&includeLatestBuilds=true&api-version=6.1-preview.7"
         $AllDefinitions = Invoke-RestMethod -Uri $folderUri -Method Get -Headers $authorization 
               
         # get builds for each definition
@@ -1009,7 +1028,7 @@ function Get-BuildDetailsByProject(){
             # get builds for each definition
             # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-6.1
             # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds?definitions={definitions}&queues={queues}&buildNumber={buildNumber}&minTime={minTime}&maxTime={maxTime}&requestedFor={requestedFor}&reasonFilter={reasonFilter}&statusFilter={statusFilter}&resultFilter={resultFilter}&tagFilters={tagFilters}&properties={properties}&$top={$top}&continuationToken={continuationToken}&maxBuildsPerDefinition={maxBuildsPerDefinition}&deletedFilter={deletedFilter}&queryOrder={queryOrder}&branchName={branchName}&buildIds={buildIds}&repositoryId={repositoryId}&repositoryType={repositoryType}&api-version=6.1-preview.6
-            $BuildUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds?definitions=" + $BuildDef.id + "&queryOrder=startTimeDescending&api-version=6.1-preview.6"
+            $BuildUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds?definitions=" + $BuildDef.id + "&queryOrder=startTimeDescending&api-version=6.1-preview.6"
             $allBuilds = Invoke-RestMethod -Uri $BuildUri -Method Get -Headers $authorization 
 
             Write-Output "" | Out-File $outFile -Append        
@@ -1069,7 +1088,7 @@ function Get-BuildDetailsByProject(){
                 # get build changes
                 # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/get%20build%20changes?view=azure-devops-rest-6.1
                 # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/changes?api-version=6.1-preview.2
-                $bldChangegUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/changes?api-version=6.1-preview.2"
+                $bldChangegUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/changes?api-version=6.1-preview.2"
                 $bldChanges = Invoke-RestMethod -Uri $bldChangegUri -Method Get -Headers $authorization 
 
                 Write-Output ""  | Out-File $outFile -Append
@@ -1091,7 +1110,7 @@ function Get-BuildDetailsByProject(){
                 # get code coverage for build
                 # https://docs.microsoft.com/en-us/rest/api/azure/devops/test/code%20coverage/get%20build%20code%20coverage?view=azure-devops-rest-6.0
                 # GET https://dev.azure.com/{organization}/{project}/_apis/test/codecoverage?buildId={buildId}&flags={flags}&api-version=6.0-preview.1
-                $codeCvgUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/test/codecoverage?buildId=" + $Build.id + "&api-version=6.0-preview.1"
+                $codeCvgUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/test/codecoverage?buildId=" + $Build.id + "&api-version=6.0-preview.1"
                 $codeCvgForBuild = Invoke-RestMethod -Uri $codeCvgUri -Method Get -Headers $authorization 
                 foreach ($codeCv in $codeCvgForBuild.value)
                 {
@@ -1105,7 +1124,7 @@ function Get-BuildDetailsByProject(){
                 # get all artifacts for this build
                 # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/artifacts/list?view=azure-devops-rest-6.0
                 # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/artifacts?api-version=6.0
-                $artifactUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/artifacts?api-version=6.0"
+                $artifactUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/artifacts?api-version=6.0"
                 $allBuildartifacts = Invoke-RestMethod -Uri $artifactUri -Method Get -Headers $authorization 
 
                 Write-Host "    Build Artifacts : " $allBuildartifacts.count
@@ -1123,7 +1142,7 @@ function Get-BuildDetailsByProject(){
                     #get build report
                     # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/report/get?view=azure-devops-rest-6.0
                     # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/report?api-version=6.0-preview.2
-                    $buildReportUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/report?api-version=6.0-preview.2"
+                    $buildReportUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/report?api-version=6.0-preview.2"
                     $buildReport = Invoke-RestMethod -Uri $buildReportUri -Method Get -Headers $authorization     
 
                     $BuildRep = ConvertTo-Json -InputObject $buildReport -Depth 32
@@ -1139,7 +1158,7 @@ function Get-BuildDetailsByProject(){
                 # get work all itemsfor this build
                 # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/get%20build%20work%20items%20refs?view=azure-devops-rest-6.1
                 # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/workitems?api-version=6.1-preview.2
-                $workItemUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/workitems?api-version=6.1-preview.2"
+                $workItemUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/workitems?api-version=6.1-preview.2"
                 $allBuildWorkItems = Invoke-RestMethod -Uri $workItemUri -Method Get -Headers $authorization 
                 
                 Write-Host "            Work Items found in Build: " $allBuildWorkItems.count
@@ -1153,7 +1172,7 @@ function Get-BuildDetailsByProject(){
                     # get individual work item
                     # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/work%20items/get%20work%20item?view=azure-devops-rest-6.1
                     # GET https://dev.azure.com/{organization}/{project}/_apis/wit/workitems/{id}?api-version=6.1-preview.3
-                    $BuildworkItemUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $workItems.id + "?api-version=6.1-preview.3" 
+                    $BuildworkItemUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $workItems.id + "?api-version=6.1-preview.3" 
                     $WItems = Invoke-RestMethod -Uri $BuildworkItemUri -Method Get -Headers $authorization 
                     
                     $fld = $WItems.fields
@@ -1217,18 +1236,18 @@ function Get-AllUSerMembership(){
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
 
     # set output directory for data
-    $outFile = $userParams.DataDirectory + $outFile
+    $outFile = $userParams.DirRoot + $userParams.SecurityDir + $outFile
 
     # get all teams in org. need to see if group is a team or group
     # GET https://dev.azure.com/{organization}/_apis/teams?api-version=6.1-preview.3
-    $teamUri = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/teams?api-version=6.1-preview.3"
+    $teamUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/teams?api-version=6.1-preview.3"
     $allTeams = Invoke-RestMethod -Uri $teamUri -Method Get -Headers $authorization 
 
     # find groups in all ado projects
-    $projectUri = "https://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/groups?subjectTypes=vssgp&api-version=6.0-preview.1"
+    $projectUri = $userParams.HTTP_preFix  + "://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/groups?subjectTypes=vssgp&api-version=6.0-preview.1"
     $vssGroups = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization 
 
-    $projectUri = "https://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/groups?subjectTypes=aadgp&api-version=6.0-preview.1"
+    $projectUri = $userParams.HTTP_preFix  + "://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/groups?subjectTypes=aadgp&api-version=6.0-preview.1"
     $aadGroups = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization 
    
     $allGroups = @()
@@ -1245,7 +1264,7 @@ function Get-AllUSerMembership(){
     $fnd += $aadGroups.value
 
     Write-Output 'Project|Group Name|Type|Relationship|User Name|Email Address|Fedex ID' | Out-File -FilePath $outFile
-    Write-Output " " | Out-File -FilePath $outFile -Append 
+    #Write-Output " " | Out-File -FilePath $outFile -Append 
 
     foreach ($item in $fnd) {
         # find group memberships frm identity api
@@ -1255,7 +1274,7 @@ function Get-AllUSerMembership(){
         # to mimic whats in ADO
         # GET https://vssps.dev.azure.com/fabrikam/_apis/identities?searchFilter=General&filterValue=jtseng@vscsi.us&queryMembership=None&api-version=6.1-preview.1
         #
-        $grpMemberUrl = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?searchFilter=General&filterValue="  + $item.principalName + "&queryMembership=direct&api-version=6.1-preview.1"
+        $grpMemberUrl = $userParams.HTTP_preFix  + "://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?searchFilter=General&filterValue="  + $item.principalName + "&queryMembership=direct&api-version=6.1-preview.1"
         $allGrpMembers = Invoke-RestMethod -Uri $grpMemberUrl -Method Get -Headers $authorization 
 
         Write-Host $item.principalName 
@@ -1280,7 +1299,7 @@ function Get-AllUSerMembership(){
             foreach ($member in $allGrpMembers.value[0].memberOf ) {
 
                 # now search by descriptor. sisnce we have all the direct members of the group  value[0].members
-                $memberUrl = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?descriptors="  + $member + "&queryMembership=direct&api-version=6.1-preview.1"            
+                $memberUrl = $userParams.HTTP_preFix  + "://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?descriptors="  + $member + "&queryMembership=direct&api-version=6.1-preview.1"            
                 $curUser = Invoke-RestMethod -Uri $memberUrl -Method Get -Headers $authorization 
                                                     
                 Write-Host $item.principalName 
@@ -1309,7 +1328,7 @@ function Get-AllUSerMembership(){
             # get members this user is a direct member
             foreach ($member in $allGrpMembers.value[0].members ) {
                 # now search by descriptor. sisnce we have all the direct members of the group  value[0].members
-                $memberUrl = "https://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?descriptors="  + $member + "&queryMembership=direct&api-version=6.1-preview.1"            
+                $memberUrl = $userParams.HTTP_preFix  + "://vssps.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/identities?descriptors="  + $member + "&queryMembership=direct&api-version=6.1-preview.1"            
                 $curUser = Invoke-RestMethod -Uri $memberUrl -Method Get -Headers $authorization 
                 
                 # get list to additional memberships
@@ -1380,7 +1399,7 @@ function Get-GroupInfo() {
         $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
 
         # find groups
-        $projectUri = "https://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/groups?api-version=4.0-preview"
+        $projectUri = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".vssps.visualstudio.com/_apis/graph/groups?api-version=4.0-preview"
         $allGroups = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization 
     
         $fnd = $allGroups.value | Where-Object {$_.displayName -eq $groupname }
@@ -1422,7 +1441,7 @@ function ListGitBranches(){
      try {
              
         # find git repo
-        $listProviderURL = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories?api-version=5.0"
+        $listProviderURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories?api-version=5.0"
         $repo = Invoke-RestMethod -Uri $listProviderURL -Method Get -ContentType "application/json" -Headers $authorization 
     
        
@@ -1431,7 +1450,7 @@ function ListGitBranches(){
             Write-Output " Repositories  " | Out-File -FilePath $outFile -Append
             
             # find branches for given repo
-            $listProviderURL = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories/" + $repo.value[0].Id + "/refs?api-version=5.0"
+            $listProviderURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories/" + $repo.value[0].Id + "/refs?api-version=5.0"
             $branchlist = Invoke-RestMethod -Uri $listProviderURL -Method Get -ContentType "application/json" -Headers $authorization 
 
             foreach ($item in $branchlist.value) {
@@ -1477,13 +1496,13 @@ function AddGitBranchFromMaster(){
      try {
              
         # find git repo
-        $listProviderURL = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories?api-version=5.0"
+        $listProviderURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories?api-version=5.0"
         $repo = Invoke-RestMethod -Uri $listProviderURL -Method Get -ContentType "application/json" -Headers $authorization 
        
         try {
             
             # find branches for given repo
-            $URL = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories/" + $repo.value[0].Id + "/refs?api-version=5.0"
+            $URL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories/" + $repo.value[0].Id + "/refs?api-version=5.0"
             $branchlist = Invoke-RestMethod -Uri $URL -Method Get -ContentType "application/json" -Headers $authorization 
 
             # need the repo id of master to create or delete branches
@@ -1533,11 +1552,11 @@ function DeleteGitBranchByPath(){
             $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
 
             # find git repo
-            $listProviderURL = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories?api-version=5.0"
+            $listProviderURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories?api-version=5.0"
             $repo = Invoke-RestMethod -Uri $listProviderURL -Method Get -ContentType "application/json" -Headers $authorization 
        
             # get master branch id
-            $URL = "https://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories/" + $repo.value[0].Id + "/refs?api-version=5.0"
+            $URL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories/" + $repo.value[0].Id + "/refs?api-version=5.0"
             $branchlist = Invoke-RestMethod -Uri $URL -Method Get -ContentType "application/json" -Headers $authorization 
 
             # need the repo id of master to create or delete branches
@@ -1576,7 +1595,7 @@ function CreateVSTSGitRepo() {
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
 
     # get project id
-    $projectUri = "https://" + $userParams.VSTSMasterAcct + ".VisualStudio.com/DefaultCollection/_apis/projects/" + $userParams.ProjectName +"?api-version=1.0"
+    $projectUri = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".VisualStudio.com/DefaultCollection/_apis/projects/" + $userParams.ProjectName +"?api-version=1.0"
     $return = Invoke-RestMethod -Uri $projectUri -Method Get -ContentType "application/json" -Headers $authorization 
 
     IF ([string]::IsNullOrEmpty($return)) {
@@ -1589,7 +1608,7 @@ function CreateVSTSGitRepo() {
         $tmJson = ConvertTo-Json -InputObject $repo
 
         # REST call to create Git Repo
-        $projectUri = "https://" + $userParams.VSTSMasterAcct + ".VisualStudio.com/DefaultCollection/_apis/git/repositories?api-version=1.0"
+        $projectUri = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".VisualStudio.com/DefaultCollection/_apis/git/repositories?api-version=1.0"
 
         try {
 
@@ -1620,7 +1639,7 @@ function AddUsersToGroup() {
     )
 
     #find Group descriptor
-    $groupUri = "https://" + $vstsAccount + ".vssps.visualstudio.com/_apis/graph/groups?api-version=4.0-preview"
+    $groupUri = $userParams.HTTP_preFix + "://" + $vstsAccount + ".vssps.visualstudio.com/_apis/graph/groups?api-version=4.0-preview"
     $returnValue = Invoke-RestMethod -Uri $groupUri -Method Get -ContentType "application/json" -Headers $authorization
     Write-Host $returnValue
 
@@ -1633,7 +1652,7 @@ function GetVSTSProcesses() {
     )
    
     try {
-        $projectUri = "https://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/process/processes?api-version=1.0"
+        $projectUri = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/process/processes?api-version=1.0"
         $returnValue = Invoke-RestMethod -Uri $projectUri -Method Get -ContentType "application/json" -Headers $authorization
         $id = ($returnValue.value).Where( {$_.name -eq $userParams.ProcessType})
         return $id.id
@@ -1758,7 +1777,7 @@ function GetSecurityCMD_old()
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
    
     # get project id and then token
-    $projectUri = "https://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/projects?api-version=1.0"
+    $projectUri = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/_apis/projects?api-version=1.0"
     $allPrjects = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization  -ContentType "application/json"  
     $fnd = $allPrjects.value | Where-Object {$_.name -eq $userParams.ProjectName}
 
@@ -1851,7 +1870,7 @@ function Set-BuildDefinition()
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
    
     # find queue
-    $queueCreateUrl = "https://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/" + $userParams.ProjectName + "/_apis/distributedtask/queues?api-version=3.0-preview.1"
+    $queueCreateUrl = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/" + $userParams.ProjectName + "/_apis/distributedtask/queues?api-version=3.0-preview.1"
     $createBuild = Invoke-RestMethod -Uri $queueCreateUrl -Method Get -Headers $authorization  -ContentType "application/json"  
     $prjid = ""
 
@@ -1993,7 +2012,7 @@ function Set-BuildDefinition()
             "type"          = "tfsgit"
             "name"          =  $userParams.RepositoryName
             "defaultBranch" = "refs/heads/master"
-            "url"           = "https://" + $userParams.VSTSMasterAcct + ".visualstudio.com/" + $userParams.ProjectName + "/_git/" + $userParams.RepositoryName
+            "url"           = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".visualstudio.com/" + $userParams.ProjectName + "/_git/" + $userParams.RepositoryName
             "clean"         = $false
         }
         "options"    = @(
@@ -2029,7 +2048,7 @@ function Set-BuildDefinition()
     Write-Host $buildjson
 
     # create build definition
-    $buildUri = "https://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/" + $userParams.ProjectName + "/_apis/build/definitions?api-version=4.1-preview"
+    $buildUri = $userParams.HTTP_preFix + "://" + $userParams.VSTSMasterAcct + ".visualstudio.com/DefaultCollection/" + $userParams.ProjectName + "/_apis/build/definitions?api-version=4.1-preview"
     $buildDef = Invoke-RestMethod -Uri $buildUri -Method Post -Headers $authorization  -ContentType "application/json"  -Body $buildjson
    
     Write-Host $buildDef
