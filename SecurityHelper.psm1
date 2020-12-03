@@ -151,7 +151,6 @@ function Get-SecuritybyGroupByNamespace()
         }else {
             # find all groups for given project   
             $groups = $allGroups.value | Where-Object {$_.principalName -match $userParams.ProjectName }
-            #$groups = $allGroups.value | Where-Object {$_.displayName -eq "Contributors" -and $_.principalName -match $userParams.ProjectName }
         }
       
         Write-Output 'Namespace|Project|Group Type|Group Name|Description|Permission Type|Permission|bit|Permission Name|Decoded Value|Raw Data|Inherited From'  | Out-File $outFile  

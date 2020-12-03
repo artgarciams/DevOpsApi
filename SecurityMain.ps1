@@ -27,7 +27,6 @@ Write-Output $userParameters.Description
 #    "LogDirectory"   : "\\Logs\\",
 #    "DumpDirectory"  : "\\RawData\\",
 #    "SecurityDir"    : "\\Security\\",
-#    
 Set-DirectoryStructure -userParams $userParameters 
 
 # Get all groups and there permissions
@@ -36,7 +35,12 @@ Set-DirectoryStructure -userParams $userParameters
 #       "PAT"            : "",       
 #       "ProjectName"    : "fdx-surround",
 #       "HTTP_preFix"    : "https",
-Get-SecuritybyGroupByNamespace -userParams $userParameters  -rawDataDump "rawdump.txt"  -getAllProjects "True" -outFile "Get-SecuritybyGroupByNamespace-12-2.txt" 
+#       "Namespaces"     : ["Analytics","Tagging","Project","AnalyticsViews","AuditLog","BuildAdministration","Server","VersionControlPrivileges","Process","Collection"]
+#       "AllProjects"    : "True"
+#       "GroupFileName"  : "Get-SecuritybyGroupByNamespace-12-2.txt",
+#       "rawDataFile"    : "rawdump.txt"
+Get-SecuritybyGroupByNamespace -userParams $userParameters  -rawDataDump $userParameters.rawDataFile  -getAllProjects $userParameters.AllProjects  -outFile $userParameters.GroupFileName
+
 
 # get list of members of group in project or all projects by adding -groupname "All"
 #       "VSTSMasterAcct" : "fdx-strat-pgm",
@@ -44,4 +48,6 @@ Get-SecuritybyGroupByNamespace -userParams $userParameters  -rawDataDump "rawdum
 #       "PAT"            : "",       
 #       "ProjectName"    : "fdx-surround",
 #       "HTTP_preFix"    : "https",
-Get-AllUSerMembership  -userParams $userParameters -outFile "Get-AllUSerMembership-12-2.txt" -getAllProjects "True"
+#       "AllProjects"    : "True"
+#       "UserFileName"   : "Get-AllUSerMembership-12-2.txt",
+Get-AllUSerMembership  -userParams $userParameters -outFile $userParameters.UserFileName  -getAllProjects $userParameters.AllProjects 

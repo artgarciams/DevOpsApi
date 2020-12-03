@@ -439,9 +439,7 @@ function Get-ReleaseNotesByBuildByTag()
         [Parameter(Mandatory = $true)]
         $userParams,
         [Parameter(Mandatory = $false)]
-        $outFile,
-        [Parameter(Mandatory = $false)]
-        $FolderName
+        $outFile
     )
 
     # Base64-encodes the Personal Access Token (PAT) appropriately
@@ -787,7 +785,7 @@ function Get-ReleaseNotesByBuildByTag()
     }
 
     # generate build release table
-    $out = $userParams.DirRoot + $userParams.LogDirectory + "BuildTable.txt"
+    $out = $userParams.DirRoot + $userParams.LogDirectory + $userParams.ReleaseFile
     Get-BuildReleaseTable -userParams $userParams -buildTableArray $buildTableArray -BuildTable $out -ReleaseWorkItems $ReleaseWorkItems
 
     $now = get-Date

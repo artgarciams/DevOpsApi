@@ -20,7 +20,16 @@
     "SecurityDir"    : "\\Security\\",
     "ReleaseDir"     : "\\BuildNotes\\",
     "LogDirectory"   : "\\Logs\\",
-        
+
+    "AllProjects"    : "True",
+    "GroupFileName"  : "Get-SecuritybyGroupByNamespace-12-2.txt",
+    "UserFileName"   : "Get-AllUSerMembership-12-2.txt",
+    "rawDataFile"    : "rawdump.txt",
+    "ReleaseFile"    : "BuildTable.txt",
+
+    "Namespaces"     : ["Analytics","Tagging","Project","AnalyticsViews","AuditLog","BuildAdministration","Server","VersionControlPrivileges","Process","Collection"],
+    "AvailableNamespaces"  :["Analytics","Tagging","AnalyticsViews","Project","Process","Boards","Build","Server","Favorites","AuditLog","Collection","BuildAdministration","VersionControlItems","ReleaseManagement","Git Repositories","DashboardsPrivileges"],
+
     "Description"    : "My demo project",
     "ProcessType"    : "Agile",
     "RepositoryName" : "AAG Demo",
@@ -28,10 +37,6 @@
     "AgentQueue"     : "Default",
     "OmitTeam" :[{}],
     
-    "Namespaces" :["Analytics","Tagging","Project","AnalyticsViews","AuditLog","BuildAdministration","Server","VersionControlPrivileges","Process","Collection"],
-    
-    "AvailableNamespaces"  :["Analytics","Tagging","AnalyticsViews","Project","Process","Boards","Build","Server","Favorites","AuditLog","Collection","BuildAdministration","VersionControlItems","ReleaseManagement","Git Repositories","DashboardsPrivileges"],
-
     "Teams" : [ {"name": "Team AAG1","description" :"Team BB1 description", 
                  "users":["argarc@microsoft.com","mahyon@microsoft.com"] ,
                  "permissions" :["MANAGE_TEST_ENVIRONMENTS|DENY","CreateRepository|DENY","EditBuildQuality|DENY","DeleteBuilds|DENY"]},
