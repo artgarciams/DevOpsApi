@@ -8,6 +8,11 @@
     "Tags"           : ["v1.1","v1.0.1"],
     "Release"        : ["1.1","2.0.0"],
 
+    "PublishWiKi"    : "lumina.wiki",
+    "PublishParent"  : "Release Notes",
+    "PublishSub"     : "/AAG_SAMPLE_DONOTUSE",
+    "PublishPagePrfx": "/Surround Sample Release",
+
     "BuildTags"      : "1.1.0",
     "Stages"         : ["Deploy to FDXQA", "Deploy to PROD" ],
     "WorkItemTypes"  : ["User Story","Bug"],
@@ -25,7 +30,7 @@
     "GroupFileName"  : "Get-SecuritybyGroupByNamespace-12-2.txt",
     "UserFileName"   : "Get-AllUSerMembership-12-2.txt",
     "rawDataFile"    : "rawdump.txt",
-    "ReleaseFile"    : "BuildTable.txt",
+    "ReleaseFile"    : "ReleaseNotes.txt",
     "GitListFile"    : "dataBuild_r001.txt",
 
     "Namespaces"     : ["Analytics","Tagging","Project","AnalyticsViews","AuditLog","BuildAdministration","Server","VersionControlPrivileges","Process","Collection"],

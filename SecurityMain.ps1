@@ -4,8 +4,8 @@
 # Author    : Arthur A. Garcia
 # Purpose   : 
 #             It will get security permissions by team or group
-#             
-# last Update: 10/07/2020
+#    This script is for demonstration only not to be used as production code
+# last Update: 12/04/2020
 
 #import modules
 $modName = $PSScriptRoot + "\SecurityHelper.psm1" 
@@ -30,7 +30,7 @@ Write-Output $userParameters.Description
 Set-DirectoryStructure -userParams $userParameters 
 
 # Get all groups and there permissions
-#       "VSTSMasterAcct" : "fdx-strat-pgm",
+#       "VSTSMasterAcct" : "fdx-strat-pgm", 
 #       "userEmail"      : "arthur.garcia.osv@fedex.com",
 #       "PAT"            : "",       
 #       "ProjectName"    : "fdx-surround",

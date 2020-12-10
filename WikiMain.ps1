@@ -1,8 +1,8 @@
 #
-# FileName  : BuildMain.ps1
+# FileName  : WikiMain.ps1
 # Date      : 10/28/2020
 # Author    : Arthur A. Garcia
-# Purpose   : This script will generate release notes based on parameters given
+# Purpose   : This script will 
 #             This script is for demonstration only not to be used as production code
 # last Update: 12/04/2020
 
@@ -28,7 +28,6 @@ Write-Output $userParameters.Description
 #    "SecurityDir"    : "\\Security\\", 
 Set-DirectoryStructure -userParams $userParameters 
 
-
 # generate a file for each build showing build info, work items, and approvals
 # for following parameters in ProjectDef. setting param to "" skips it
 #    
@@ -46,3 +45,19 @@ Set-DirectoryStructure -userParams $userParameters
 #    "DirRoot"        : "C:\\TempData",
 #    "ReleaseDir"     : "\\BuildNotes\\",
 $BuildData = Get-ReleaseNotesByBuildByTag  -userParams $userParameters 
+
+# create wiki page 
+# This method will create a wiki page of the release notes found. It will create a page using the
+# PublishSub value + the BuildTags value. it will put the page under  the PublishParent page and sub page called PublishSub. the Release
+# notes will reside in that page.
+#
+#    "VSTSMasterAcct" : "fdx-strat-pgm",   
+#    "ProjectName"    : "fdx-surround",
+
+#    "PublishWiKi"    : "lumina.wiki",
+#    "PublishParent"  : "Release Notes",
+#    "PublishSub"     : "/AAG_SAMPLE_DONOTUSE",
+#    "PublishPagePrfx": "/Surround Sample Release",
+#    "BuildTags"      : "1.1.0",
+#
+Set-ReleaseNotesToWiKi  -userParams $userParameters -Data $BuildData

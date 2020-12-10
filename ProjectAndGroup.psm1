@@ -4,7 +4,7 @@
 # Purpose  : this module will create a project and groups for a project
 #           This script is for demonstration only not to be used as production code
 #
-# last update 8/1/2019
+# last update 12/04/2020
 
 function CreateVSTSProject () {
     Param(
@@ -793,6 +793,18 @@ function Get-ReleaseNotesByBuildByTag()
     Write-Output ""  | Out-File $runLog -Append
     Write-Output "Run Ended :" $now | Out-File $runLog -Append -NoNewline
     Write-Output ""  | Out-File $runLog -Append
+
+    # return build and workitems to add to wiki
+    $ReleaseArray = @()
+       # write build record table and workitems  . this arraylist will hold all builds found and workitems
+       $bld = New-Object -TypeName PSObject -Property @{
+        Builds = $buildTableArray
+        WorkItems = $ReleaseWorkItems
+        
+    }
+    $ReleaseArray += $bld
+    return $ReleaseArray
+
 }
 
 
@@ -1216,6 +1228,90 @@ function Get-BuildDetailsByProject(){
 
 }
 
+function Set-ReleaseNotesToWiKi()
+{
+    Param(
+        [Parameter(Mandatory = $true)]
+        $userParams,
+        [Parameter(Mandatory = $false)]
+        $Data
+    )
+
+    # Base64-encodes the Personal Access Token (PAT) appropriately
+    $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
+    
+    # get all wiki for given org
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/wikis/list?view=azure-devops-rest-6.1
+    # GET https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis?api-version=6.1-preview.2
+    $wikiUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis?api-version=6.1-preview.2"
+    $allWiki = Invoke-RestMethod -Uri $wikiUri -Method Get -Headers $authorization 
+
+    # find wiki to publish to
+    $wiki  = $allWiki.value | Where-Object { ($_.name -eq $userParams.PublishWiKi ) }
+    Write-Host $wiki
+
+    # create subpages if not exists
+    try 
+    {
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/create%20or%20update?view=azure-devops-rest-6.1
+        # PUT https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&api-version=6.1-preview.1
+        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $userParams.PublishParent + $userParams.PublishSub + "&api-version=6.1-preview.1" 
+        $CreatePage = Invoke-RestMethod -Uri $CreatePageUri -Method Put -ContentType "application/json" -Headers $authorization  
+        Write-Host $CreatePage
+    }
+    catch 
+    {
+        # page exists
+    }
+
+    try 
+    {
+        # Delete   - deleting the PublishParent / PublishSub / PublishPagePrfx - page 
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/delete%20page?view=azure-devops-rest-6.1
+        # DELETE https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&api-version=6.1-preview.1
+        $relPageName = $userParams.PublishSub + $userParams.PublishPagePrfx + " " + $userParams.BuildTags
+        $GetPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $userParams.PublishParent + $relPageName + "&api-version=6.1-preview.1" 
+        $GetPages = Invoke-RestMethod -Uri $GetPageUri -Method Delete -ContentType "application/json" -Headers $authorization  
+    
+        Write-Host $GetPages.content
+    }
+    catch 
+    {
+        # page deleted        
+    }
+    
+    # build content
+
+    $contentData =  "#Build Details" + $([char]13) + $([char]10) 
+    $contentData += "|Solution|Pipeline|Sequence|Version|" + $([char]13) + $([char]10) 
+    $contentData += "|:---------|:---------|:---------|:---------|" + $([char]13) + $([char]10) 
+    foreach ($item in $Data.Builds) 
+    {
+        $url =  "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_build/results?buildid=" + $item.Sequence + "&view=results" + ")"
+        $contentData += "|" + $item.Solution + "|" + $item.Pipeline + "|" + $item.Sequence + "|" + "[" + $item.Version + "]" + $url + "|" + $([char]13) + $([char]10) 
+    }
+
+    $contentData += $([char]13) + $([char]10) 
+    $contentData += "#Work Items Associated With This Release" + $([char]13) + $([char]10) 
+    $contentData += "|Id|Pipeline|Version|Type|Title|" + $([char]13) + $([char]10) 
+    $contentData += "|:---------|:---------|:---------|:---------|:---------|" + $([char]13) + $([char]10) 
+    foreach ($item in $Data.WorkItems) 
+    {
+        $url = "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_workitems/edit/" + $item.id + ")"
+        $contentData += "|" + "[" + $item.id + "]" + $url  + "|" + $item.Pipeline + "|" + $item.Version + "|" + $item.WorkItemType + "|"  + $item.fields.'System.Title' + "|" +$([char]13) + $([char]10) 
+    }
+
+    $tmData = @{
+         content  = $contentData
+        }
+    $tmJson = ConvertTo-Json -InputObject $tmData
+
+    $AddPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $userParams.PublishParent +  $relPageName + "&api-version=6.1-preview.1"
+    $AddPage = Invoke-RestMethod -Uri $AddPageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $tmJson   
+
+    Write-Host $AddPage
+
+}
 function Get-AllUSerMembership(){
     Param(
         [Parameter(Mandatory = $true)]
@@ -1608,7 +1704,7 @@ function CreateVSTSGitRepo() {
         [Parameter(Mandatory = $true)]
         $userParams
     )
-   
+    
 	# Base64-encodes the Personal Access Token (PAT) appropriately
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
 
