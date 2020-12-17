@@ -4,22 +4,19 @@
     "PAT"            : "",       
     "ProjectName"    : "fdx-surround",
 
-    "Folder"         : "",
-    "Tags"           : ["v1.1","v1.0.1"],
-    "Release"        : ["1.1","2.0.0"],
+    "BuildTags"      : "1.1.0",
 
     "PublishWiKi"    : "lumina.wiki",
     "PublishParent"  : "Release Notes",
     "PublishSub"     : "/AAG_SAMPLE_DONOTUSE",
-    "PublishPagePrfx": "/Surround Sample Release",
-
-    "BuildTags"      : "1.1.0",
-    "Stages"         : ["Deploy to FDXQA", "Deploy to PROD" ],
+    "PublishPagePrfx": "/Surround Test 12-15-2020",
+  
     "WorkItemTypes"  : ["User Story","Bug"],
     "BuildResults"   : ["Succeeded"],
 
     "HTTP_preFix"    : "https",
     
+    "OutPutToFile"   : "Yes",
     "DirRoot"        : "C:\\TempData",
     "DumpDirectory"  : "\\RawData\\",
     "SecurityDir"    : "\\Security\\",
@@ -35,6 +32,13 @@
 
     "Namespaces"     : ["Analytics","Tagging","Project","AnalyticsViews","AuditLog","BuildAdministration","Server","VersionControlPrivileges","Process","Collection"],
     "AvailableNamespaces"  :["Analytics","Tagging","AnalyticsViews","Project","Process","Boards","Build","Server","Favorites","AuditLog","Collection","BuildAdministration","VersionControlItems","ReleaseManagement","Git Repositories","DashboardsPrivileges"],
+
+
+    
+    "Stages"         : ["Deploy to FDXQA", "Deploy to PROD" ],
+    "Folder"         : "",
+    "Tags"           : ["v1.1","v1.0.1"],
+    "Release"        : ["1.1","2.0.0"],
 
     "Description"    : "My demo project",
     "ProcessType"    : "Agile",

@@ -43,6 +43,7 @@ Set-DirectoryStructure -userParams $userParameters
 #    "HTTP_preFix"    : "https",
 #    "ReleaseFile"    : "BuildTable.txt",
 #
+#    "OutPutToFile"   : "Yes",
 #    "DirRoot"        : "C:\\TempData",
 #    "ReleaseDir"     : "\\BuildNotes\\",
 $BuildData = Get-ReleaseNotesByBuildByTag  -userParams $userParameters 

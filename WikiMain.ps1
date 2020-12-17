@@ -26,8 +26,10 @@ Write-Output $userParameters.Description
 #    "LogDirectory"   : "\\Logs\\",
 #    "DumpDirectory"  : "\\RawData\\",
 #    "SecurityDir"    : "\\Security\\", 
-Set-DirectoryStructure -userParams $userParameters 
-
+if($userParameters.OutPutToFile -eq "Yes" )
+{
+    Set-DirectoryStructure -userParams $userParameters 
+}
 # generate a file for each build showing build info, work items, and approvals
 # for following parameters in ProjectDef. setting param to "" skips it
 #    
@@ -41,7 +43,8 @@ Set-DirectoryStructure -userParams $userParameters
 #
 #    "HTTP_preFix"    : "https",
 #    "ReleaseFile"    : "BuildTable.txt",
-#
+#  
+#    "OutPutToFile"   : "Yes",
 #    "DirRoot"        : "C:\\TempData",
 #    "ReleaseDir"     : "\\BuildNotes\\",
 $BuildData = Get-ReleaseNotesByBuildByTag  -userParams $userParameters 

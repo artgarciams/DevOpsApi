@@ -452,43 +452,47 @@ function Get-ReleaseNotesByBuildByTag()
     $runLog = $userParams.DirRoot + $userParams.LogDirectory + "runLog.txt"    
 
     $now = get-Date
-    Write-Output "Run Started :" $now | Out-File $runLog -NoNewline
-    Write-Output ""  | Out-File $runLog -Append
-
-    Write-Output "   Run Filters: "  | Out-File $runLog -Append    
-    if( $userParams.BuildTags -ne "")
+    # if Yes write to file on hard disk. else this may be an automated run and no output required
+    if($userParams.OutPutToFile -eq "Yes")
     {
-        Write-Output "   Build tags to Include     : "   | Out-File $runLog -Append -NoNewline
-        Write-Output $userParams.BuildTags  | Out-File $runLog -Append -NoNewline
+        Write-Output "Run Started :" $now | Out-File $runLog -NoNewline
         Write-Output ""  | Out-File $runLog -Append
-    }
 
-    if($userParams.WorkItemTypes -ne "")
-    {
-        Write-Output "   Work Item Types to Include: "   | Out-File $runLog -Append -NoNewline
-        foreach( $br in $userParams.WorkItemTypes  )
+        Write-Output "   Run Filters: "  | Out-File $runLog -Append    
+        if( $userParams.BuildTags -ne "")
         {
-            Write-Output $br " | "  | Out-File $runLog -Append -NoNewline
+            Write-Output "   Build tags to Include     : "   | Out-File $runLog -Append -NoNewline
+            Write-Output $userParams.BuildTags  | Out-File $runLog -Append -NoNewline
+            Write-Output ""  | Out-File $runLog -Append
         }
-        Write-Output ""  | Out-File $runLog -Append
-    }
 
-    if($userParams.BuildResults -ne "")
-    {
-        Write-Output "   Results to Include        : "   | Out-File $runLog -Append -NoNewline
-        foreach( $br in $userParams.BuildResults  )
+        if($userParams.WorkItemTypes -ne "")
         {
-            Write-Output $br " | "  | Out-File $runLog -Append -NoNewline
+            Write-Output "   Work Item Types to Include: "   | Out-File $runLog -Append -NoNewline
+            foreach( $br in $userParams.WorkItemTypes  )
+            {
+                Write-Output $br " | "  | Out-File $runLog -Append -NoNewline
+            }
+            Write-Output ""  | Out-File $runLog -Append
         }
+
+        if($userParams.BuildResults -ne "")
+        {
+            Write-Output "   Results to Include        : "   | Out-File $runLog -Append -NoNewline
+            foreach( $br in $userParams.BuildResults  )
+            {
+                Write-Output $br " | "  | Out-File $runLog -Append -NoNewline
+            }
+            Write-Output ""  | Out-File $runLog -Append
+        }
+        else
+        {
+            Write-Output "   Results to Include: All results included"   | Out-File $runLog -Append -NoNewline
+            Write-Output ""  | Out-File $runLog -Append
+        }
+    
         Write-Output ""  | Out-File $runLog -Append
     }
-    else
-    {
-        Write-Output "   Results to Include: All results included"   | Out-File $runLog -Append -NoNewline
-        Write-Output ""  | Out-File $runLog -Append
-    }
-   
-    Write-Output ""  | Out-File $runLog -Append
 
     # Get a list of all builds with a specific tag
     # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds?definitions={definitions}&queues={queues}&buildNumber={buildNumber}&minTime={minTime}&maxTime={maxTime}&requestedFor={requestedFor}&reasonFilter={reasonFilter}&statusFilter={statusFilter}&resultFilter={resultFilter}&tagFilters={tagFilters}&properties={properties}&$top={$top}&continuationToken={continuationToken}&maxBuildsPerDefinition={maxBuildsPerDefinition}&deletedFilter={deletedFilter}&queryOrder={queryOrder}&branchName={branchName}&buildIds={buildIds}&repositoryId={repositoryId}&repositoryType={repositoryType}&api-version=6.1-preview.6
@@ -497,9 +501,13 @@ function Get-ReleaseNotesByBuildByTag()
 
     Write-Host "Builds found :" $AllBuildswithTags.count
 
-    Write-Output "" |  Out-File $runLog -Append 
-    Write-Output "Builds found :" $AllBuildswithTags.count |  Out-File $runLog -Append -NoNewline
-    Write-Output "" |  Out-File $runLog -Append 
+    # if Yes write to file on hard disk. else this may be an automated run and no output required
+    if($userParams.OutPutToFile -eq "Yes")
+    {
+        Write-Output "" |  Out-File $runLog -Append 
+        Write-Output "Builds found :" $AllBuildswithTags.count |  Out-File $runLog -Append -NoNewline
+        Write-Output "" |  Out-File $runLog -Append 
+    }
 
     # work items for all builds found
     $ReleaseWorkItems = New-Object System.Collections.ArrayList
@@ -516,9 +524,13 @@ function Get-ReleaseNotesByBuildByTag()
        
         Write-Host   "   Build Number:" $build.buildNumber " Build Definition :" $build.definition.name "  Results: " $build.result  " Status : " $build.status 
 
-        Write-Output "" |  Out-File $runLog -Append 
-        Write-Output "   Build Number:" $build.buildNumber " Build Definition :" $build.definition.name " Status: " $build.status " Results: " $build.result  " Build Tags: " $build.Tags |  Out-File $runLog -Append -NoNewline
-        Write-Output "" |  Out-File $runLog -Append 
+        # if Yes write to file on hard disk. else this may be an automated run and no output required
+        if($userParams.OutPutToFile -eq "Yes")
+        {
+            Write-Output "" |  Out-File $runLog -Append 
+            Write-Output "   Build Number:" $build.buildNumber " Build Definition :" $build.definition.name " Status: " $build.status " Results: " $build.result  " Build Tags: " $build.Tags |  Out-File $runLog -Append -NoNewline
+            Write-Output "" |  Out-File $runLog -Append 
+        }
 
         $buildTitle = $false
         $fndUserStory = $false
@@ -532,9 +544,13 @@ function Get-ReleaseNotesByBuildByTag()
         # array of workitems to report on
         $ArrayList = New-Object System.Collections.ArrayList
         $ArrayList = [System.Collections.ArrayList]::new()
-
-        Write-Output "     Raw Work Item Data - Number of workItems Found: " $allBuildWorkItems.count  |  Out-File $runLog -Append -NoNewline
-        Write-Output "" |  Out-File $runLog -Append 
+    
+        # if Yes write to file on hard disk. else this may be an automated run and no output required
+        if($userParams.OutPutToFile -eq "Yes")
+        {
+            Write-Output "     Raw Work Item Data - Number of workItems Found: " $allBuildWorkItems.count  |  Out-File $runLog -Append -NoNewline
+            Write-Output "" |  Out-File $runLog -Append 
+        }
 
         # loop thru all workitems get work items and find spacing for report
         foreach ($workItem in $allBuildWorkItems.value)
@@ -582,8 +598,13 @@ function Get-ReleaseNotesByBuildByTag()
                 $lm4 =  $wkAssignto.displayName.length
             }
 
-            Write-Output "     ID :" $WItems.id "".PadRight(5 ," ") " Status :" $wkState "".PadRight(10 - $wkState.length ," ") " Type :" $wkType "".PadRight(15 - $wkType.length," ") " Assigned to:" $wkAssignto.displayName  "".PadRight(30 - $wkAssignto.displayName.Length, " ") " Title :" $fld.'System.Title' | Out-File $runLog  -Append -NoNewline                            
-            Write-Output ""  | Out-File $runLog -Append
+            # if Yes write to file on hard disk. else this may be an automated run and no output required
+            if($userParams.OutPutToFile -eq "Yes")
+            {
+                Write-Output "     ID :" $WItems.id "".PadRight(5 ," ") " Status :" $wkState "".PadRight(10 - $wkState.length ," ") " Type :" $wkType "".PadRight(15 - $wkType.length," ") " Assigned to:" $wkAssignto.displayName  "".PadRight(30 - $wkAssignto.displayName.Length, " ") " Title :" $fld.'System.Title' | Out-File $runLog  -Append -NoNewline                            
+                Write-Output ""  | Out-File $runLog -Append
+            }
+
         }
 
         # write build record table . this arraylist will hold all builds found
@@ -601,7 +622,11 @@ function Get-ReleaseNotesByBuildByTag()
         $pth = $pth -replace ' ',''
         $outfile = $pth
         
-        Write-Output "" | Out-File $outfile
+        # if Yes write to file on hard disk. else this may be an automated run and no output required
+        if($userParams.OutPutToFile -eq "Yes")
+        {  
+            Write-Output "" | Out-File $outfile
+        }
 
         # sort by url( work item type) decending
         $allBuildWorkItemsSorted =  $ArrayList | Sort-Object -Property WorkItemType -Descending
@@ -610,7 +635,11 @@ function Get-ReleaseNotesByBuildByTag()
         $UserStoryList = New-Object System.Collections.ArrayList
         $UserStoryList = [System.Collections.ArrayList]::new()
 
-        Write-Output "      Included in Release Notes " | Out-File $runLog -Append
+        # if Yes write to file on hard disk. else this may be an automated run and no output required
+        if($userParams.OutPutToFile -eq "Yes")
+        {
+            Write-Output "      Included in Release Notes " | Out-File $runLog -Append
+        }
 
         # loop thru workitems again and display
         foreach ($workItem in $allBuildWorkItemsSorted)
@@ -657,14 +686,18 @@ function Get-ReleaseNotesByBuildByTag()
                         {
                             Write-Host $wiType " - " $build.definition.name
                             
-                            # for auditing. this will show origional task and the user story parent it found.
-                            # output may have multiple tasks with same user story as many tasks can be associated to the same user story or parent
-                            Write-Output ""  | Out-File $runLog -Append
-                            Write-Output "      -->Origional ID :" $workItem.id "".PadRight(9 ," ") "Type :" $wkType "".PadRight(15," ")  | Out-File $runLog  -Append -NoNewline                            
-                            Write-Output ""  | Out-File $runLog -Append
+                            # if Yes write to file on hard disk. else this may be an automated run and no output required
+                            if($userParams.OutPutToFile -eq "Yes")
+                            {
+                                # for auditing. this will show origional task and the user story parent it found.
+                                # output may have multiple tasks with same user story as many tasks can be associated to the same user story or parent
+                                Write-Output ""  | Out-File $runLog -Append
+                                Write-Output "      -->Origional ID :" $workItem.id "".PadRight(9 ," ") "Type :" $wkType "".PadRight(15," ")  | Out-File $runLog  -Append -NoNewline                            
+                                Write-Output ""  | Out-File $runLog -Append
 
-                            Write-Output "      -->Relation ID  :" $fld.'System.Id' "".PadRight(9 ," ") "Type :" $wiType "".PadRight(10," ")  "Relation :" $item.attributes.name  | Out-File $runLog  -Append -NoNewline                            
-                            Write-Output ""  | Out-File $runLog -Append
+                                Write-Output "      -->Relation ID  :" $fld.'System.Id' "".PadRight(9 ," ") "Type :" $wiType "".PadRight(10," ")  "Relation :" $item.attributes.name  | Out-File $runLog  -Append -NoNewline                            
+                                Write-Output ""  | Out-File $runLog -Append
+                            }
 
                             # add field to house work item type. this will allow sorting of workitems by type
                             $relWkItem | Add-Member -MemberType NoteProperty -name "WorkItemType" -Value $wiType
@@ -703,31 +736,33 @@ function Get-ReleaseNotesByBuildByTag()
                 $l2 = $build.startTime.Trim().length - $build.Status.Trim().length - 2
                 $l3 = ( $def.name.Trim().length  + 13 + $build.startTime.Trim().length ) - $build.sourceBranch.Trim().length
 
-                Write-Output ""  | Out-File $outFile                             
-                Write-Output ""  | Out-File $outFile -Append
-                Write-Output "Build Number : " $build.buildNumber.Trim()  "".PadRight($l1," ") " Build Status: " $build.Status.Trim() "".PadRight($l2," ") " Result     : " $build.result  | Out-File $outFile   -Append -NoNewline
-                Write-Output ""  | Out-File $outFile -Append
-                Write-Output "Requested by : " $def.name.Trim() " Start Time: " $build.startTime.Trim()  " Finish Time: " $build.finishTime | Out-File $outFile   -Append -NoNewline
-                Write-Output ""  | Out-File $outFile -Append
-                Write-Output "Source Branch: " $build.sourceBranch.Trim() "".PadRight($l3," ")  " Repo       : " $repo.name  | Out-File $outFile   -Append -NoNewline
-                Write-Output ""  | Out-File $outFile -Append
-                Write-Output "Environment  : " $EnvName  | Out-File $outFile   -Append -NoNewline
-                Write-Output ""  | Out-File $outFile -Append
-
-                Write-Output " "  | Out-File $outFile -Append
-                Write-Output "     Work Items :"  | Out-File $outFile -Append -NoNewline
-                Write-Output " "  | Out-File $outFile -Append
-                Write-Output " "  | Out-File $outFile -Append
-                
-                #$lm2 = $lm2 - 4
-                if($lm2 -lt 0)
+                # if Yes write to file on hard disk. else this may be an automated run and no output required
+                if($userParams.OutPutToFile -eq "Yes")
                 {
-                    $lm2 = 3
-                }
+                    Write-Output ""  | Out-File $outFile                             
+                    Write-Output ""  | Out-File $outFile -Append
+                    Write-Output "Build Number : " $build.buildNumber.Trim()  "".PadRight($l1," ") " Build Status: " $build.Status.Trim() "".PadRight($l2," ") " Result     : " $build.result  | Out-File $outFile   -Append -NoNewline
+                    Write-Output ""  | Out-File $outFile -Append
+                    Write-Output "Requested by : " $def.name.Trim() " Start Time: " $build.startTime.Trim()  " Finish Time: " $build.finishTime | Out-File $outFile   -Append -NoNewline
+                    Write-Output ""  | Out-File $outFile -Append
+                    Write-Output "Source Branch: " $build.sourceBranch.Trim() "".PadRight($l3," ")  " Repo       : " $repo.name  | Out-File $outFile   -Append -NoNewline
+                    Write-Output ""  | Out-File $outFile -Append
+                    Write-Output "Environment  : " $EnvName  | Out-File $outFile   -Append -NoNewline
+                    Write-Output ""  | Out-File $outFile -Append
 
-                # write to output ( build file)
-                Write-Output "      ID" "".PadRight($lm0," ") "Status" "".PadRight($lm1," ") "Type" "".PadRight($lm2," ") "Assigned to" "".PadRight($lm4," ") "Title" | Out-File $outFile   -Append -NoNewline                            
-                Write-Output " "  | Out-File $outFile -Append
+                    Write-Output " "  | Out-File $outFile -Append
+                    Write-Output "     Work Items :"  | Out-File $outFile -Append -NoNewline
+                    Write-Output " "  | Out-File $outFile -Append
+                    Write-Output " "  | Out-File $outFile -Append
+                    
+                    if($lm2 -lt 0)
+                    {
+                        $lm2 = 3
+                    }
+                    # write to output ( build file)
+                    Write-Output "      ID" "".PadRight($lm0," ") "Status" "".PadRight($lm1," ") "Type" "".PadRight($lm2," ") "Assigned to" "".PadRight($lm4," ") "Title" | Out-File $outFile   -Append -NoNewline                            
+                    Write-Output " "  | Out-File $outFile -Append
+                }
 
             }
 
@@ -769,13 +804,17 @@ function Get-ReleaseNotesByBuildByTag()
                         $ReleaseWorkItems.add($workItem) | Out-Null
                     }
 
-                    #write to output ( build file)
-                    Write-Output "      " $origId  "".PadRight($l0," ")  $wkState "".PadRight($l1," ")  $wkType "".PadRight($l2," ")  $wkAssignto.displayName "".PadRight($l4," ")  $fld.'System.Title' | Out-File $outFile   -Append -NoNewline                            
-                    Write-Output ""  | Out-File $outFile -Append
+                    # if Yes write to file on hard disk. else this may be an automated run and no output required
+                    if($userParams.OutPutToFile -eq "Yes")
+                    {
+                        #write to output ( build file)
+                        Write-Output "      " $origId  "".PadRight($l0," ")  $wkState "".PadRight($l1," ")  $wkType "".PadRight($l2," ")  $wkAssignto.displayName "".PadRight($l4," ")  $fld.'System.Title' | Out-File $outFile   -Append -NoNewline                            
+                        Write-Output ""  | Out-File $outFile -Append
 
-                    # write to log
-                    Write-Output "      ID:" $origId  "".PadRight($l0," ") "Status:" $wkState "".PadRight($l1," ") "Type:" $wkType "".PadRight($l2," ") " Assigned to:" $wkAssignto.displayName "".PadRight($l4," ") " Title:" $fld.'System.Title' | Out-File $runLog   -Append -NoNewline                            
-                    Write-Output ""  | Out-File $runLog -Append
+                        # write to log
+                        Write-Output "      ID:" $origId  "".PadRight($l0," ") "Status:" $wkState "".PadRight($l1," ") "Type:" $wkType "".PadRight($l2," ") " Assigned to:" $wkAssignto.displayName "".PadRight($l4," ") " Title:" $fld.'System.Title' | Out-File $runLog   -Append -NoNewline                            
+                        Write-Output ""  | Out-File $runLog -Append
+                    }
 
                 }
             }
@@ -789,10 +828,14 @@ function Get-ReleaseNotesByBuildByTag()
     Get-BuildReleaseTable -userParams $userParams -buildTableArray $buildTableArray -BuildTable $out -ReleaseWorkItems $ReleaseWorkItems
 
     $now = get-Date
-    Write-Output ""  | Out-File $runLog -Append
-    Write-Output ""  | Out-File $runLog -Append
-    Write-Output "Run Ended :" $now | Out-File $runLog -Append -NoNewline
-    Write-Output ""  | Out-File $runLog -Append
+    # if Yes write to file on hard disk. else this may be an automated run and no output required
+    if($userParams.OutPutToFile -eq "Yes")
+    {
+        Write-Output ""  | Out-File $runLog -Append
+        Write-Output ""  | Out-File $runLog -Append
+        Write-Output "Run Ended :" $now | Out-File $runLog -Append -NoNewline
+        Write-Output ""  | Out-File $runLog -Append
+    }
 
     # return build and workitems to add to wiki
     $ReleaseArray = @()
@@ -821,65 +864,63 @@ function Get-BuildReleaseTable()
         $ReleaseWorkItems
     )
 
-    #
-    # display build release table
-    #
-    Write-Output "Build Table for Release : "  | Out-File $BuildTable 
-    if($userParams.BuildTags -ne "")
+    # if Yes write to file on hard disk. else this may be an automated run and no output required
+    if($userParams.OutPutToFile -eq "Yes")
     {
-        Write-Output "        Build Release Tags: "  $userParams.BuildTags | Out-File $BuildTable -Append -NoNewline       
-        Write-Output ""  | Out-File $BuildTable -Append
-    }
-
-     # write out build table
-     Write-Output ""  | Out-File $BuildTable -Append
-     Write-Output "Solution" "".PadRight(12 ," ") "Pipeline" "".PadRight(27 ," ")  "Sequence" "".PadRight(17 ," ") "Version     "  | Out-File $BuildTable -Append -NoNewline
-     Write-Output ""  | Out-File $BuildTable -Append
-     Write-Output ""  | Out-File $BuildTable -Append
-     
-     $buildTableArray = $buildTableArray | Sort-Object -Property PipeLine,Version -Descending 
-     foreach ($item in $buildTableArray) 
-     {       
-        Write-Output $item.Solution  "".PadRight(20 - $item.Solution.length ," ")  $item.Pipeline "".PadRight(35 - $item.Pipeline.length ," ") $item.Sequence "".PadRight(25 - $item.Sequence.length ," ") $item.Version    | Out-File $BuildTable -Append -NoNewline
-        Write-Output ""  | Out-File $BuildTable -Append
-     }
-
-    # get all work items sort by type and remove any duplicates @{Expression={$_.Minor} ;Descending=$true}, @{Expression={$_.Bugfix}; Descending=$true})
-    $SortedItems = $ReleaseWorkItems | Sort-Object -Property PipeLine,Version,WorkItemType -Descending 
-    Write-Output ""  | Out-File $BuildTable -Append
-    Write-Output "Work Items associated with above builds"  | Out-File $BuildTable -Append
-    Write-Output ""  | Out-File $BuildTable -Append
-    #Write-Output "   ID"  "".PadRight(6," ") "Pipeline" "".PadRight(27," ") "Version" "".PadRight(8 ," ") "Status " "".PadRight(5 ," ") "Type" "".PadRight(10," ")  " Assigned to"  "".PadRight(18," ") " Title " | Out-File $BuildTable   -Append -NoNewline                            
-    Write-Output "   ID"  "".PadRight(6," ") "Pipeline" "".PadRight(27," ") "Version" "".PadRight(8 ," ")  "Type" "".PadRight(10," ")  "Title " | Out-File $BuildTable   -Append -NoNewline                            
-    Write-Output ""  | Out-File $BuildTable -Append
-    
-    $lstVersion =""
-    foreach ($workItem in $SortedItems)
-    {
-        if($lstVersion -ne $workItem.Version)
+        #
+        # display build release table
+        #
+        Write-Output "Build Table for Release : "  | Out-File $BuildTable 
+        if($userParams.BuildTags -ne "")
         {
+            Write-Output "        Build Release Tags: "  $userParams.BuildTags | Out-File $BuildTable -Append -NoNewline       
             Write-Output ""  | Out-File $BuildTable -Append
         }
 
-        $fld = $workItem.fields
-        $wkType = $fld.'System.WorkItemType'
-        #$wkState = $fld.'System.State'
-        #$wkAssignto = $fld.'System.AssignedTo'
-        $wkTitle = $fld.'System.Title'
-        $origId  =  $fld.'System.Id'
-
-        $tm1 = 8  - $origId.ToString().length 
-        $tm2 = 35 - $workItem.PipeLine.length 
-        $tm3 = 15 - $workItem.Version.length
-        #$tm4 = 12 - $wkState.length 
-        $tm5 = 15 - $wkType.length
-        #$tm6 = 30 - $wkAssignto.displayName.length
-
-        Write-Output "   " $origId "".PadRight($tm1," ") $workItem.PipeLine "".PadRight($tm2 ," ") $workItem.Version "".PadRight($tm3 ," ")  $wkType "".PadRight($tm5," ") $wkTitle | Out-File $BuildTable   -Append -NoNewline                            
+        # write out build table
         Write-Output ""  | Out-File $BuildTable -Append
-        $lstVersion = $workItem.Version
-    }
+        Write-Output "Solution" "".PadRight(12 ," ") "Pipeline" "".PadRight(27 ," ")  "Sequence" "".PadRight(17 ," ") "Version     "  | Out-File $BuildTable -Append -NoNewline
+        Write-Output ""  | Out-File $BuildTable -Append
+        Write-Output ""  | Out-File $BuildTable -Append
+        
+        $buildTableArray = $buildTableArray | Sort-Object -Property PipeLine,Version -Descending 
+        foreach ($item in $buildTableArray) 
+        {       
+            Write-Output $item.Solution  "".PadRight(20 - $item.Solution.length ," ")  $item.Pipeline "".PadRight(35 - $item.Pipeline.length ," ") $item.Sequence "".PadRight(25 - $item.Sequence.length ," ") $item.Version    | Out-File $BuildTable -Append -NoNewline
+            Write-Output ""  | Out-File $BuildTable -Append
+        }
 
+        # get all work items sort by type and remove any duplicates @{Expression={$_.Minor} ;Descending=$true}, @{Expression={$_.Bugfix}; Descending=$true})
+        $SortedItems = $ReleaseWorkItems | Sort-Object -Property PipeLine,Version,WorkItemType -Descending 
+        Write-Output ""  | Out-File $BuildTable -Append
+        Write-Output "Work Items associated with above builds"  | Out-File $BuildTable -Append
+        Write-Output ""  | Out-File $BuildTable -Append
+        Write-Output "   ID"  "".PadRight(6," ") "Pipeline" "".PadRight(27," ") "Version" "".PadRight(8 ," ")  "Type" "".PadRight(10," ")  "Title " | Out-File $BuildTable   -Append -NoNewline                            
+        Write-Output ""  | Out-File $BuildTable -Append
+        
+        $lstVersion =""
+        foreach ($workItem in $SortedItems)
+        {
+            if($lstVersion -ne $workItem.Version)
+            {
+                Write-Output ""  | Out-File $BuildTable -Append
+            }
+
+            $fld = $workItem.fields
+            $wkType = $fld.'System.WorkItemType'
+            $wkTitle = $fld.'System.Title'
+            $origId  =  $fld.'System.Id'
+
+            $tm1 = 8  - $origId.ToString().length 
+            $tm2 = 35 - $workItem.PipeLine.length 
+            $tm3 = 15 - $workItem.Version.length
+            $tm5 = 15 - $wkType.length
+
+            Write-Output "   " $origId "".PadRight($tm1," ") $workItem.PipeLine "".PadRight($tm2 ," ") $workItem.Version "".PadRight($tm3 ," ")  $wkType "".PadRight($tm5," ") $wkTitle | Out-File $BuildTable   -Append -NoNewline                            
+            Write-Output ""  | Out-File $BuildTable -Append
+            $lstVersion = $workItem.Version
+        }
+    }
 }
 
 function Get-BuildApprovers()
@@ -1282,28 +1323,38 @@ function Set-ReleaseNotesToWiKi()
     
     # build content
 
-    $contentData =  "#Build Details" + $([char]13) + $([char]10) 
+    $contentData = "[[_TOC_]]" + $([char]13) + $([char]10) 
+    $contentData +=  "#Build Details" + $([char]13) + $([char]10) 
+    $contentData +=  "Prerequisite for deployment: Stop Fusion Streaming job and ensure the Insights jobs flatline, i.e. process all backlog data before starting the deployment" + $([char]13) + $([char]10) 
+    $contentData +=  $([char]13) + $([char]10) 
+    $contentData +=  $([char]13) + $([char]10) 
+    
     $contentData += "|Solution|Pipeline|Sequence|Version|" + $([char]13) + $([char]10) 
     $contentData += "|:---------|:---------|:---------|:---------|" + $([char]13) + $([char]10) 
     foreach ($item in $Data.Builds) 
     {
         $url =  "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_build/results?buildid=" + $item.Sequence + "&view=results" + ")"
-        $contentData += "|" + $item.Solution + "|" + $item.Pipeline + "|" + $item.Sequence + "|" + "[" + $item.Version + "]" + $url + "|" + $([char]13) + $([char]10) 
+        $contentData += "|" + $item.Solution + "|" + $item.Pipeline + "|" + $item.Sequence + "|" + " [" + $item.Version + "]" + $url + " |" + $([char]13) + $([char]10) 
     }
 
     $contentData += $([char]13) + $([char]10) 
     $contentData += "#Work Items Associated With This Release" + $([char]13) + $([char]10) 
     $contentData += "|Id|Pipeline|Version|Type|Title|" + $([char]13) + $([char]10) 
-    $contentData += "|:---------|:---------|:---------|:---------|:---------|" + $([char]13) + $([char]10) 
+    $contentData += "|:---------|:---------|---------:|---------:|:---------|" + $([char]13) + $([char]10) 
     foreach ($item in $Data.WorkItems) 
     {
+        $fndBuild = $Data.Builds  | Where-Object {$_.Version -eq  $item.Version }        
+        if (![string]::IsNullOrEmpty($fndBuild) )
+        {
+            $bldLink =  "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_build/results?buildid=" + $fndBuild.Sequence + "&view=results" + ")"
+        }
         $url = "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_workitems/edit/" + $item.id + ")"
-        $contentData += "|" + "[" + $item.id + "]" + $url  + "|" + $item.Pipeline + "|" + $item.Version + "|" + $item.WorkItemType + "|"  + $item.fields.'System.Title' + "|" +$([char]13) + $([char]10) 
+        $contentData += "|" + " [" + $item.id + "]" + $url  + " |" + $item.Pipeline + "|" +  $item.Version +  "|" + $item.WorkItemType + "|"  + $item.fields.'System.Title' + "|" +$([char]13) + $([char]10) 
     }
 
     $tmData = @{
          content  = $contentData
-        }
+    }
     $tmJson = ConvertTo-Json -InputObject $tmData
 
     $AddPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $userParams.PublishParent +  $relPageName + "&api-version=6.1-preview.1"

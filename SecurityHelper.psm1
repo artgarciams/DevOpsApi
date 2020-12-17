@@ -294,25 +294,31 @@ Function Get-PermissionsByNamespaceByGroup()
             $ErrorMessage = $_.Exception.Message
             $FailedItem = $_.Exception.ItemName
             Write-Host "Security Error : " + $ErrorMessage + " iTEM : " + $FailedItem
-            Write-Output "Error in namespace :" $ns.name | Out-File $errorfile -Append
-            Write-Output "         Error : " $ErrorMessage | Out-File $errorfile -Append -NoNewLine            
-            Write-Output " iTEM : " $FailedItem | Out-File $errorfile -Append
-            Write-Output "         grpUri :" | Out-File $errorfile -Append -NoNewline
-            Write-Output $grpUri | Out-File $errorfile -Append 
-            Write-Output "" | Out-File $errorfile -Append
+
+         
+                Write-Output "Error in namespace :" $ns.name | Out-File $errorfile -Append
+                Write-Output "         Error : " $ErrorMessage | Out-File $errorfile -Append -NoNewLine            
+                Write-Output " iTEM : " $FailedItem | Out-File $errorfile -Append
+                Write-Output "         grpUri :" | Out-File $errorfile -Append -NoNewline
+                Write-Output $grpUri | Out-File $errorfile -Append 
+                Write-Output "" | Out-File $errorfile -Append
+            
         }
        
         # get dump of data to process - for debugging
         if (![string]::IsNullOrEmpty($rawDataDump) )                
         {
             $outname =  $userParams.DirRoot + $userParams.DumpDirectory + $projectName +"_" + $fnd.displayname + "_" + $ns.name + "_" + $rawDataDump
-            Write-Output $projectName  " - " $fnd.displayname " - " $ns.name | Out-File $outname -Append -NoNewline
-            Write-Output " " | Out-File $outname -Append
-
-            for ($i = 0; $i -lt $aclListByNamespace.Count; $i++) {
-                $t =  ConvertTo-Json -InputObject $aclListByNamespace.value[$i] -Depth 42                         
-                Write-Output $t | Out-File $outname -Append
-            }
+            
+          
+                Write-Output $projectName  " - " $fnd.displayname " - " $ns.name | Out-File $outname -Append -NoNewline
+                Write-Output " " | Out-File $outname -Append
+            
+                for ($i = 0; $i -lt $aclListByNamespace.Count; $i++) {
+                    $t =  ConvertTo-Json -InputObject $aclListByNamespace.value[$i] -Depth 42                         
+                    Write-Output $t | Out-File $outname -Append
+                }
+            
         }
        
         # loop thru acesDictionary in namespace and find security
@@ -342,25 +348,25 @@ Function Get-PermissionsByNamespaceByGroup()
                             $raise = [Math]::Pow(2, $Allowplace)
                             $bit = $ns.actions | Where-Object {$_.bit -eq $raise }
 
-                            # find ui permission
-                            $UIPerm =  Get-UIPermission -bit $bit -namespace $ns.name
-                            if (![string]::IsNullOrEmpty($UIPerm )  )
-                            {
-                                $permsSet += [convert]::ToString($bit.bit) + "|"
-                                Write-Output $UIPerm.UI_Group '|'  | Out-File $outFile  -Append -NoNewline
-                            }else {
-                                Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
-                            }
+                                # find ui permission
+                                $UIPerm =  Get-UIPermission -bit $bit -namespace $ns.name
+                                if (![string]::IsNullOrEmpty($UIPerm )  )
+                                {
+                                    $permsSet += [convert]::ToString($bit.bit) + "|"
+                                    Write-Output $UIPerm.UI_Group '|'  | Out-File $outFile  -Append -NoNewline
+                                }else {
+                                    Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                }
 
-                            Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
-                            Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
-                            Write-Output $fnd.displayName  '|'   | Out-File $outFile -Append -NoNewline
-                            Write-Output $des'|'  | Out-File $outFile  -Append -NoNewline
-                            Write-Output 'Allow|'  $bit.displayName "|"  $bit.bit "|"  $bit.Name  "|" | Out-File $outFile  -Append -NoNewline
-                            Write-Output $permAllow  "|" $_.Value.allow "|" $inheritFrom | Out-File -FilePath $outFile -Append -NoNewline
-                            Write-Output " " | Out-File -FilePath $outFile -Append  
-                            $hasPermission = $true                                    
-                        
+                                Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
+                                Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
+                                Write-Output $fnd.displayName  '|'   | Out-File $outFile -Append -NoNewline
+                                Write-Output $des'|'  | Out-File $outFile  -Append -NoNewline
+                                Write-Output 'Allow|'  $bit.displayName "|"  $bit.bit "|"  $bit.Name  "|" | Out-File $outFile  -Append -NoNewline
+                                Write-Output $permAllow  "|" $_.Value.allow "|" $inheritFrom | Out-File -FilePath $outFile -Append -NoNewline
+                                Write-Output " " | Out-File -FilePath $outFile -Append  
+                                $hasPermission = $true                                    
+                            
                         }
                     }
                 }
@@ -385,25 +391,26 @@ Function Get-PermissionsByNamespaceByGroup()
                                 {
                                     $raise = [Math]::Pow(2, $effAllowplace)
                                     $bit = $ns.actions | Where-Object {$_.bit -eq $raise }
-
-                                    # find ui permission
-                                    $UIPerm =  Get-UIPermission -bit $bit -namespace $ns.name
-                                    if (![string]::IsNullOrEmpty($UIPerm )  )
-                                    {
-                                        $permsSet += [convert]::ToString($bit.bit) + "|"
-                                        Write-Output $UIPerm.UI_Group '|'  | Out-File $outFile  -Append -NoNewline
-                                    }else {
-                                        Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
-                                    }
-                                    Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
-                                    Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
-                                    Write-Output $fnd.displayName  '|'   | Out-File $outFile -Append -NoNewline
-                                    Write-Output $des '|'  | Out-File $outFile  -Append -NoNewline                                        
-                                    Write-Output 'Allow(Effective)|' $bit.displayName "|" $bit.bit "|" $bit.Name  "|" | Out-File $outFile  -Append -NoNewline
-                                    Write-Output $effAllow  "|" $_.Value.extendedInfo.effectiveAllow "|" $inheritFrom | Out-File -FilePath $outFile -Append -NoNewline
-                                    Write-Output " " | Out-File -FilePath $outFile -Append  
-                                    
-                                    $hasPermission = $true
+                                  
+                                        # find ui permission
+                                        $UIPerm =  Get-UIPermission -bit $bit -namespace $ns.name
+                                        if (![string]::IsNullOrEmpty($UIPerm )  )
+                                        {
+                                            $permsSet += [convert]::ToString($bit.bit) + "|"
+                                            Write-Output $UIPerm.UI_Group '|'  | Out-File $outFile  -Append -NoNewline
+                                        }else {
+                                            Write-Output $ns.name '|'  | Out-File $outFile  -Append -NoNewline
+                                        }
+                                        Write-Output $projectName '|'  | Out-File $outFile  -Append -NoNewline                                    
+                                        Write-Output $GroupType '|'  | Out-File $outFile  -Append -NoNewline
+                                        Write-Output $fnd.displayName  '|'   | Out-File $outFile -Append -NoNewline
+                                        Write-Output $des '|'  | Out-File $outFile  -Append -NoNewline                                        
+                                        Write-Output 'Allow(Effective)|' $bit.displayName "|" $bit.bit "|" $bit.Name  "|" | Out-File $outFile  -Append -NoNewline
+                                        Write-Output $effAllow  "|" $_.Value.extendedInfo.effectiveAllow "|" $inheritFrom | Out-File -FilePath $outFile -Append -NoNewline
+                                        Write-Output " " | Out-File -FilePath $outFile -Append  
+                                        
+                                        $hasPermission = $true
+                                   
                                 
                                 }
                             }
