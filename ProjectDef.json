@@ -4,19 +4,21 @@
     "PAT"            : "",       
     "ProjectName"    : "fdx-surround",
 
-    "BuildTags"      : "1.1.0",
+    "BuildTags"      : "Release:1.1.0",
 
     "PublishWiKi"    : "lumina.wiki",
     "PublishParent"  : "Release Notes",
-    "PublishSub"     : "/AAG_SAMPLE_DONOTUSE",
-    "PublishPagePrfx": "/Surround Test 12-15-2020",
+    "PublishPagePrfx": "TEST System Release",
+    "PublishBldNote" : "Build section Notes",
+    "PublishWKItNote": "Work Item section note",
+    "PublishTestNote": "Testing Notes",
   
     "WorkItemTypes"  : ["User Story","Bug"],
     "BuildResults"   : ["Succeeded"],
 
     "HTTP_preFix"    : "https",
     
-    "OutPutToFile"   : "Yes",
+    "OutPutToFile"   : "No",
     "DirRoot"        : "C:\\TempData",
     "DumpDirectory"  : "\\RawData\\",
     "SecurityDir"    : "\\Security\\",

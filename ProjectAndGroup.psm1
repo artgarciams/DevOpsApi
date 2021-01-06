@@ -523,7 +523,14 @@ function Get-ReleaseNotesByBuildByTag()
         $allBuildWorkItems = Invoke-RestMethod -Uri $workItemUri -Method Get -Headers $authorization 
        
         Write-Host   "   Build Number:" $build.buildNumber " Build Definition :" $build.definition.name "  Results: " $build.result  " Status : " $build.status 
-
+        
+        # find test plans if available
+        #$planId = $build.plans[0].planId
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/testplan/test%20%20plans/get?view=azure-devops-rest-6.1#examples
+        #GET https://dev.azure.com/fabrikam/{project}/_apis/testplan/plans/{planId}?api-version=6.1-preview.1
+        #$testplanUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/testplan/plans?api-version=6.1-preview.1"
+        #$testplan = Invoke-RestMethod -Uri $testplanUri -Method Get -Headers $authorization 
+       
         # if Yes write to file on hard disk. else this may be an automated run and no output required
         if($userParams.OutPutToFile -eq "Yes")
         {
@@ -538,7 +545,6 @@ function Get-ReleaseNotesByBuildByTag()
         $lm0 = 0
         $lm1 = 0
         $lm2 = 0
-        $lm3 = 0
         $lm4 = 0
         
         # array of workitems to report on
@@ -563,7 +569,6 @@ function Get-ReleaseNotesByBuildByTag()
             
             $fld = $WItems.fields
             $tg = $fld.'System.Tags'
-            $Area = $fld.'System.NodeName'
 
             $wkType = $fld.'System.WorkItemType'
             $wkAssignto = $fld.'System.AssignedTo'
@@ -576,7 +581,6 @@ function Get-ReleaseNotesByBuildByTag()
 
             # save work items into an array to sort if tag was found
             $ArrayList.Add($WItems) | Out-Null
-
             Write-Host   " WorkItem ID:" $workItem.id " Version : "  $build.buildNumber.ToString()
          
             # for spacing
@@ -607,12 +611,31 @@ function Get-ReleaseNotesByBuildByTag()
 
         }
 
+        # get data from build tags
+        $solution = ""
+        $sequence = 0
+        $release = ""
+        foreach ($tag in $build.tags) 
+        {
+            $tg = $tag.Split(":")
+            switch ($tg[0]) 
+            {
+                "Release"  { $release  = $tg[1]  }
+                "Sequence" { $sequence = $tg[1] }
+                "Solution" { $solution = $tg[1]}
+                Default {}
+            }
+        }
+        Write-Host $solution " - " $Sequence "- " $release    
+
         # write build record table . this arraylist will hold all builds found
+        # Solution = $Area.ToString()
         $bld = New-Object -TypeName PSObject -Property @{
-            Solution = $Area.ToString()
+            Solution = $solution
             Pipeline = $build.definition.name.ToString()
-            Sequence = $build.id.ToString() 
+            Sequence = $sequence
             Version = $build.buildNumber.ToString()
+            BuildNumber =  $build.id.ToString() 
         }
         $buildTableArray += $bld
 
@@ -1292,17 +1315,23 @@ function Set-ReleaseNotesToWiKi()
     Write-Host $wiki
 
     # create subpages if not exists
+    # find release notes/ project name Release tag
+    $landingPg = $userParams.PublishParent + "/" + $userParams.ProjectName + " - " + $userParams.PublishPagePrfx + " - " + $userParams.BuildTags
+    
     try 
     {
+        
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/create%20or%20update?view=azure-devops-rest-6.1
         # PUT https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&api-version=6.1-preview.1
-        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $userParams.PublishParent + $userParams.PublishSub + "&api-version=6.1-preview.1" 
+        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&api-version=6.1-preview.1" 
         $CreatePage = Invoke-RestMethod -Uri $CreatePageUri -Method Put -ContentType "application/json" -Headers $authorization  
         Write-Host $CreatePage
     }
     catch 
     {
         # page exists
+        Write-Host "Page exists - Script terminated, Please review page " $landingPg
+        Exit 
     }
 
     try 
@@ -1310,8 +1339,9 @@ function Set-ReleaseNotesToWiKi()
         # Delete   - deleting the PublishParent / PublishSub / PublishPagePrfx - page 
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/delete%20page?view=azure-devops-rest-6.1
         # DELETE https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&api-version=6.1-preview.1
-        $relPageName = $userParams.PublishSub + $userParams.PublishPagePrfx + " " + $userParams.BuildTags
-        $GetPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $userParams.PublishParent + $relPageName + "&api-version=6.1-preview.1" 
+        
+        #$relPageName = $userParams.PublishSub + $userParams.PublishPagePrfx + " " + $userParams.BuildTags
+        $GetPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&api-version=6.1-preview.1" 
         $GetPages = Invoke-RestMethod -Uri $GetPageUri -Method Delete -ContentType "application/json" -Headers $authorization  
     
         Write-Host $GetPages.content
@@ -1322,47 +1352,71 @@ function Set-ReleaseNotesToWiKi()
     }
     
     # build content
-
+    # sort by sequence number
     $contentData = "[[_TOC_]]" + $([char]13) + $([char]10) 
     $contentData +=  "#Build Details" + $([char]13) + $([char]10) 
-    $contentData +=  "Prerequisite for deployment: Stop Fusion Streaming job and ensure the Insights jobs flatline, i.e. process all backlog data before starting the deployment" + $([char]13) + $([char]10) 
+    if($userParams.PublishBldNote -ne "")
+    {
+        $contentData +=   $userParams.PublishBldNote + $([char]13) + $([char]10) 
+    }
+
     $contentData +=  $([char]13) + $([char]10) 
     $contentData +=  $([char]13) + $([char]10) 
-    
+
     $contentData += "|Solution|Pipeline|Sequence|Version|" + $([char]13) + $([char]10) 
     $contentData += "|:---------|:---------|:---------|:---------|" + $([char]13) + $([char]10) 
-    foreach ($item in $Data.Builds) 
+
+    $buildBySeq = $Data.builds | Sort-Object -Property Sequence
+    foreach ($item in $buildBySeq) 
     {
-        $url =  "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_build/results?buildid=" + $item.Sequence + "&view=results" + ")"
+        $url =  "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_build/results?buildid=" + $item.BuildNumber + "&view=results" + ")"
         $contentData += "|" + $item.Solution + "|" + $item.Pipeline + "|" + $item.Sequence + "|" + " [" + $item.Version + "]" + $url + " |" + $([char]13) + $([char]10) 
     }
 
+    # add work items 
     $contentData += $([char]13) + $([char]10) 
     $contentData += "#Work Items Associated With This Release" + $([char]13) + $([char]10) 
+    if($userParams.PublishWKItNote -ne "")
+    {
+        $contentData +=   $userParams.PublishWKItNote + $([char]13) + $([char]10) 
+    }
+
     $contentData += "|Id|Pipeline|Version|Type|Title|" + $([char]13) + $([char]10) 
     $contentData += "|:---------|:---------|---------:|---------:|:---------|" + $([char]13) + $([char]10) 
     foreach ($item in $Data.WorkItems) 
     {
-        $fndBuild = $Data.Builds  | Where-Object {$_.Version -eq  $item.Version }        
-        if (![string]::IsNullOrEmpty($fndBuild) )
-        {
-            $bldLink =  "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_build/results?buildid=" + $fndBuild.Sequence + "&view=results" + ")"
-        }
         $url = "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_workitems/edit/" + $item.id + ")"
         $contentData += "|" + " [" + $item.id + "]" + $url  + " |" + $item.Pipeline + "|" +  $item.Version +  "|" + $item.WorkItemType + "|"  + $item.fields.'System.Title' + "|" +$([char]13) + $([char]10) 
     }
+
+    $contentData += $([char]13) + $([char]10) 
+    $contentData += "#Testing Details" + $([char]13) + $([char]10) 
+    if($userParams.PublishTestNote -ne "")
+    {
+        $contentData +=   $userParams.PublishTestNote + $([char]13) + $([char]10) 
+    }
+
+    $contentData += $([char]13) + $([char]10) 
+    $contentData += $([char]13) + $([char]10) 
+
+    $contentData += $([char]13) + $([char]10) 
+    $contentData += "#Backout Plan" + $([char]13) + $([char]10) 
+    $contentData += "|Solution|Pipeline|Sequence|Version|" + $([char]13) + $([char]10) 
+    $contentData += "|:---------|:---------|:---------|:---------|" + $([char]13) + $([char]10) 
 
     $tmData = @{
          content  = $contentData
     }
     $tmJson = ConvertTo-Json -InputObject $tmData
 
-    $AddPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $userParams.PublishParent +  $relPageName + "&api-version=6.1-preview.1"
+    $AddPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&api-version=6.1-preview.1"
     $AddPage = Invoke-RestMethod -Uri $AddPageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $tmJson   
 
     Write-Host $AddPage
 
 }
+
+
 function Get-AllUSerMembership(){
     Param(
         [Parameter(Mandatory = $true)]

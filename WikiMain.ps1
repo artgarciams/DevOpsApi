@@ -56,11 +56,11 @@ $BuildData = Get-ReleaseNotesByBuildByTag  -userParams $userParameters
 #
 #    "VSTSMasterAcct" : "fdx-strat-pgm",   
 #    "ProjectName"    : "fdx-surround",
-
-#    "PublishWiKi"    : "lumina.wiki",
-#    "PublishParent"  : "Release Notes",
-#    "PublishSub"     : "/AAG_SAMPLE_DONOTUSE",
-#    "PublishPagePrfx": "/Surround Sample Release",
+#    "PublishWiKi"    : "Name of the Project wiki",
+#    "PublishParent"  : "Name of the parent page to publish this release to ie. "Release Notes"
+#    "PublishPagePrfx": "Name of Release note page. page name = Project name + "name" + build tag
 #    "BuildTags"      : "1.1.0",
+#    "PublishBldNote" : "build section notes",
+#    "PublishWKItNote": "work item section notes"
 #
 Set-ReleaseNotesToWiKi  -userParams $userParameters -Data $BuildData
