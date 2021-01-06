@@ -33,20 +33,24 @@ if($userParameters.OutPutToFile -eq "Yes" )
 # generate a file for each build showing build info, work items, and approvals
 # for following parameters in ProjectDef. setting param to "" skips it
 #    
-#    "VSTSMasterAcct" : "fdx-strat-pgm",   
-#    "ProjectName"    : "fdx-surround",
+#      "VSTSMasterAcct" : "fdx-strat-pgm",
+#      "userEmail"      : "your email address",
+#      "PAT"            : "this is where you add your Personal access token (PAT) ",       
+#      "ProjectName"    : "fdx-surround",      - THIS IS THE NAME OF THE PROJECT YOU WANT TO REPORT ON
+#      "BuildTags"      : "Release:1.1.0",     - THIS IS THE RELEASE YOU WANT TO REPORT ON. NOTE IT MUST BE IN THE FORMAT SHOWN
+#                                                    :Release:x.x.x 
+#      "PublishWiKi"    : "lumina.wiki",           - THIS IS THE NAME OF THE WIKI TO PUBLISH TO 
+#      "PublishParent"  : "Release Notes",         - THIS IS THE PARENT PAGE THE PAGE WILL BE PLACED UNDER
+#      "PublishPagePrfx": "System Release ",       - THIS IS THE NAME YOU WANT FOR THE PAGE. NAME WIIL BE PROJECT NAME + THIS TAG 
+#                                                        + THE RELEASE NUMBER IE : fdx-surround - System Release - Release:1.1.0
+#      "PublishBldNote" : "Build section Notes",   - THIS IS ANY NOTES YOU WANT TO ADD TO THE BUILD SECTION
+#      "PublishWKItNote": "Work Item section note",- THIS IS ANY NOTES YOU WANT IN THE WORK ITEM SECTION
+#      "PublishTestNote": "Testing Notes",         - THIS IS ANY NOTES YOU WANT IN THE TESTING SECTION
+#      "WorkItemTypes"  : ["User Story","Bug"],    - THESE ARE THE WORK ITEM TYPES TO REPORT ON . DO NOT CHANGE
+#      "BuildResults"   : ["Succeeded"],           - THIS IS THE BUILD STATUS TO REPORT ON. DO NOT CHANGE
+#      "HTTP_preFix"    : "https",                 - THIS IS THE SECURITY TO USE IN THE API CALL . DO NOT CHANGE
+#      "OutPutToFile"   : "No",                    - THIS IS IF YOU WANT LOGS GENERATED TO AUDIT WHAT GETS CREATED
 #
-#    "BuildTags"      : "1.1.0",
-#    "WorkItemTypes"  : ["User Story","Bug"],
-#    "ParentWiType"   : "User Story",
-#    "BuildResults"   : ["Succeeded"],
-#
-#    "HTTP_preFix"    : "https",
-#    "ReleaseFile"    : "BuildTable.txt",
-#  
-#    "OutPutToFile"   : "Yes",
-#    "DirRoot"        : "C:\\TempData",
-#    "ReleaseDir"     : "\\BuildNotes\\",
 $BuildData = Get-ReleaseNotesByBuildByTag  -userParams $userParameters 
 
 # create wiki page 
@@ -54,13 +58,22 @@ $BuildData = Get-ReleaseNotesByBuildByTag  -userParams $userParameters
 # PublishSub value + the BuildTags value. it will put the page under  the PublishParent page and sub page called PublishSub. the Release
 # notes will reside in that page.
 #
-#    "VSTSMasterAcct" : "fdx-strat-pgm",   
-#    "ProjectName"    : "fdx-surround",
-#    "PublishWiKi"    : "Name of the Project wiki",
-#    "PublishParent"  : "Name of the parent page to publish this release to ie. "Release Notes"
-#    "PublishPagePrfx": "Name of Release note page. page name = Project name + "name" + build tag
-#    "BuildTags"      : "1.1.0",
-#    "PublishBldNote" : "build section notes",
-#    "PublishWKItNote": "work item section notes"
+#      "VSTSMasterAcct" : "fdx-strat-pgm",
+#      "userEmail"      : "your email address",
+#      "PAT"            : "this is where you add your Personal access token (PAT) ",       
+#      "ProjectName"    : "fdx-surround",      - THIS IS THE NAME OF THE PROJECT YOU WANT TO REPORT ON
+#      "BuildTags"      : "Release:1.1.0",     - THIS IS THE RELEASE YOU WANT TO REPORT ON. NOTE IT MUST BE IN THE FORMAT SHOWN
+#                                                    :Release:x.x.x 
+#      "PublishWiKi"    : "lumina.wiki",           - THIS IS THE NAME OF THE WIKI TO PUBLISH TO 
+#      "PublishParent"  : "Release Notes",         - THIS IS THE PARENT PAGE THE PAGE WILL BE PLACED UNDER
+#      "PublishPagePrfx": "System Release ",       - THIS IS THE NAME YOU WANT FOR THE PAGE. NAME WIIL BE PROJECT NAME + THIS TAG 
+#                                                        + THE RELEASE NUMBER IE : fdx-surround - System Release - Release:1.1.0
+#      "PublishBldNote" : "Build section Notes",   - THIS IS ANY NOTES YOU WANT TO ADD TO THE BUILD SECTION
+#      "PublishWKItNote": "Work Item section note",- THIS IS ANY NOTES YOU WANT IN THE WORK ITEM SECTION
+#      "PublishTestNote": "Testing Notes",         - THIS IS ANY NOTES YOU WANT IN THE TESTING SECTION
+#      "WorkItemTypes"  : ["User Story","Bug"],    - THESE ARE THE WORK ITEM TYPES TO REPORT ON . DO NOT CHANGE
+#      "BuildResults"   : ["Succeeded"],           - THIS IS THE BUILD STATUS TO REPORT ON. DO NOT CHANGE
+#      "HTTP_preFix"    : "https",                 - THIS IS THE SECURITY TO USE IN THE API CALL . DO NOT CHANGE
+#      "OutPutToFile"   : "No",                    - THIS IS IF YOU WANT LOGS GENERATED TO AUDIT WHAT GETS CREATED
 #
 Set-ReleaseNotesToWiKi  -userParams $userParameters -Data $BuildData
