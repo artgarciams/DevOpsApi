@@ -30,8 +30,7 @@
                                                             + THE RELEASE NUMBER IE : fdx-surround - System Release - Release:1.1.0
             "PublishBldNote" : "Build section Notes",   - THIS IS ANY NOTES YOU WANT TO ADD TO THE BUILD SECTION
             "PublishWKItNote": "Work Item section note",- THIS IS ANY NOTES YOU WANT IN THE WORK ITEM SECTION
-            "PublishTestNote": "Testing Notes",         - THIS IS ANY NOTES YOU WANT IN THE TESTING SECTION
-  
+              
             "WorkItemTypes"  : ["User Story","Bug"],    - THESE ARE THE WORK ITEM TYPES TO REPORT ON . DO NOT CHANGE
             "BuildResults"   : ["Succeeded"],           - THIS IS THE BUILD STATUS TO REPORT ON. DO NOT CHANGE
             
@@ -47,9 +46,13 @@
 
             Next you will need a sequence number. This will designate the order the builds will be applied to prodction. THIS is for documentation purposes only. If you choose not to use the sequence, the script will place a 0 for the sequence number. To use the Sequence Number please use the following format Sequence:x Again no spaces before or after the :
 
+            Next is the Solution area for the build selected. This is in the format Solution:aaaaaaa
+            This will show up in the build table of the release notes.
+
             In summary the following tags must be present in each build you want in the release notes.
                 Release:x.x.x
                 Sequence:x
+                Solution:aaaaaaaaa
 
     Execution process
 

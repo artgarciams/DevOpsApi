@@ -516,6 +516,10 @@ function Get-ReleaseNotesByBuildByTag()
     # loop thru each build in list found
     foreach ($build in $AllBuildswithTags.value) 
     {
+        #GET https://dev.azure.com/{organization}/{project}/_apis/test/Runs/{runId}/results?api-version=6.1-preview.6
+        #$Uri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "_apis/test/runs/?includeRunDetails=true&api-version=6.1-preview.3"
+        #$all = Invoke-RestMethod -Uri $Uri -Method Get -Headers $authorization 
+       
         # get work all items for this build
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/get%20build%20work%20items%20refs?view=azure-devops-rest-6.1
         # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/workitems?api-version=6.1-preview.2
@@ -639,15 +643,16 @@ function Get-ReleaseNotesByBuildByTag()
         }
         $buildTableArray += $bld
 
-        # create release output file        
-        $nme =  $build.definition.name -replace '[\W]','_' 
-        $pth = $userParams.DirRoot + $userParams.ReleaseDir + $nme + " _" + $build.buildNumber + ".txt"
-        $pth = $pth -replace ' ',''
-        $outfile = $pth
         
         # if Yes write to file on hard disk. else this may be an automated run and no output required
         if($userParams.OutPutToFile -eq "Yes")
         {  
+            # create release output file        
+            $nme =  $build.definition.name -replace '[\W]','_' 
+            $pth = $userParams.DirRoot + $userParams.ReleaseDir + $nme + " _" + $build.buildNumber + ".txt"
+            $pth = $pth -replace ' ',''
+            $outfile = $pth
+
             Write-Output "" | Out-File $outfile
         }
 
@@ -1315,12 +1320,15 @@ function Set-ReleaseNotesToWiKi()
     Write-Host $wiki
 
     # create subpages if not exists
-    # find release notes/ project name Release tag
-    $landingPg = $userParams.PublishParent + "/" + $userParams.ProjectName + " - " + $userParams.PublishPagePrfx + " - " + $userParams.BuildTags
+    # create a page under Release Notes 
+    #                  project Name + Release number
+    #      then add a page  "System Generated Release Notes" and add data to it.
     
-    try 
-    {
+    # Release Notes / project name + release number
+    $landingPg = $userParams.PublishParent + "/" + $userParams.ProjectName + " - " + $userParams.BuildTags
         
+    try 
+    {  
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/create%20or%20update?view=azure-devops-rest-6.1
         # PUT https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&api-version=6.1-preview.1
         $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&api-version=6.1-preview.1" 
@@ -1330,27 +1338,25 @@ function Set-ReleaseNotesToWiKi()
     catch 
     {
         # page exists
-        Write-Host "Page exists - Script terminated, Please review page " $landingPg
-        Exit 
+        Write-Host "Page exists - Script terminated, Please review page " $landingPg    
     }
+
+    # create generated release page
+    $landingPg = $userParams.PublishParent + "/" + $userParams.ProjectName + " - " + $userParams.BuildTags + "/" + $userParams.PublishPagePrfx + " - " + $userParams.BuildTags
 
     try 
     {
-        # Delete   - deleting the PublishParent / PublishSub / PublishPagePrfx - page 
-        # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/delete%20page?view=azure-devops-rest-6.1
-        # DELETE https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&api-version=6.1-preview.1
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/create%20or%20update?view=azure-devops-rest-6.1
+        # PUT https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&api-version=6.1-preview.1
+        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&api-version=6.1-preview.1" 
+        $CreatePage = Invoke-RestMethod -Uri $CreatePageUri -Method Put -ContentType "application/json" -Headers $authorization  
+        Write-Host $CreatePage
+                        
+    }
+    catch {
         
-        #$relPageName = $userParams.PublishSub + $userParams.PublishPagePrfx + " " + $userParams.BuildTags
-        $GetPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&api-version=6.1-preview.1" 
-        $GetPages = Invoke-RestMethod -Uri $GetPageUri -Method Delete -ContentType "application/json" -Headers $authorization  
-    
-        Write-Host $GetPages.content
     }
-    catch 
-    {
-        # page deleted        
-    }
-    
+
     # build content
     # sort by sequence number
     $contentData = "[[_TOC_]]" + $([char]13) + $([char]10) 
@@ -1389,26 +1395,41 @@ function Set-ReleaseNotesToWiKi()
         $contentData += "|" + " [" + $item.id + "]" + $url  + " |" + $item.Pipeline + "|" +  $item.Version +  "|" + $item.WorkItemType + "|"  + $item.fields.'System.Title' + "|" +$([char]13) + $([char]10) 
     }
 
-    $contentData += $([char]13) + $([char]10) 
-    $contentData += "#Testing Details" + $([char]13) + $([char]10) 
-    if($userParams.PublishTestNote -ne "")
-    {
-        $contentData +=   $userParams.PublishTestNote + $([char]13) + $([char]10) 
-    }
+    <#    
+        $contentData += $([char]13) + $([char]10) 
+        $contentData += "#Testing Details" + $([char]13) + $([char]10) 
+        if($userParams.PublishTestNote -ne "")
+        {
+            $contentData +=   $userParams.PublishTestNote + $([char]13) + $([char]10) 
+        }
+            
+        $contentData += $([char]13) + $([char]10) 
+        $contentData += $([char]13) + $([char]10) 
 
-    $contentData += $([char]13) + $([char]10) 
-    $contentData += $([char]13) + $([char]10) 
-
-    $contentData += $([char]13) + $([char]10) 
-    $contentData += "#Backout Plan" + $([char]13) + $([char]10) 
-    $contentData += "|Solution|Pipeline|Sequence|Version|" + $([char]13) + $([char]10) 
-    $contentData += "|:---------|:---------|:---------|:---------|" + $([char]13) + $([char]10) 
+        $contentData += $([char]13) + $([char]10) 
+        $contentData += "#Backout Plan" + $([char]13) + $([char]10) 
+        $contentData += "|Solution|Pipeline|Sequence|Version|" + $([char]13) + $([char]10) 
+        $contentData += "|:---------|:---------|:---------|:---------|" + $([char]13) + $([char]10)      
+    #>
 
     $tmData = @{
          content  = $contentData
     }
     $tmJson = ConvertTo-Json -InputObject $tmData
 
+
+    # get page version number to update must use Invoke-WebRequest to get e-tag. needed to do an update to the page
+    # https://stackoverflow.com/questions/57056375/azure-devops-how-to-edit-wiki-page-via-rest-api
+    #
+    $getPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&includeContent=True&recursionLevel=full&api-version=6.1-preview.1"
+    $GetPage = Invoke-WebRequest -Uri $getPageUri -Method Get -ContentType "application/json" -Headers $authorization 
+    
+    # add etag to the header. for update to work, must have etag in header
+    # Base64-encodes the Personal Access Token (PAT) appropriately + etag used to allow update to wiki page
+    Write-Host $GetPage.Headers.ETag
+    $authorization =GetVSTSCredentialWithEtag -Token $userParams.PAT -userEmail $userParams.userEmail -eTag $GetPage.Headers.ETag
+
+    # update or create page if it does not exist
     $AddPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&api-version=6.1-preview.1"
     $AddPage = Invoke-RestMethod -Uri $AddPageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $tmJson   
 
@@ -1894,6 +1915,19 @@ function GetVSTSCredential () {
     return @{Authorization = ("Basic {0}" -f $base64AuthInfo)}
 }
 
+
+function GetVSTSCredentialWithEtag () {
+    Param(
+        $userEmail,
+        $Token,
+        $eTag
+    )
+
+    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $userEmail, $token)))
+    return @{Authorization = ("Basic {0}" -f $base64AuthInfo) 
+            'If-Match' = $etag
+            }
+}
 
 # Adds a single user to a single team project within the specified TFS Group
 function Add-TfsGroupMemberToTeamProjectGroup {

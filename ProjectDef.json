@@ -8,10 +8,10 @@
 
     "PublishWiKi"    : "lumina.wiki",
     "PublishParent"  : "Release Notes",
-    "PublishPagePrfx": "TEST System Release",
-    "PublishBldNote" : "Build section Notes",
+    "PublishPagePrfx": "System Generated Release Notes",
+    "PublishBldNote" : "This page is system generated. Do not Update this page",
     "PublishWKItNote": "Work Item section note",
-    "PublishTestNote": "Testing Notes",
+    "PublishTestNote": "",
   
     "WorkItemTypes"  : ["User Story","Bug"],
     "BuildResults"   : ["Succeeded"],
