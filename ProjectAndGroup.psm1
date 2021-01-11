@@ -516,9 +516,6 @@ function Get-ReleaseNotesByBuildByTag()
     # loop thru each build in list found
     foreach ($build in $AllBuildswithTags.value) 
     {
-        #GET https://dev.azure.com/{organization}/{project}/_apis/test/Runs/{runId}/results?api-version=6.1-preview.6
-        #$Uri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "_apis/test/runs/?includeRunDetails=true&api-version=6.1-preview.3"
-        #$all = Invoke-RestMethod -Uri $Uri -Method Get -Headers $authorization 
        
         # get work all items for this build
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/get%20build%20work%20items%20refs?view=azure-devops-rest-6.1
@@ -527,14 +524,7 @@ function Get-ReleaseNotesByBuildByTag()
         $allBuildWorkItems = Invoke-RestMethod -Uri $workItemUri -Method Get -Headers $authorization 
        
         Write-Host   "   Build Number:" $build.buildNumber " Build Definition :" $build.definition.name "  Results: " $build.result  " Status : " $build.status 
-        
-        # find test plans if available
-        #$planId = $build.plans[0].planId
-        # https://docs.microsoft.com/en-us/rest/api/azure/devops/testplan/test%20%20plans/get?view=azure-devops-rest-6.1#examples
-        #GET https://dev.azure.com/fabrikam/{project}/_apis/testplan/plans/{planId}?api-version=6.1-preview.1
-        #$testplanUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/testplan/plans?api-version=6.1-preview.1"
-        #$testplan = Invoke-RestMethod -Uri $testplanUri -Method Get -Headers $authorization 
-       
+               
         # if Yes write to file on hard disk. else this may be an automated run and no output required
         if($userParams.OutPutToFile -eq "Yes")
         {
@@ -639,10 +629,12 @@ function Get-ReleaseNotesByBuildByTag()
             Pipeline = $build.definition.name.ToString()
             Sequence = $sequence
             Version = $build.buildNumber.ToString()
-            BuildNumber =  $build.id.ToString() 
+            BuildNumber =  $build.id.ToString()            
         }
         $buildTableArray += $bld
 
+        # to count work items associated with this build
+        $workitemsReported = 0
         
         # if Yes write to file on hard disk. else this may be an automated run and no output required
         if($userParams.OutPutToFile -eq "Yes")
@@ -827,9 +819,11 @@ function Get-ReleaseNotesByBuildByTag()
                     if($useRelWkItem)
                     {
                         $ReleaseWorkItems.add($relWkItem) | Out-Null
+                        $workitemsReported += 1
                     }else
                     {
                         $ReleaseWorkItems.add($workItem) | Out-Null
+                        $workitemsReported += 1
                     }
 
                     # if Yes write to file on hard disk. else this may be an automated run and no output required
@@ -846,9 +840,15 @@ function Get-ReleaseNotesByBuildByTag()
 
                 }
             }
+           
             $UserStoryList.Add($fld.'System.Id') | Out-Null
         }
-    
+
+        # add count of workitems to report to summary. this will count all reported workitems for this build. 
+        # note reported is user stories and bugs. all tasks are rolled up into userstories
+        $buildTableArray[$buildTableArray.Length -1]  | Add-Member -MemberType NoteProperty -name "WorkItemCount" -Value $workitemsReported
+        Write-Host $workitemsReported
+
     }
 
     # generate build release table
@@ -1360,6 +1360,30 @@ function Set-ReleaseNotesToWiKi()
     # build content
     # sort by sequence number
     $contentData = "[[_TOC_]]" + $([char]13) + $([char]10) 
+
+    # count number of solutions
+    $solCount = 0
+    $lastSol = ""
+    foreach ($item in $Data.builds) 
+    {
+        if ($item.Solution -ne $lastSol)
+        {
+            $solCount += 1
+            $lastSol = $item.Solution
+        }
+    }
+    $contentData +=  $([char]13) + $([char]10) 
+    $contentData +=  $([char]13) + $([char]10) 
+    $contentData +=  "#Build Summary" + $([char]13) + $([char]10) 
+    $contentData += "|Summary Item|Count" + $([char]13) + $([char]10) 
+    $contentData += "|:---------|:---------|" + $([char]13) + $([char]10) 
+    $contentData += "|" + "Builds in this Release" + "|" + $Data.builds.count + "|" + $([char]13) + $([char]10) 
+    $contentData += "|" + "Solutions in this release" + "|" + $solCount + "|" + $([char]13) + $([char]10) 
+    $contentData += "|" + "Work Items(user stories,bugs,features) in this release" + "|" + $Data.WorkItems.count + "|" + $([char]13) + $([char]10) 
+
+    $contentData +=  $([char]13) + $([char]10) 
+    $contentData +=  $([char]13) + $([char]10) 
+
     $contentData +=  "#Build Details" + $([char]13) + $([char]10) 
     if($userParams.PublishBldNote -ne "")
     {
@@ -1369,14 +1393,14 @@ function Set-ReleaseNotesToWiKi()
     $contentData +=  $([char]13) + $([char]10) 
     $contentData +=  $([char]13) + $([char]10) 
 
-    $contentData += "|Solution|Pipeline|Sequence|Version|" + $([char]13) + $([char]10) 
-    $contentData += "|:---------|:---------|:---------|:---------|" + $([char]13) + $([char]10) 
+    $contentData += "|Solution|Pipeline|Sequence|Version|Work Item Count" + $([char]13) + $([char]10) 
+    $contentData += "|:---------|:---------|:---------|:---------|:---------|" + $([char]13) + $([char]10) 
 
-    $buildBySeq = $Data.builds | Sort-Object -Property Sequence
+    $buildBySeq = $Data.builds | Sort-Object -Property Solution,Sequence
     foreach ($item in $buildBySeq) 
     {
         $url =  "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_build/results?buildid=" + $item.BuildNumber + "&view=results" + ")"
-        $contentData += "|" + $item.Solution + "|" + $item.Pipeline + "|" + $item.Sequence + "|" + " [" + $item.Version + "]" + $url + " |" + $([char]13) + $([char]10) 
+        $contentData += "|" + $item.Solution + "|" + $item.Pipeline + "|" + $item.Sequence + "|" + " [" + $item.Version + "]" + $url + " |"  + $item.WorkItemCount + "|" + $([char]13) + $([char]10) 
     }
 
     # add work items 

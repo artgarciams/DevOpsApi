@@ -20,6 +20,8 @@ $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 Write-Output $userParameters.ProjectName
 Write-Output $userParameters.Description
 
+$userParameters.userEmail =  ${env:USEREMAIL}
+
 # make sure directory structure exists
 #    "DirRoot"        : "C:\\TempData",
 #    "ReleaseDir"     : "\\BuildNotes\\",
