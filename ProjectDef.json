@@ -1,8 +1,8 @@
 { 
-    "VSTSMasterAcct" : "fdx-strat-pgm",
-    "userEmail"      : "arthur.garcia.osv@fedex.com",
+    "VSTSMasterAcct" : "org name",
+    "userEmail"      : "email address",
     "PAT"            : "",       
-    "ProjectName"    : "fdx-surround",
+    "ProjectName"    : "project name",
 
     "BuildTags"      : "Release:1.1.0",
 
