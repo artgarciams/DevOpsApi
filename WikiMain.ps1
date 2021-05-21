@@ -32,6 +32,9 @@ if($userParameters.OutPutToFile -eq "Yes" )
 {
     Set-DirectoryStructure -userParams $userParameters 
 }
+
+#Get-BuildDetailsByProject -userParams $userParameters  -outFile "C:\temp\buildprj.txt"
+
 # generate a file for each build showing build info, work items, and approvals
 # for following parameters in ProjectDef. setting param to "" skips it
 #    
@@ -54,6 +57,8 @@ if($userParameters.OutPutToFile -eq "Yes" )
 #      "OutPutToFile"   : "No",                    - THIS IS IF YOU WANT LOGS GENERATED TO AUDIT WHAT GETS CREATED
 #
 $BuildData = Get-ReleaseNotesByBuildByTag  -userParams $userParameters 
+
+
 
 # create wiki page 
 # This method will create a wiki page of the release notes found. It will create a page using the

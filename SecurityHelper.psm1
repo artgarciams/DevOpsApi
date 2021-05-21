@@ -161,9 +161,9 @@ function Get-SecuritybyGroupByNamespace()
             $projectName =  $prName[0].substring(1,$prname[0].length-2)
             $tm = $prName[1]
             $teamFound = $allteams.value | Where-Object {($_.ProjectName -eq $projectName) -and ($_.name -eq $tm)}
-            $GroupType = "G-Delivered"
+            $GroupType = "Group"
             IF (![string]::IsNullOrEmpty($teamFound)) {
-                $GroupType = "T-Custom"                
+                $GroupType = "Team"                
             } 
 
             Write-Host $fnd.displayname

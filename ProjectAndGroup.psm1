@@ -448,6 +448,10 @@ function Get-ReleaseNotesByBuildByTag()
     #build table array - list of all builds for this release
     $buildTableArray = @()
 
+    # array for changes to a given build
+    $buildChangesArray = @()
+
+
     # set log directory
     $runLog = $userParams.DirRoot + $userParams.LogDirectory + "runLog.txt"    
 
@@ -495,9 +499,16 @@ function Get-ReleaseNotesByBuildByTag()
     }
 
     # Get a list of all builds with a specific tag
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-6.1
     # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds?definitions={definitions}&queues={queues}&buildNumber={buildNumber}&minTime={minTime}&maxTime={maxTime}&requestedFor={requestedFor}&reasonFilter={reasonFilter}&statusFilter={statusFilter}&resultFilter={resultFilter}&tagFilters={tagFilters}&properties={properties}&$top={$top}&continuationToken={continuationToken}&maxBuildsPerDefinition={maxBuildsPerDefinition}&deletedFilter={deletedFilter}&queryOrder={queryOrder}&branchName={branchName}&buildIds={buildIds}&repositoryId={repositoryId}&repositoryType={repositoryType}&api-version=6.1-preview.6
-    $AllBuildsUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds?tagFilters=" + $userParams.BuildTags + "&api-version=6.1-preview.6"
-    $AllBuildswithTags = Invoke-RestMethod -Uri $AllBuildsUri -Method Get -Headers $authorization 
+    $AllBuildswithTags = New-Object System.Collections.ArrayList
+    $AllBuildswithTags = [System.Collections.ArrayList]::new()    
+    foreach ($tag in $userParams.BuildTags) 
+    {
+        $AllBuildsUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds?tagFilters=" + $tag + "&api-version=6.1-preview.6"     
+        $BuildswithTags = Invoke-RestMethod -Uri $AllBuildsUri -Method Get -Headers $authorization 
+        $AllBuildswithTags += $BuildswithTags
+    } 
 
     Write-Host "Builds found :" $AllBuildswithTags.count
 
@@ -516,7 +527,6 @@ function Get-ReleaseNotesByBuildByTag()
     # loop thru each build in list found
     foreach ($build in $AllBuildswithTags.value) 
     {
-       
         # get work all items for this build
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/get%20build%20work%20items%20refs?view=azure-devops-rest-6.1
         # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/workitems?api-version=6.1-preview.2
@@ -605,31 +615,119 @@ function Get-ReleaseNotesByBuildByTag()
 
         }
 
-        # get data from build tags
-        $solution = ""
-        $sequence = 0
-        $release = ""
-        foreach ($tag in $build.tags) 
+        #
+        # get all changes for a given build       
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/get%20build%20changes?view=azure-devops-rest-6.1
+        # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/changes?api-version=6.1-preview.2
+        $bldChangegUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/changes?api-version=6.1-preview.2"
+        $bldChanges = Invoke-RestMethod -Uri $bldChangegUri -Method Get -Headers $authorization 
+
+         # if Yes write to file on hard disk. else this may be an automated run and no output required
+         if($userParams.OutPutToFile -eq "Yes")
+         {
+            Write-Output ""  | Out-File $outFile -Append
+            Write-Output "            Builds changes found for this build: " $bldChanges.count  | Out-File $outFile -Append -NoNewline
+            Write-Output ""  | Out-File $outFile -Append
+         }
+
+        foreach ($bldChg in $bldChanges.value) 
         {
-            $tg = $tag.Split(":")
-            switch ($tg[0]) 
-            {
-                "Release"  { $release  = $tg[1]  }
-                "Sequence" { $sequence = $tg[1] }
-                "Solution" { $solution = $tg[1]}
-                Default {}
+             # if Yes write to file on hard disk. else this may be an automated run and no output required
+             if($userParams.OutPutToFile -eq "Yes")
+             {
+                Write-Output "            Build Change: " $bldChg.message " Date Changed : " $bldChg.timestamp   "   Changed by: " $bldChg.'author'.DisplayName| Out-File $outFile   -Append -NoNewline
+                Write-Output ""  | Out-File $outFile -Append
+                Write-Output ""  | Out-File $outFile -Append
+             }
+
+            $locationData = Invoke-RestMethod -Uri $bldChg.Location -Method Get -Headers $authorization 
+            $loc = $locationData.remoteUrl.Replace(" ", "%20")
+
+            $chg = New-Object -TypeName PSObject -Property @{
+                BuildChange = $bldChg.message
+                DateChanged = $bldChg.timestamp 
+                ChangedBy = $bldChg.'author'.DisplayName   
+                Location =   $loc
+                type = $bldChg.type 
+                Id = $bldChg.Id                    
             }
+            $buildChangesArray += $chg
+
         }
+        # get build stages
+        # 
+        # get build timeline 
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/timeline/get?view=azure-devops-rest-6.1
+        # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/timeline/{timelineId}?api-version=6.1-preview.2
+        $BuildTimelineUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $build.id + "/timeline?api-version=6.1-preview.2"
+        $BuildTimeLine = Invoke-RestMethod -Uri $BuildTimelineUri -Method Get -Headers $authorization -Verbose
+
+        # get stages for this build
+        $tmStages = $BuildTimeLine.records | Where-Object { $_.type -eq "Stage" } | Sort-Object -Property order 
+        $buildStagesArray = @()
+
+        foreach ($stages in $tmStages) 
+        {
+            $stg = New-Object -TypeName PSObject -Property @{
+                stageName = $stages.name
+                result = $stages.result
+                startTime = $stages.startTime
+                endTime = $stages.finishTime
+                order = $stages.order
+                type = $stages.type                     
+            }
+            $buildStagesArray += $stg            
+        }
+
+
+        try 
+        {
+            #get build report
+            # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/report/get?view=azure-devops-rest-6.0
+            # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/report?api-version=6.0-preview.2
+            $buildReportUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/report?api-version=6.0-preview.2"
+            $buildReport = Invoke-RestMethod -Uri $buildReportUri -Method Get -Headers $authorization     
+
+            $BuildRep = ConvertTo-Json -InputObject $buildReport -Depth 32
+            Write-Host $BuildRep
+        }
+        catch 
+        {
+            $ErrorMessage = $_.Exception.Message
+            $FailedItem = $_.Exception.ItemName
+            # Write-Host "Security Error : " + $ErrorMessage + " iTEM : " + $FailedItem    
+        }
+        
+        
         Write-Host $solution " - " $Sequence "- " $release    
+        Write-Host "Build ID: " $build.id " - Build Number : " $build.buildNumber    
+        Write-Host "    Build Status: " $build.Status " - Result: " $build.result
+        $def = $build.definition
+        $repo = $build.repository
+        
+        # get tags
+        $buildTag = ""
+        foreach ($tg in $build.tags) 
+        {
+            $buildTag += $tg + " "
+        }
 
         # write build record table . this arraylist will hold all builds found
         # Solution = $Area.ToString()
         $bld = New-Object -TypeName PSObject -Property @{
-            Solution = $solution
+            Status =  $build.Status
+            tag = $buildTag
             Pipeline = $build.definition.name.ToString()
-            Sequence = $sequence
+            RequestedBy =  $def.name 
+            Started = $build.startTime 
+            Finished = $build.finishTime
             Version = $build.buildNumber.ToString()
-            BuildNumber =  $build.id.ToString()            
+            Source = $build.sourceBranch 
+            Repo = $repo.name
+            BuildNumber =  $build.id.ToString()    
+            BuildChanges = $buildChangesArray
+            BuildStages = $buildStagesArray
+
         }
         $buildTableArray += $bld
 
@@ -1361,16 +1459,11 @@ function Set-ReleaseNotesToWiKi()
     # sort by sequence number
     $contentData = "[[_TOC_]]" + $([char]13) + $([char]10) 
 
-    # count number of solutions
-    $solCount = 0
-    $lastSol = ""
+    # count number of changes
+    $chgCount = 0
     foreach ($item in $Data.builds) 
     {
-        if ($item.Solution -ne $lastSol)
-        {
-            $solCount += 1
-            $lastSol = $item.Solution
-        }
+        $chgCount += $Data.Builds.BuildChanges.count
     }
     $contentData +=  $([char]13) + $([char]10) 
     $contentData +=  $([char]13) + $([char]10) 
@@ -1378,12 +1471,11 @@ function Set-ReleaseNotesToWiKi()
     $contentData += "|Summary Item|Count" + $([char]13) + $([char]10) 
     $contentData += "|:---------|:---------|" + $([char]13) + $([char]10) 
     $contentData += "|" + "Builds in this Release" + "|" + $Data.builds.count + "|" + $([char]13) + $([char]10) 
-    $contentData += "|" + "Solutions in this release" + "|" + $solCount + "|" + $([char]13) + $([char]10) 
+    $contentData += "|" + "Builds Changes in this Release" + "|" + $chgCount + "|" + $([char]13) + $([char]10) 
     $contentData += "|" + "Work Items(user stories,bugs,features) in this release" + "|" + $Data.WorkItems.count + "|" + $([char]13) + $([char]10) 
 
     $contentData +=  $([char]13) + $([char]10) 
     $contentData +=  $([char]13) + $([char]10) 
-
     $contentData +=  "#Build Details" + $([char]13) + $([char]10) 
     if($userParams.PublishBldNote -ne "")
     {
@@ -1392,17 +1484,34 @@ function Set-ReleaseNotesToWiKi()
 
     $contentData +=  $([char]13) + $([char]10) 
     $contentData +=  $([char]13) + $([char]10) 
-
-    $contentData += "|Solution|Pipeline|Sequence|Version|Work Item Count" + $([char]13) + $([char]10) 
-    $contentData += "|:---------|:---------|:---------|:---------|:---------|" + $([char]13) + $([char]10) 
-
+    $contentData += "|Tag|Build|Pipeline|Requestor|Start|Finish|Source|Repo|Work Items|Changes" + $([char]13) + $([char]10) 
+    $contentData += "|:---------|:---------|:---------|:---------|:---------|:---------|:---------|:---------|:---------|:---------|" + $([char]13) + $([char]10) 
     $buildBySeq = $Data.builds | Sort-Object -Property Solution,Sequence
     foreach ($item in $buildBySeq) 
     {
-        $url =  "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_build/results?buildid=" + $item.BuildNumber + "&view=results" + ")"
-        $contentData += "|" + $item.Solution + "|" + $item.Pipeline + "|" + $item.Sequence + "|" + " [" + $item.Version + "]" + $url + " |"  + $item.WorkItemCount + "|" + $([char]13) + $([char]10) 
+        $pjName = $userParams.ProjectName.Replace(" ","%20")
+        $url =  "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $pjName + "/_build/results?buildid=" + $item.BuildNumber + "&view=results" + ")"
+        $contentData += "|" + $item.tag + "|" + " [" + $item.Version + "]" + $url + " |"  +  $item.Pipeline + "|"  + $item.RequestedBy + "|" + $item.Started + "|" + $item.Finished + "|" + $item.Source + "|"  + $item.Repo + "|" + $item.WorkItemCount + "|" + $item.BuildChanges.Count + "|" + $([char]13) + $([char]10)         
     }
 
+    # stages and approvers - later
+    $contentData +=  $([char]13) + $([char]10) 
+    $contentData +=  $([char]13) + $([char]10) 
+    $contentData +=  "#Build Stages" + $([char]13) + $([char]10) 
+    $contentData += $([char]13) + $([char]10) 
+    $contentData += "|Build Link |Stage |Order|Status|" + $([char]13) + $([char]10) 
+    $contentData += "|:---------|---------|---------|---------|---------|" + $([char]13) + $([char]10) 
+    foreach ($bld in $Data.Builds) 
+    {
+        $pjName = $userParams.ProjectName.Replace(" ","%20")
+        $url =  "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $pjName + "/_build/results?buildid=" + $bld.BuildNumber + "&view=results" + ")"
+        foreach ($stage in $bld.BuildStages) 
+        {
+            $contentData += "|" + " [" + $bld.Version + "]" + $url + " |"  +  $stage.stageName + "|"  + $stage.order + "|" + $stage.result + "|" + $([char]13) + $([char]10)         
+        }
+    }
+
+    
     # add work items 
     $contentData += $([char]13) + $([char]10) 
     $contentData += "#Work Items Associated With This Release" + $([char]13) + $([char]10) 
@@ -1411,13 +1520,31 @@ function Set-ReleaseNotesToWiKi()
         $contentData +=   $userParams.PublishWKItNote + $([char]13) + $([char]10) 
     }
 
-    $contentData += "|Id|Pipeline|Version|Type|Title|" + $([char]13) + $([char]10) 
+    $contentData += "|Id|Pipeline|Build|Type|Title|" + $([char]13) + $([char]10) 
     $contentData += "|:---------|:---------|---------:|---------:|:---------|" + $([char]13) + $([char]10) 
     foreach ($item in $Data.WorkItems) 
     {
-        $url = "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_workitems/edit/" + $item.id + ")"
+        $pjName = $userParams.ProjectName.Replace(" ","%20")
+        $url = "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $pjName + "/_workitems/edit/" + $item.id + ")"
         $contentData += "|" + " [" + $item.id + "]" + $url  + " |" + $item.Pipeline + "|" +  $item.Version +  "|" + $item.WorkItemType + "|"  + $item.fields.'System.Title' + "|" +$([char]13) + $([char]10) 
     }
+
+
+     # add changes to build
+     $contentData += $([char]13) + $([char]10) 
+     $contentData += "#Changes Associated With each Build in this Release" + $([char]13) + $([char]10) 
+     $contentData += "|Change|Build Link |Change|Changed By|Date Changed|" + $([char]13) + $([char]10) 
+     $contentData += "|:---------|---------|---------|---------|---------|" + $([char]13) + $([char]10) 
+     foreach ($item in $Data.Builds) 
+     {
+         $url =  "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $pjName + "/_build/results?buildid=" + $item.BuildNumber + "&view=results" + ")"
+         foreach ($bldChg in $Data.Builds.BuildChanges) 
+         {
+             $chid = $bldChg.Id.substring($bldChg.Id.Length -7,7)
+             $contentData += "|" + " [" + $chid + "]" + "(" + $bldChg.Location + ")" + " |" +  " [" + $item.Version + "]" + $url + " |" + $bldChg.BuildChange + "|" +  $bldChg.ChangedBy +  "|" + $bldChg.DateChanged + "|" + $([char]13) + $([char]10) 
+         }
+     }
+
 
     <#    
         $contentData += $([char]13) + $([char]10) 
@@ -1507,7 +1634,7 @@ function Get-AllUSerMembership(){
     # add in the aad groups
     $fnd += $aadGroups.value
 
-    Write-Output 'Project|Group Name|Type|Relationship|User Name|Email Address|Fedex ID' | Out-File -FilePath $outFile
+    Write-Output 'Project|Group Name|Type|Relationship|User Name|Email Address|Alias ID' | Out-File -FilePath $outFile
     #Write-Output " " | Out-File -FilePath $outFile -Append 
 
     foreach ($item in $fnd) {
@@ -1532,9 +1659,9 @@ function Get-AllUSerMembership(){
         $teamGroup = ""
         if ([string]::IsNullOrEmpty($isTeam)) 
         {
-            $teamGroup = "G-Delivered"
+            $teamGroup = "Group"
         }else {
-            $teamGroup = "T-Custom"
+            $teamGroup = "Team"
         }
 
         if($allGrpMembers.value[0].members -ne 0)

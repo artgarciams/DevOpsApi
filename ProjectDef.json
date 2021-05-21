@@ -1,12 +1,12 @@
 { 
-    "VSTSMasterAcct" : "fdx-strat-pgm",
-    "userEmail"      : "arthur.garcia.osv@fedex.com",
+    "VSTSMasterAcct" : "CSECodeHub",
+    "userEmail"      : "arthur.garcia@microsoft.com",
     "PAT"            : "",       
-    "ProjectName"    : "fdx-surround",
+    "ProjectName"    : "424289 - Air Force WEAPS - Cloud One",
 
-    "BuildTags"      : "Release:1.1.0",
+    "BuildTags"      : ["TEST123","ArtFun"],
 
-    "PublishWiKi"    : "lumina.wiki",
+    "PublishWiKi"    : "424289---Air-Force-WEAPS---Cloud-One.wiki",
     "PublishParent"  : "Release Notes",
     "PublishPagePrfx": "System Generated Release Notes",
     "PublishBldNote" : "This page is system generated. Do not Update this page",
@@ -25,7 +25,7 @@
     "ReleaseDir"     : "\\BuildNotes\\",
     "LogDirectory"   : "\\Logs\\",
 
-    "AllProjects"    : "True",
+    "AllProjects"    : "False",
     "GroupFileName"  : "Get-SecuritybyGroupByNamespace-12-2.txt",
     "UserFileName"   : "Get-AllUSerMembership-12-2.txt",
     "rawDataFile"    : "rawdump.txt",
