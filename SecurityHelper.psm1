@@ -131,7 +131,9 @@ function Get-SecuritybyGroupByNamespace()
         $outFile = $userParams.DirRoot + $userParams.SecurityDir + $outFile
 
         # get list of all security namespaces for organization
-        $projectUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/securitynamespaces?api-version=5.0"
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/security/security%20namespaces/query?view=azure-devops-rest-6.1
+        # GET https://dev.azure.com/{organization}/_apis/securitynamespaces/{securityNamespaceId}?api-version=6.1-preview.1
+        $projectUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/securitynamespaces?api-version=6.1-preview.1"
         $allNamespaces = Invoke-RestMethod -Uri $projectUri -Method Get -Headers $authorization 
           
         # find all Teams in Org. needed to determine if group is a team or group

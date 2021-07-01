@@ -29,6 +29,7 @@ Write-Output $userParameters.Description
 #    "SecurityDir"    : "\\Security\\",
 Set-DirectoryStructure -userParams $userParameters 
 
+
 # Get all groups and there permissions
 #       "VSTSMasterAcct" : "fdx-strat-pgm", 
 #       "userEmail"      : "arthur.garcia.osv@fedex.com",

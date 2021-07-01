@@ -18,9 +18,9 @@ $UserDataFile = $PSScriptRoot + "\ProjectDef.json"
 $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 
 Write-Output $userParameters.ProjectName
-Write-Output $userParameters.Description
+Write-Output $userParameters.userEmail
 
-$userParameters.userEmail =  ${env:USEREMAIL}
+# $userParameters.userEmail =  ${env:USEREMAIL}
 
 # make sure directory structure exists
 #    "DirRoot"        : "C:\\TempData",
