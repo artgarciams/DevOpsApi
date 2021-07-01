@@ -451,6 +451,8 @@ function Get-ReleaseNotesByBuildByTag()
     # array for changes to a given build
     $buildChangesArray = @()
 
+    # array for artifacts to a given build
+    $buildArtifactArray = @()
 
     # set log directory
     $runLog = $userParams.DirRoot + $userParams.LogDirectory + "runLog.txt"    
@@ -654,6 +656,7 @@ function Get-ReleaseNotesByBuildByTag()
             $buildChangesArray += $chg
 
         }
+
         # get build stages
         # 
         # get build timeline 
@@ -679,7 +682,39 @@ function Get-ReleaseNotesByBuildByTag()
             $buildStagesArray += $stg            
         }
 
+        # get code coverage for build
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/test/code%20coverage/get%20build%20code%20coverage?view=azure-devops-rest-6.0
+        # GET https://dev.azure.com/{organization}/{project}/_apis/test/codecoverage?buildId={buildId}&flags={flags}&api-version=6.0-preview.1
+        $codeCvgUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/test/codecoverage?buildId=" + $Build.id + "&api-version=6.0-preview.1"
+        $codeCvgForBuild = Invoke-RestMethod -Uri $codeCvgUri -Method Get -Headers $authorization 
+        foreach ($codeCv in $codeCvgForBuild.value)
+        {
+            Write-Host $codecv.length    
+        }
 
+        # get plan details
+        #
+        
+
+        # get all artifacts for this build
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/artifacts/list?view=azure-devops-rest-6.0
+        # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/artifacts?api-version=6.0
+        $artifactUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/artifacts?api-version=6.0"
+        $allBuildartifacts = Invoke-RestMethod -Uri $artifactUri -Method Get -Headers $authorization 
+
+        Write-Host "    Artifacts Found: " $allBuildartifacts.count 
+        Write-host ""  
+        
+        foreach ($artifact in $allBuildartifacts.value) 
+        {
+            $stg = New-Object -TypeName PSObject -Property @{
+                ArtifactName = $artifact.name 
+                type = $res.type 
+                                 
+            }
+            $buildArtifactArray += $stg            
+        }
+        
         try 
         {
             #get build report
@@ -969,7 +1004,7 @@ function Get-ReleaseNotesByBuildByTag()
        $bld = New-Object -TypeName PSObject -Property @{
         Builds = $buildTableArray
         WorkItems = $ReleaseWorkItems
-        
+        Artifacts = $buildArtifactArray
     }
     $ReleaseArray += $bld
     return $ReleaseArray
@@ -1419,11 +1454,11 @@ function Set-ReleaseNotesToWiKi()
 
     # create subpages if not exists
     # create a page under Release Notes 
-    #                  project Name + Release number
+    #                  Release number - this is the tags used in the build
     #      then add a page  "System Generated Release Notes" and add data to it.
     
-    # Release Notes / project name + release number
-    $landingPg = $userParams.PublishParent + "/" + $userParams.ProjectName + " - " + $userParams.BuildTags
+    # Release Notes / Release number or tag
+    $landingPg = $userParams.PublishParent + "/" + $userParams.BuildTags
         
     try 
     {  
@@ -1439,8 +1474,8 @@ function Set-ReleaseNotesToWiKi()
         Write-Host "Page exists - Script terminated, Please review page " $landingPg    
     }
 
-    # create generated release page
-    $landingPg = $userParams.PublishParent + "/" + $userParams.ProjectName + " - " + $userParams.BuildTags + "/" + $userParams.PublishPagePrfx + " - " + $userParams.BuildTags
+    # create project page in wiki
+    # $landingPg = $userParams.PublishParent + "/" + $userParams.ProjectName # +  "/" + $userParams.PublishPagePrfx 
 
     try 
     {
@@ -1465,6 +1500,7 @@ function Set-ReleaseNotesToWiKi()
     {
         $chgCount += $Data.Builds.BuildChanges.count
     }
+      
     $contentData +=  $([char]13) + $([char]10) 
     $contentData +=  $([char]13) + $([char]10) 
     $contentData +=  "#Build Summary" + $([char]13) + $([char]10) 
@@ -1514,7 +1550,7 @@ function Set-ReleaseNotesToWiKi()
     
     # add work items 
     $contentData += $([char]13) + $([char]10) 
-    $contentData += "#Work Items Associated With This Release" + $([char]13) + $([char]10) 
+    $contentData += "#Work Items Associated in This Release" + $([char]13) + $([char]10) 
     if($userParams.PublishWKItNote -ne "")
     {
         $contentData +=   $userParams.PublishWKItNote + $([char]13) + $([char]10) 
@@ -1532,7 +1568,7 @@ function Set-ReleaseNotesToWiKi()
 
      # add changes to build
      $contentData += $([char]13) + $([char]10) 
-     $contentData += "#Changes Associated With each Build in this Release" + $([char]13) + $([char]10) 
+     $contentData += "#Changes Associated With each Build" + $([char]13) + $([char]10) 
      $contentData += "|Change|Build Link |Change|Changed By|Date Changed|" + $([char]13) + $([char]10) 
      $contentData += "|:---------|---------|---------|---------|---------|" + $([char]13) + $([char]10) 
      foreach ($item in $Data.Builds) 
@@ -1545,18 +1581,28 @@ function Set-ReleaseNotesToWiKi()
          }
      }
 
+    # add Artifacts section
+    $contentData += $([char]13) + $([char]10) 
+    $contentData += "#Artifacts in each Build" + $([char]13) + $([char]10) 
+    if($userParams.PublishArtfNote -ne "")
+    {
+        $contentData +=   $userParams.PublishArtfNote + $([char]13) + $([char]10) 
+    }
+    $contentData += $([char]13) + $([char]10) 
+    $contentData += "Artifacts" + $([char]13) + $([char]10) 
+    $contentData += "|Name|Type|" + $([char]13) + $([char]10) 
+    $contentData += "|:---------|:---------|" + $([char]13) + $([char]10)    
+    
+    foreach ($bldArt in $Data.buildArtifactArray) 
+    {
+        $chid = $bldChg.Id.substring($bldChg.Id.Length -7,7)
+        $contentData += "|" + $bldChg.Name + "|" +  $bldChg.Type + "|" + $([char]13) + $([char]10) 
+    }
 
-    <#    
-        $contentData += $([char]13) + $([char]10) 
-        $contentData += "#Testing Details" + $([char]13) + $([char]10) 
-        if($userParams.PublishTestNote -ne "")
-        {
-            $contentData +=   $userParams.PublishTestNote + $([char]13) + $([char]10) 
-        }
-            
-        $contentData += $([char]13) + $([char]10) 
-        $contentData += $([char]13) + $([char]10) 
-
+    $contentData += $([char]13) + $([char]10) 
+    $contentData += $([char]13) + $([char]10) 
+        
+    <# 
         $contentData += $([char]13) + $([char]10) 
         $contentData += "#Backout Plan" + $([char]13) + $([char]10) 
         $contentData += "|Solution|Pipeline|Sequence|Version|" + $([char]13) + $([char]10) 
@@ -1568,12 +1614,16 @@ function Set-ReleaseNotesToWiKi()
     }
     $tmJson = ConvertTo-Json -InputObject $tmData
 
-
     # get page version number to update must use Invoke-WebRequest to get e-tag. needed to do an update to the page
-    # https://stackoverflow.com/questions/57056375/azure-devops-how-to-edit-wiki-page-via-rest-api
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/get%20page?view=azure-devops-rest-6.1
+    # GET https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path=/SamplePage973&api-version=6.1-preview.1
     #
-    $getPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&includeContent=True&recursionLevel=full&api-version=6.1-preview.1"
-    $GetPage = Invoke-WebRequest -Uri $getPageUri -Method Get -ContentType "application/json" -Headers $authorization 
+    # https://stackoverflow.com/questions/57056375/azure-devops-how-to-edit-wiki-page-via-rest-api
+       
+    # get wiki page to find etag
+    #$landingPg = $userParams.PublishParent + "/" + $userParams.ProjectName + "/" + $userParams.PublishPagePrfx 
+    $getPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&recursionLevel=Full&api-version=6.1-preview.1"
+    $GetPage = Invoke-WebRequest -Uri $getPageUri -Method Get -ContentType "application/json" -Headers $authorization -UseBasicParsing
     
     # add etag to the header. for update to work, must have etag in header
     # Base64-encodes the Personal Access Token (PAT) appropriately + etag used to allow update to wiki page

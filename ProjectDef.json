@@ -1,24 +1,19 @@
 { 
-<<<<<<< HEAD
     "VSTSMasterAcct" : "CSECodeHub",
     "userEmail"      : "arthur.garcia@microsoft.com",
-    "PAT"            : "",       
+    "PAT"            : "",
+    "PATnonecsefy19" : "",       
     "ProjectName"    : "424289 - Air Force WEAPS - Cloud One",
-=======
-    "VSTSMasterAcct" : "org name",
-    "userEmail"      : "email address",
-    "PAT"            : "",       
-    "ProjectName"    : "project name",
->>>>>>> 104931a1333836529568a47f1f4518147d6ad962
 
-    "BuildTags"      : ["TEST123","ArtFun"],
+    "BuildTags"      : ["TEST123"],
 
     "PublishWiKi"    : "424289---Air-Force-WEAPS---Cloud-One.wiki",
     "PublishParent"  : "Release Notes",
     "PublishPagePrfx": "System Generated Release Notes",
-    "PublishBldNote" : "This page is system generated. Do not Update this page",
-    "PublishWKItNote": "Work Item section note",
-    "PublishTestNote": "",
+    "PublishSummary" : "This release will encomass many things.",
+    "PublishBldNote" : "This page is system generated. Do not Update this page. This is the Build Notes Section",
+    "PublishWKItNote": "This is the Work Item section note",
+    "PublishArtfNote": "Artifact notes go here",
   
     "WorkItemTypes"  : ["User Story","Bug"],
     "BuildResults"   : ["Succeeded"],
