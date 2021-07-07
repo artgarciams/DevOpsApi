@@ -1472,6 +1472,7 @@ function Set-ReleaseNotesToWiKi()
     {
         # page exists
         Write-Host "Page exists - Script terminated, Please review page " $landingPg    
+        continue
     }
 
     # create project page in wiki
@@ -1635,6 +1636,28 @@ function Set-ReleaseNotesToWiKi()
     $AddPage = Invoke-RestMethod -Uri $AddPageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $tmJson   
 
     Write-Host $AddPage
+
+    # work on editting parts of the page
+    # maybe find section in page and remove it and replace with new one?
+    $pageJson = ConvertTo-Xml -InputObject $AddPage 
+    Write-host $pageJson
+    $secStart = $AddPage.IndexOf("#Build Stages")
+    $secEnd = $AddPage.IndexOf("#Work Items Associated")
+
+    $secReplace = ""
+     # add Artifacts section
+     $secReplace += $([char]13) + $([char]10) 
+     $secReplace += "#Added new edit to Page" + $([char]13) + $([char]10) 
+     if($userParams.PublishArtfNote -ne "")
+     {
+         $secReplace +=   $userParams.PublishArtfNote + $([char]13) + $([char]10) 
+     }
+     $secReplace += $([char]13) + $([char]10) 
+     $secReplace += "Artifacts" + $([char]13) + $([char]10) 
+     $secReplace += "|Name|Type|" + $([char]13) + $([char]10) 
+     $secReplace += "|:---------|:---------|" + $([char]13) + $([char]10)    
+     
+     $sec = $AddPage
 
 }
 
