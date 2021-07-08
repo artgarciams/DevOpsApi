@@ -1,6 +1,8 @@
 # DevOpsApi
 PowerShell to work with Azure DevOps API
-These PowerSHell scripts are designed to facilitate working with the Azure DevOps envorinment using the published API's/
+These PowerSHell scripts are designed to facilitate working with the Azure DevOps envorinment using the published API's
+</br>
+</br>
 The scripts contain the following modules:
 </br>
 </br>
