@@ -9,7 +9,6 @@ The scripts contain the following modules:
 1 - WiKiMain.ps1 - This module will generate release notes and publish them into a given Azure DevOps WiKi.
       By simply tagging a build or builds, these scripts will generate all the changes to a build, all work items checked in,
       a list of builds tagged and any artifacts for the tagged builds.
-
 </br>
 </br>
 Variables Required
@@ -39,7 +38,17 @@ Variables Required
         "OutPutToFile"   : "No",                    - THIS IS IF YOU WANT LOGS GENERATED TO AUDIT WHAT GETS CREATED
 
         The above parameters are the only ones needed to run thr release notes. The file they reside in contains other parameters. PLEASE do not attemt to change any other parameters without discussing it with the developer of this script.
-      
+</br>
+
+Tagging of Azure DevOps artifacts. 
+
+        In order for this script to work you must tag the builds you want included in the release notes. Each build you want to include in the Release Notes must 
+        have a tag with the release number. This should be in the format of Release:x.x.x. Note PLEASE make sure that there are no spaces before or after any of 
+        the peroids and before and after the :
+
+        In summary the following tags must be present in each build you want in the release notes.
+            Release:x.x.x
+
 </br>
 </br>
 2 - SecurityMain - This will generate a list of all users in a given project or orginization. 
@@ -51,3 +60,24 @@ Variables Required
 3 - CreatMain.ps1 - This will generate a project,team and add users to a team. It will also create environments and default builds.
                     You can also create , List and delete branches in the Git Repos
                    
+</br>
+</br>
+Execution process
+
+        Step 1:
+            Open the file to run. Open "Windows PowerShell ISE" as administrator and load the file to run.
+            WikiMain.ps1, SecurityMain.ps1, or CreateMain.ps1
+            
+        Step 2: 
+            Obtain a valid Personal Access Token. Refer to the documentation provided in the word doc on how to generate a token. 
+            It is important that the token be a FULL Access token. Next add this token to the ProjectDef.Json file.
+
+        Step 3:
+            Modify the parameters for your project and release conditions. See (Variables Required above)
+            We will begin by modifing the ProjectDef.json file as stated above in the Variables Required section. 
+            This file contains the parameters needed to run the scripts. Review and modify each parameter as required making sure 
+            you do not remove any COMMAS or Quotation marks.
+                                     
+        Step 4:
+            Run the script. IF the page already exists the script will stop and generate an error message at the bottom of the page.
+            the error will be : Page exists - Script terminated, Please review page
