@@ -1,7 +1,14 @@
 { 
+<<<<<<< HEAD
     "VSTSMasterAcct" : "",
     "userEmail"      : "",
     "PAT"            : "",
+=======
+    "VSTSMasterAcct" : "CSECodeHub",
+    "userEmail"      : "arthur.garcia@microsoft.com",
+    "PAT"            : "",
+    "PATnonecsefy19" : "",       
+>>>>>>> 17162975715c55389133c8b1f3fab803669121f4
     "ProjectName"    : "424289 - Air Force WEAPS - Cloud One",
 
     "BuildTags"      : ["TEST123"],
