@@ -1,8 +1,7 @@
 { 
-    "VSTSMasterAcct" : "CSECodeHub",
-    "userEmail"      : "arthur.garcia@microsoft.com",
-    "PAT"            : "wlgcp3yuxzsergdv42lbhogvbl5fhyu4xqjfrxdlpfdbat4rkkcq",
-    "PATnonecsefy19" : "2j7pbri4e7enaqfogoesxv5iebgoatp42eouh67xr3hj3w77vc5a",       
+    "VSTSMasterAcct" : "",
+    "userEmail"      : "",
+    "PAT"            : "",
     "ProjectName"    : "424289 - Air Force WEAPS - Cloud One",
 
     "BuildTags"      : ["TEST123"],
@@ -11,10 +10,14 @@
     "PublishParent"  : "Release Notes",
     "PublishPagePrfx": "System Generated Release Notes",
     "PublishSummary" : "This release will encomass many things.",
+
     "PublishBldNote" : "This page is system generated. Do not Update this page. This is the Build Notes Section",
     "PublishWKItNote": "This is the Work Item section note",
     "PublishArtfNote": "Artifact notes go here",
-  
+    
+    "PublishSaveStrt": "",
+    "PublishSaveEnd" : "",
+
     "WorkItemTypes"  : ["User Story","Bug"],
     "BuildResults"   : ["Succeeded"],
 
