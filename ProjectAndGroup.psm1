@@ -535,8 +535,9 @@ function Get-ReleaseNotesByBuildByTag()
         $workItemUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $build.id + "/workitems?api-version=6.1-preview.2"
         $allBuildWorkItems = Invoke-RestMethod -Uri $workItemUri -Method Get -Headers $authorization 
        
-        Write-Host   "   Build Number:" $build.buildNumber " Build Definition :" $build.definition.name "  Results: " $build.result  " Status : " $build.status 
-               
+        Write-Host "   Build Number:" $build.buildNumber " Build Definition :" $build.definition.name "  Results: " $build.result  " Status : " $build.status 
+        Write-Host "   Number of work Items in this Build : "  $allBuildWorkItems.count
+
         # if Yes write to file on hard disk. else this may be an automated run and no output required
         if($userParams.OutPutToFile -eq "Yes")
         {
@@ -617,12 +618,22 @@ function Get-ReleaseNotesByBuildByTag()
 
         }
 
-        #
-        # get all changes for a given build       
-        # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/get%20build%20changes?view=azure-devops-rest-6.1
-        # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/changes?api-version=6.1-preview.2
-        $bldChangegUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/changes?api-version=6.1-preview.2"
-        $bldChanges = Invoke-RestMethod -Uri $bldChangegUri -Method Get -Headers $authorization 
+        $bldChanges = ""
+        try 
+        {
+            # get all changes for a given build       
+            # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/get%20build%20changes?view=azure-devops-rest-6.1
+            # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/changes?api-version=6.1-preview.2
+            $bldChangegUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/changes?api-version=6.1-preview.2"
+            $bldChanges = Invoke-RestMethod -Uri $bldChangegUri -Method Get -Headers $authorization 
+        }
+        catch 
+        {
+            $ErrorMessage = $_.Exception.Message
+            $FailedItem = $_.Exception.ItemName
+            Write-Host "Error in Finding Changes for gioven build : " + $ErrorMessage + " iTEM : " + $FailedItem    
+        }
+       
 
          # if Yes write to file on hard disk. else this may be an automated run and no output required
          if($userParams.OutPutToFile -eq "Yes")
@@ -641,6 +652,8 @@ function Get-ReleaseNotesByBuildByTag()
                 Write-Output ""  | Out-File $outFile -Append
                 Write-Output ""  | Out-File $outFile -Append
              }
+
+            Write-Host "     Build Change: " $bldChg.message " Date Changed : " $bldChg.timestamp   "   Changed by: " $bldChg.'author'.DisplayName
 
             $locationData = Invoke-RestMethod -Uri $bldChg.Location -Method Get -Headers $authorization 
             $loc = $locationData.remoteUrl.Replace(" ", "%20")
@@ -730,11 +743,10 @@ function Get-ReleaseNotesByBuildByTag()
         {
             $ErrorMessage = $_.Exception.Message
             $FailedItem = $_.Exception.ItemName
-            # Write-Host "Security Error : " + $ErrorMessage + " iTEM : " + $FailedItem    
+            Write-Host "Error in Finding build report : " + $ErrorMessage + " iTEM : " + $FailedItem    
         }
         
-        
-        Write-Host $solution " - " $Sequence "- " $release    
+        Write-Host ""   
         Write-Host "Build ID: " $build.id " - Build Number : " $build.buildNumber    
         Write-Host "    Build Status: " $build.Status " - Result: " $build.result
         $def = $build.definition
@@ -817,6 +829,7 @@ function Get-ReleaseNotesByBuildByTag()
             # if not user story find parent user story  "User Story", "Bug"
             if( !$userParams.WorkItemTypes.Contains($wkType) )
             {
+                Write-Host "Found : " $wkType
                 $relAted = $wiRel | Where-Object { ($_.rel -eq "System.LinkTypes.Related") -or ($_.rel -eq "System.LinkTypes.Hierarchy-Reverse")}
                 Write-Host $relAted
 
@@ -825,11 +838,19 @@ function Get-ReleaseNotesByBuildByTag()
                 {
                     foreach ($item in $relAted) 
                     {
-                        # get individual work item
-                        # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/work%20items/get%20work%20item?view=azure-devops-rest-6.1
-                        # GET https://dev.azure.com/{organization}/{project}/_apis/wit/workitems/{id}?api-version=6.1-preview.3
-                        $relworkItemUri = $item.url + "?$" + "expand=All&api-version=6.1-preview.3" 
-                        $relWkItem = Invoke-RestMethod -Uri $relworkItemUri -Method Get -Headers $authorization 
+                        try 
+                        {
+                            # get individual work item
+                            # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/work%20items/get%20work%20item?view=azure-devops-rest-6.1
+                            # GET https://dev.azure.com/{organization}/{project}/_apis/wit/workitems/{id}?api-version=6.1-preview.3
+                            $relworkItemUri = $item.url + "?$" + "expand=All&api-version=6.1-preview.3" 
+                            $relWkItem = Invoke-RestMethod -Uri $relworkItemUri -Method Get -Headers $authorization 
+                        }
+                        catch {
+                            
+                        }
+
+                       
                         
                         $fld = $relWkItem.fields
                         $wiType = $fld.'System.WorkItemType'
@@ -1457,8 +1478,8 @@ function Set-ReleaseNotesToWiKi()
     #                  Release number - this is the tags used in the build
     #      then add a page  "System Generated Release Notes" and add data to it.
     
-    # Release Notes / Release number or tag
-    $landingPg = $userParams.PublishParent + "/" + $userParams.BuildTags
+    # Parent page / release notes page
+    $landingPg = $userParams.PublishParent + "/" + $userParams.PublishPagePrfx
         
     try 
     {  
@@ -1471,8 +1492,33 @@ function Set-ReleaseNotesToWiKi()
     catch 
     {
         # page exists
-        Write-Host "Page exists - Script terminated, Please review page " $landingPg    
-        continue
+        Write-Host "Page exists - Please review page " $landingPg    
+        
+        # if page exists save section called out in projectdef file as area to save. PublishSaveSect is the key to use
+        # if something is in here save that section and add to end of page.
+        $secReplace = ""
+        if($userParams.PublishSaveStrt -ne "")
+        {
+            # first get current page data.
+            # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/get%20page?view=azure-devops-rest-6.1
+            # GET https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&recursionLevel={recursionLevel}&versionDescriptor.version={versionDescriptor.version}&versionDescriptor.versionOptions={versionDescriptor.versionOptions}&versionDescriptor.versionType={versionDescriptor.versionType}&includeContent={includeContent}&api-version=6.1-preview.1
+            $GetPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&includeContent=True&api-version=6.1-preview.1" 
+            $GetPage = Invoke-RestMethod -Uri $GetPageUri -Method Get -ContentType "application/json" -Headers $authorization  
+            Write-Host $GetPage.content
+            
+            # work on editting parts of the page
+            # find the section to save. PublishSaveStrt is begining of section to save
+            # PublishSaveEnd is next section so the end of what to save
+            $secStart = $GetPage.content.IndexOf($userParams.PublishSaveStrt)
+            $secEnd = $GetPage.content.IndexOf($userParams.PublishSaveEnd )
+
+            $secReplace = $([char]13) + $([char]10) 
+            $secReplace += $GetPage.content.substring($secStart, $secEnd - $secStart)
+            $secReplace += $([char]13) + $([char]10) 
+            $secReplace.Replace($userParams.PublishSaveStrt , $userParams.PublishSaveStrt + "- Saved")
+            Write-Host $secReplace
+                        
+        }
     }
 
     # create project page in wiki
@@ -1492,16 +1538,18 @@ function Set-ReleaseNotesToWiKi()
     }
 
     # build content
-    # sort by sequence number
+    # sort by sequence number    
     $contentData = "[[_TOC_]]" + $([char]13) + $([char]10) 
-
+    $contentData +=  $([char]13) + $([char]10) 
+    $contentData +=  "# _Release Notes for Build Tags : "  + $userParams.BuildTags + "_"
+    
     # count number of changes
     $chgCount = 0
     foreach ($item in $Data.builds) 
     {
         $chgCount += $Data.Builds.BuildChanges.count
     }
-      
+    
     $contentData +=  $([char]13) + $([char]10) 
     $contentData +=  $([char]13) + $([char]10) 
     $contentData +=  "#Build Summary" + $([char]13) + $([char]10) 
@@ -1610,6 +1658,12 @@ function Set-ReleaseNotesToWiKi()
         $contentData += "|:---------|:---------|:---------|:---------|" + $([char]13) + $([char]10)      
     #>
 
+    # if replace was generated add it to the end of page.
+    If($secReplace -ne "")
+    {
+        $contentData += $secReplace
+    }
+
     $tmData = @{
          content  = $contentData
     }
@@ -1637,27 +1691,7 @@ function Set-ReleaseNotesToWiKi()
 
     Write-Host $AddPage
 
-    # work on editting parts of the page
-    # maybe find section in page and remove it and replace with new one?
-    $pageJson = ConvertTo-Xml -InputObject $AddPage 
-    Write-host $pageJson
-    $secStart = $AddPage.IndexOf("#Build Stages")
-    $secEnd = $AddPage.IndexOf("#Work Items Associated")
-
-    $secReplace = ""
-     # add Artifacts section
-     $secReplace += $([char]13) + $([char]10) 
-     $secReplace += "#Added new edit to Page" + $([char]13) + $([char]10) 
-     if($userParams.PublishArtfNote -ne "")
-     {
-         $secReplace +=   $userParams.PublishArtfNote + $([char]13) + $([char]10) 
-     }
-     $secReplace += $([char]13) + $([char]10) 
-     $secReplace += "Artifacts" + $([char]13) + $([char]10) 
-     $secReplace += "|Name|Type|" + $([char]13) + $([char]10) 
-     $secReplace += "|:---------|:---------|" + $([char]13) + $([char]10)    
-     
-     $sec = $AddPage
+   
 
 }
 
