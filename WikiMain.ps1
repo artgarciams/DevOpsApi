@@ -10,7 +10,7 @@
 $modName = $PSScriptRoot + "\SecurityHelper.psm1" 
 Import-Module -Name $modName
 
-$modName = $PSScriptRoot + "\ProjectAndGroup.psm1" 
+$modName = $PSScriptRoot + "\ReleaseNotes.psm1" 
 Import-Module -Name $modName
 
 # get parameter data for scripts

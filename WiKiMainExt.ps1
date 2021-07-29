@@ -8,18 +8,17 @@
 # last Update: 07/20/2021
 
 #import modules
-$modName = $PSScriptRoot + "\SecurityHelper.psm1" 
-Import-Module -Name $modName
+#$modName = $PSScriptRoot + "\ReleaseNotes.psm1" 
 
-$modName = $PSScriptRoot + "\ProjectAndGroup.psm1" 
+$modName = ".\ReleaseNotes.psm1" 
 Import-Module -Name $modName
 
 # get parameter data for scripts
-$UserDataFile = $PSScriptRoot + "\ProjectDef.json"
+$UserDataFile = ".\ProjectDef.json"
 $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 
 # get current running parameters - for local teating
-if( $Env:SYSTEM_TEAMFOUNDATIONSERVERURI -isnot  $null )
+IF (![string]::IsNullOrEmpty($Env:SYSTEM_TEAMFOUNDATIONSERVERURI))
 {
     $org = $Env:SYSTEM_TEAMFOUNDATIONSERVERURI
     $org = $org.replace('https://dev.azure.com/','') 
@@ -34,7 +33,7 @@ if( $Env:SYSTEM_TEAMFOUNDATIONSERVERURI -isnot  $null )
     # org. project and security variables if override = yes use imput variables
     # else use current org and project
     $useCurrentEnv = Get-VstsInput -Name 'OverrideOrg'
-    if($useCurrentEnv -eq "True")
+    if($useCurrentEnv -eq "yes")
     {
         $userParameters.VSTSMasterAcct = Get-VstsInput -Name 'OrgName'
         $userParameters.ProjectName =  Get-VstsInput -Name 'ProjectName'	
@@ -47,9 +46,10 @@ if( $Env:SYSTEM_TEAMFOUNDATIONSERVERURI -isnot  $null )
         $userParameters.userEmail = $Env:BUILD_REQUESTEDFOREMAIL        
     }
 
-    $userParameters.userEmail = Get-VstsInput -Name 'userEmail'
-    $userParameters.PAT = Get-VstsInput -Name 'PatKey'
-
+    $userParameters.userEmail = Get-VstsTaskVariable -Name 'USEREMAIL'
+    $userParameters.PAT = Get-VstsTaskVariable -Name 'PAT'
+    #$APICredientials  = Get-VstsVssCredentials 
+    
     # variables to run apis
     $userParameters.HTTP_preFix = Get-VstsInput -Name 'HTTP_preFix'
     $userParameters.WorkItemTypes = Get-VstsInput -Name 'WorkItemTypes'
