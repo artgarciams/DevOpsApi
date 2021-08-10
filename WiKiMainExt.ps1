@@ -7,9 +7,6 @@
 #             
 # last Update: 07/20/2021
 
-#import modules
-#$modName = $PSScriptRoot + "\ReleaseNotes.psm1" 
-
 $modName = ".\ReleaseNotes.psm1" 
 Import-Module -Name $modName
 
@@ -18,55 +15,44 @@ $UserDataFile = ".\ProjectDef.json"
 $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 
 # get current running parameters - for local teating
-IF (![string]::IsNullOrEmpty($Env:SYSTEM_TEAMFOUNDATIONSERVERURI))
-{
-    $org = $Env:SYSTEM_TEAMFOUNDATIONSERVERURI
-    $org = $org.replace('https://dev.azure.com/','') 
-    $org = $org.replace('/','')
-
-    Write-Host "Running in Orginization :  $org "
-    Write-Host "Running in Team Project :  $Env:SYSTEM_TEAMPROJECT "
-    Write-Host ""
-
-    #Get-ChildItem -Path Env:
-
-    # org. project and security variables if override = yes use imput variables
-    # else use current org and project
-    $useCurrentEnv = Get-VstsInput -Name 'OverrideOrg'
-    if($useCurrentEnv -eq "yes")
-    {
-        $userParameters.VSTSMasterAcct = Get-VstsInput -Name 'OrgName'
-        $userParameters.ProjectName =  Get-VstsInput -Name 'ProjectName'	
-        $userParameters.userEmail = Get-VstsInput -Name 'userEmail'
-    }
-    else
-    {
-        $userParameters.VSTSMasterAcct =$org
-        $userParameters.ProjectName =  $Env:SYSTEM_TEAMPROJECT  	
-        $userParameters.userEmail = $Env:BUILD_REQUESTEDFOREMAIL        
-    }
-
-    $userParameters.userEmail = Get-VstsTaskVariable -Name 'USEREMAIL'
-    $userParameters.PAT = Get-VstsTaskVariable -Name 'PAT'
-    #$APICredientials  = Get-VstsVssCredentials 
     
-    # variables to run apis
-    $userParameters.HTTP_preFix = Get-VstsInput -Name 'HTTP_preFix'
-    $userParameters.WorkItemTypes = Get-VstsInput -Name 'WorkItemTypes'
-    $userParameters.BuildResults = Get-VstsInput -Name 'BuildResults'
-    $userParameters.OutPutToFile = "No"
+$org = $Env:SYSTEM_TEAMFOUNDATIONSERVERURI
+$org = $org.replace('https://dev.azure.com/','') 
+$org = $org.replace('/','')
 
-    # variables for taging and wiki publish information
-    $userParameters.BuildTags = Get-VstsInput -Name 'BuildTags'
-    $userParameters.PublishWiKi = Get-VstsInput -Name 'PublishWiKi'
-    $userParameters.PublishParent = Get-VstsInput -Name 'PublishParent'
-    $userParameters.PublishPagePrfx = Get-VstsInput -Name 'PublishPageName'
+Write-Host ""   
+Write-Host "Running in Orginization :  $org "
+Write-Host "Running in Team Project :  $Env:SYSTEM_TEAMPROJECT "
+Write-Host ""
 
-    # variables for publish notes section
-    $userParameters.PublishBldNote = Get-VstsInput -Name 'PublishBldNote'
-    $userParameters.PublishWKItNote = Get-VstsInput -Name 'PublishWKItNote'
-    $userParameters.PublishArtfNote = Get-VstsInput -Name 'PublishArtfNote'
-}
+$userParameters.VSTSMasterAcct =$org
+$userParameters.ProjectName =  $Env:SYSTEM_TEAMPROJECT  	
+$userParameters.userEmail = $Env:BUILD_REQUESTEDFOREMAIL        
+        
+# variables to run apis
+$userParameters.HTTP_preFix = "https"
+$userParameters.WorkItemTypes = Get-VstsInput -Name 'WorkItemTypes'    
+$userParameters.OutPutToFile = "No"
+
+# variables for taging and wiki publish information
+$userParameters.BuildTags = Get-VstsInput -Name 'BuildTags'
+$userParameters.PublishWiKi = Get-VstsInput -Name 'PublishWiKi'
+$userParameters.PublishParent = Get-VstsInput -Name 'PublishParent'
+$userParameters.PublishPagePrfx = Get-VstsInput -Name 'PublishPageName'
+
+# turn build tag into array input is comma seperated
+$slp = $userParameters.BuildTags.Split(',')
+$userParameters.BuildTags = $slp
+
+# variables for publish notes section
+$userParameters.PublishBldNote = Get-VstsInput -Name 'PublishBldNote'
+$userParameters.PublishWKItNote = Get-VstsInput -Name 'PublishWKItNote'
+$userParameters.PublishArtfNote = Get-VstsInput -Name 'PublishArtfNote'
+
+# variables for permanent notes
+$userParameters.PermNoteTitle = Get-VstsInput -Name 'PermanentNotesTitle'
+$userParameters.PermNoteBody = Get-VstsInput -Name 'PermanentNotes'
+
 
 Write-host "Current Running Environment Override : " $useCurrentEnv
 Write-Host "Using Orginization : " $userParameters.VSTSMasterAcct 
@@ -75,7 +61,9 @@ Write-Host "Using Build User   : " $userParameters.userEmail
 Write-Host ""
 Write-Host "Searching for Build Tags   : " $userParameters.BuildTags
 Write-Host "Publishing to Project Wiki : " $userParameters.PublishWiKi
-Write-Host "Publishing to Parent Page  : " $userParameters.PublishPagePrfx
+Write-Host "Publishing to Parent Page  : " $userParameters.PublishParent
+Write-Host "Publishing to Page         : " $userParameters.PublishPagePrfx
+
 Write-Host ""
 Write-Host "Build section notes     : " $userParameters.PublishBldNote
 Write-Host "Work Item section notes : " $userParameters.PublishWKItNote
@@ -103,7 +91,7 @@ Write-Host ""
 #      "HTTP_preFix"    : "https",                 - THIS IS THE SECURITY TO USE IN THE API CALL . DO NOT CHANGE
 #      "OutPutToFile"   : "No",                    - THIS IS IF YOU WANT LOGS GENERATED TO AUDIT WHAT GETS CREATED
 #
-$BuildData = Get-ReleaseNotesByBuildByTag  -userParams $userParameters 
+$BuildData = Get-ReleaseNotesByBuildByTag  -userParams $userParameters -UsingExtension "yes"
 
 # create wiki page 
 # This method will create a wiki page of the release notes found. It will create a page using the
@@ -128,4 +116,4 @@ $BuildData = Get-ReleaseNotesByBuildByTag  -userParams $userParameters
 #      "HTTP_preFix"    : "https",                 - THIS IS THE SECURITY TO USE IN THE API CALL . DO NOT CHANGE
 #      "OutPutToFile"   : "No",                    - THIS IS IF YOU WANT LOGS GENERATED TO AUDIT WHAT GETS CREATED
 #
-Set-ReleaseNotesToWiKi  -userParams $userParameters -Data $BuildData
+Set-ReleaseNotesToWiKi  -userParams $userParameters -Data $BuildData -UsingExtension "yes"

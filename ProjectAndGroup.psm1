@@ -1242,10 +1242,14 @@ function Set-ReleaseNotesToWiKi()
 
     try 
     {
+       $blankData = @{
+            content  = "Blank Page"
+        }
+        $BlankJson = ConvertTo-Json -InputObject $blankData
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/create%20or%20update?view=azure-devops-rest-6.1
         # PUT https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&api-version=6.1-preview.1
         $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&api-version=6.1-preview.1" 
-        $CreatePage = Invoke-RestMethod -Uri $CreatePageUri -Method Put -ContentType "application/json" -Headers $authorization  
+        $CreatePage = Invoke-RestMethod -Uri $CreatePageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $BlankJson
         Write-Host $CreatePage
                         
     }
@@ -1628,52 +1632,110 @@ function ListGitBranches(){
     Param(
         [Parameter(Mandatory = $true)]
         $userParams,
-        $outFile
+        $outFile,
+        $GetAllProjects
     )
 
     # Base64-encodes the Personal Access Token (PAT) appropriately
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
 
      try {
-             
-        # find git repo
-        # https://docs.microsoft.com/en-us/rest/api/azure/devops/git/repositories/list?view=azure-devops-rest-5.0
-        # GET https://dev.azure.com/{organization}/{project}/_apis/git/repositories?api-version=5.0
-        $listProviderURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories?api-version=5.0"
-        $repo = Invoke-RestMethod -Uri $listProviderURL -Method Get -ContentType "application/json" -Headers $authorization 
         
         Write-Output "  " | Out-File -FilePath $outFile 
-        Write-Output $repo.count " Repositories found for Project : "  $userParams.ProjectName | Out-File -FilePath $outFile -Append -NoNewline
-        Write-Output "  " | Out-File -FilePath $outFile -Append
-       
-        foreach ($rp in $repo.value) 
-       {
-            Write-Output "  " | Out-File -FilePath $outFile -Append
-           
-            try {
+        if($GetAllProjects -eq "yes")
+        {
+            # get list of all projects in org
+            # https://docs.microsoft.com/en-us/rest/api/azure/devops/core/projects/list?view=azure-devops-rest-6.1
+            # GET https://dev.azure.com/{organization}/_apis/projects?api-version=6.1-preview.4
+            $listProJectsUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects?api-version=6.1-preview.4"
+            $AllProjects = Invoke-RestMethod -Uri $listProJectsUrl -Method Get -ContentType "application/json" -Headers $authorization 
+            
+            foreach ($prj in $AllProjects.value) 
+            {
+                 # find git repo
+                # https://docs.microsoft.com/en-us/rest/api/azure/devops/git/repositories/list?view=azure-devops-rest-5.0
+                # GET https://dev.azure.com/{organization}/{project}/_apis/git/repositories?api-version=5.0
+                $listProviderURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $prj.Name + "/_apis/git/repositories?api-version=5.0"
+                $repo = Invoke-RestMethod -Uri $listProviderURL -Method Get -ContentType "application/json" -Headers $authorization 
                 
-                # find branches for given repo
-                # https://docs.microsoft.com/en-us/rest/api/azure/devops/git/refs/list?view=azure-devops-rest-5.0
-                # GET https://dev.azure.com/{organization}/{project}/_apis/git/repositories/{repositoryId}/refs?api-version=5.0
-                $listProviderURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories/" + $rp.Id + "/refs?api-version=5.0"
-                $branchlist = Invoke-RestMethod -Uri $listProviderURL -Method Get -ContentType "application/json" -Headers $authorization 
-
-                Write-Output "   Repository Name :  " $rp.name " , Branches found : " $branchlist.count | Out-File -FilePath $outFile -Append -NoNewline
-
-                foreach ($item in $branchlist.value) {
-                    Write-Host "Branch : " $item.name 
-                    Write-Output "  " | Out-File -FilePath $outFile -Append
-                    Write-Output '    Branch : ' $item.name  ' -- Creator: ' $item.creator.displayName| Out-File -FilePath $outFile -Append -NoNewline
-                }  
                 Write-Output "  " | Out-File -FilePath $outFile -Append
+                Write-Output $repo.count " Repositories found for Project : "  $prj.Name | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+            
+                foreach ($rp in $repo.value) 
+                {
+                    Write-Output "  " | Out-File -FilePath $outFile -Append
+                
+                    try {
+                        
+                        # find branches for given repo
+                        # https://docs.microsoft.com/en-us/rest/api/azure/devops/git/refs/list?view=azure-devops-rest-5.0
+                        # GET https://dev.azure.com/{organization}/{project}/_apis/git/repositories/{repositoryId}/refs?api-version=5.0
+                        $listProviderURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" +  $prj.Name + "/_apis/git/repositories/" + $rp.Id + "/refs?api-version=5.0"
+                        $branchlist = Invoke-RestMethod -Uri $listProviderURL -Method Get -ContentType "application/json" -Headers $authorization 
 
+                        Write-Output "   Repository Name :  " $rp.name " , Branches found : " $branchlist.count | Out-File -FilePath $outFile -Append -NoNewline
+
+                        foreach ($item in $branchlist.value) {
+                            Write-Host "Branch : " $item.name 
+                            Write-Output "  " | Out-File -FilePath $outFile -Append
+                            Write-Output '    Branch : ' $item.name  ' -- Creator: ' $item.creator.displayName| Out-File -FilePath $outFile -Append -NoNewline
+                        }  
+                        Write-Output "  " | Out-File -FilePath $outFile -Append
+
+                    }
+                    catch {
+                        $ErrorMessage = $_.Exception.Message
+                        $FailedItem = $_.Exception.ItemName
+                        Write-Host "Error : " + $ErrorMessage + " iTEM : " + $FailedItem
+                        Write-Output "   Repository Name :  " $rp.name " , Branches found : 0 "  | Out-File -FilePath $outFile -Append -NoNewline
+                        Write-Output "  " | Out-File -FilePath $outFile -Append
+                    }          
+                }
             }
-            catch {
-                $ErrorMessage = $_.Exception.Message
-                $FailedItem = $_.Exception.ItemName
-                Write-Host "Error : " + $ErrorMessage + " iTEM : " + $FailedItem
-            }          
-       }
+        }
+        else 
+        {
+            
+            # find git repo
+            # https://docs.microsoft.com/en-us/rest/api/azure/devops/git/repositories/list?view=azure-devops-rest-5.0
+            # GET https://dev.azure.com/{organization}/{project}/_apis/git/repositories?api-version=5.0
+            $listProviderURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories?api-version=5.0"
+            $repo = Invoke-RestMethod -Uri $listProviderURL -Method Get -ContentType "application/json" -Headers $authorization 
+            
+            Write-Output "  " | Out-File -FilePath $outFile 
+            Write-Output $repo.count " Repositories found for Project : "  $userParams.ProjectName | Out-File -FilePath $outFile -Append -NoNewline
+            Write-Output "  " | Out-File -FilePath $outFile -Append
+        
+            foreach ($rp in $repo.value) 
+            {
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+            
+                try {
+                    
+                    # find branches for given repo
+                    # https://docs.microsoft.com/en-us/rest/api/azure/devops/git/refs/list?view=azure-devops-rest-5.0
+                    # GET https://dev.azure.com/{organization}/{project}/_apis/git/repositories/{repositoryId}/refs?api-version=5.0
+                    $listProviderURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories/" + $rp.Id + "/refs?api-version=5.0"
+                    $branchlist = Invoke-RestMethod -Uri $listProviderURL -Method Get -ContentType "application/json" -Headers $authorization 
+
+                    Write-Output "   Repository Name :  " $rp.name " , Branches found : " $branchlist.count | Out-File -FilePath $outFile -Append -NoNewline
+
+                    foreach ($item in $branchlist.value) {
+                        Write-Host "Branch : " $item.name 
+                        Write-Output "  " | Out-File -FilePath $outFile -Append
+                        Write-Output '    Branch : ' $item.name  ' -- Creator: ' $item.creator.displayName| Out-File -FilePath $outFile -Append -NoNewline
+                    }  
+                    Write-Output "  " | Out-File -FilePath $outFile -Append
+
+                }
+                catch {
+                    $ErrorMessage = $_.Exception.Message
+                    $FailedItem = $_.Exception.ItemName
+                    Write-Host "Error : " + $ErrorMessage + " iTEM : " + $FailedItem
+                }          
+            }
+        }
         
     
     }

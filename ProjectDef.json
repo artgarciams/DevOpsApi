@@ -1,26 +1,30 @@
 { 
-    "VSTSMasterAcct" : "",
-    "userEmail"      : "",
-    "PAT"            : "",
-    "ProjectName"    : "",
-    "APICredientials": "",
+    
+    "VSTSMasterAcct" : "artgarciavsts",
+    "userEmail"      : "arthur.garcia@microsoft.com",
+    "PAT"            : "lykpfhhs63ldjxxtwcsvv5pxapcrhnlj43pqi44ewup6co77sn2a",
+    "ProjectName"    : "aagdevops",
+    "APICredientials": "6zotoznfi3pgdtsp4sbswtyffnnnb25rivdl7k2dyxamanwf74ga",
+    
+    "BuildTags"      : "TEST123,ABC",
 
-    "BuildTags"      : ["TEST123"],
-
-    "PublishWiKi"    : "424289---Air-Force-WEAPS---Cloud-One.wiki",
+    "PublishWiKi"    : "aagdevops.wiki",
     "PublishParent"  : "Release Notes",
-    "PublishPagePrfx": "System Generated Release Notes",
+    "PublishPagePrfx": "System - Notes-2",
     "PublishSummary" : "This release will encomass many things.",
 
     "PublishBldNote" : "This page is system generated. Do not Update this page. This is the Build Notes Section",
     "PublishWKItNote": "This is the Work Item section note",
     "PublishArtfNote": "Artifact notes go here",
+    "PermNoteTitle"  : "#Permanent Notes",
+    "PermNoteBody"   : "|test Item|\r|:---------|\r|this is a test of the permanent data section|",
     
     "PublishSaveStrt": "",
     "PublishSaveEnd" : "",
 
     "WorkItemTypes"  : ["User Story","Bug","Task"],
-    "BuildResults"   : ["Succeeded"],
-
-    "HTTP_preFix"    : "https"
+    
+    "HTTP_preFix"    : "https",
+    "DirRoot"        :"C:\\tempData\\",
+    "GitListFile"    :"gitrepos.txt"
 }

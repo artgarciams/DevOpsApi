@@ -2,7 +2,7 @@
 # FileName  : WikiMain.ps1
 # Date      : 10/28/2020
 # Author    : Arthur A. Garcia
-# Purpose   : This script will 
+# Purpose   : This script will generate release notes and move them into a WiKi page.
 #             This script is for demonstration only not to be used as production code
 # last Update: 12/04/2020
 
@@ -17,8 +17,13 @@ Import-Module -Name $modName
 $UserDataFile = $PSScriptRoot + "\ProjectDef.json"
 $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 
-Write-Output $userParameters.ProjectName
-Write-Output $userParameters.userEmail
+Write-host $userParameters.ProjectName
+Write-host $userParameters.userEmail
+Write-host $userParameters.BuildTags 
+
+$slp = $userParameters.BuildTags.Split(',')
+$userParameters.BuildTags = $slp
+
 
 # $userParameters.userEmail =  ${env:USEREMAIL}
 
@@ -57,7 +62,6 @@ if($userParameters.OutPutToFile -eq "Yes" )
 #      "OutPutToFile"   : "No",                    - THIS IS IF YOU WANT LOGS GENERATED TO AUDIT WHAT GETS CREATED
 #
 $BuildData = Get-ReleaseNotesByBuildByTag  -userParams $userParameters 
-
 
 
 # create wiki page 
