@@ -239,7 +239,235 @@ function Get-ApprovalsByEnvironment()
 
 
 }
+function GetAuditLogs()
+{
+    Param(
+        [Parameter(Mandatory = $true)]
+        $userParams,
+        [Parameter(Mandatory = $false)]
+        $outFile,
+        [Parameter(Mandatory = $false)]
+        $UsingExtension
+    )
 
+    # Base64-encodes the Personal Access Token (PAT) appropriately    
+    if($UsingExtension -eq "yes")
+    {
+        $authorization  = GetADOToken
+    }else {
+        $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail        
+    }
+
+    #build table array - list of all builds for this release
+    $AuditLogArray = @()
+
+    # GET https://auditservice.dev.azure.com/{organization}/_apis/audit/auditlog?api-version=6.1-preview.1
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/audit/audit-log/audit-log-query?view=azure-devops-rest-6.1
+    $AuditUrl  = $userParams.HTTP_preFix + "://auditservice.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/audit/auditlog?api-version=6.1-preview.1"     
+    $AuditLogs = Invoke-RestMethod -Uri $AuditUrl -Method Get -Headers $authorization 
+    
+    while ($AuditLogs.hasMore -eq $true) 
+    {
+        $token = $AuditLogs.continuationToken
+        $AuditUrl  = $userParams.HTTP_preFix + "://auditservice.dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/audit/auditlog?continuationToken=" + $AuditLogs.continuationToken + "&api-version=6.1-preview.1"     
+
+        foreach ($item in $AuditLogs.decoratedAuditLogEntries) 
+        {
+            $AuditLogArray += $item    
+        }
+        $AuditLogs = Invoke-RestMethod -Uri $AuditUrl -Method Get -Headers $authorization 
+        # GET LAST SET OF LOG ENTRIES
+        if($AuditLogs.HasMore -eq $false)
+        {
+            foreach ($item in $AuditLogs.decoratedAuditLogEntries) 
+            {
+                $AuditLogArray += $item    
+            }
+        }
+    }
+
+    $AccessLogs = $AuditLogArray.Where( { $_.category -eq "access" } )| Sort-Object -Property order
+    $CreateLogs = $AuditLogArray.Where( { $_.category -eq "create" } )| Sort-Object -Property order
+    $ExecuteLogs = $AuditLogArray.Where( { $_.category -eq "execute" } )| Sort-Object -Property order
+    $ModifyLogs = $AuditLogArray.Where( { $_.category -eq "modify" } )| Sort-Object -Property order
+    $RemoveLogs = $AuditLogArray.Where( { $_.category -eq "remove" } )| Sort-Object -Property order
+    $UnKnownLogs = $AuditLogArray.Where( { $_.category -eq "unknown" } )| Sort-Object -Property order
+
+    Write-Output "  " | Out-File -FilePath $outFile
+    Write-Output "Total Log Count  : " $AuditLogArray.count | Out-File -FilePath $outFile -Append
+
+    Write-Output "  " | Out-File -FilePath $outFile -Append
+    Write-Output "Access Log Count  : " $AccessLogs.count  | Out-File -FilePath $outFile -Append -NoNewline
+    Write-Output "  " | Out-File -FilePath $outFile -Append
+    foreach ($item in $AccessLogs) 
+    {
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        Write-Output "  Details " $item.Details | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        Write-Output "  User    " $item.actorDisplayName | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        Write-Output "  Area    " $item.area | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        foreach ($Event in $item.data.EventSummary) 
+        {
+            Write-Output "     Event Timestamp :" $Event  | Out-File -FilePath $outFile -Append  -NoNewline 
+            Write-Output "  " | Out-File -FilePath $outFile -Append
+        }
+    }
+
+    Write-Output "  " | Out-File -FilePath $outFile -Append
+    Write-Output "Create Log Count  : " $CreateLogs.count | Out-File -FilePath $outFile -Append -NoNewline
+    Write-Output "  " | Out-File -FilePath $outFile -Append
+    foreach ($item in $CreateLogs) 
+    {
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        Write-Output "  Details " $item.Details | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        Write-Output "  User    " $item.actorDisplayName | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        Write-Output "  Area    " $item.area | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        switch ($item.area) 
+        {
+            "Release" 
+            { 
+                Write-Output "      Release Data" | Out-File -FilePath $outFile -Append
+                Write-Output "      Pipeline Id   " $item.data.PipelineId | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+                Write-Output "      Pipeline Name " $item.data.PipelineName | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+                Write-Output "      Release Name  " $item.data.ReleaseName | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+            }
+            "Git" 
+            { 
+                Write-Output "      Git Data" | Out-File -FilePath $outFile -Append
+                Write-Output "      Project Name   " $item.data.ProjectName | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+                Write-Output "      Repo Name      " $item.data.RepoName | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+               
+            }
+            "Policy" 
+            { 
+                Write-Output "      Policy Data" | Out-File -FilePath $outFile -Append
+                Write-Output "      Policy Name   " $item.data.PolicyTypeDisplayName | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+            }
+            "Pipelines" 
+            { 
+                Write-Output "      Pipeline Data" | Out-File -FilePath $outFile -Append
+                Write-Output "      Pipeline Id   " $item.data.PipelineId | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+                Write-Output "      Pipeline Name " $item.data.PipelineName | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+                Write-Output "      Release Name  " $item.data.ReleaseName | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+            }
+            "Library"
+            {
+                Write-Output "      Library Data" | Out-File -FilePath $outFile -Append
+                Write-Output "      Authentication Type  " $item.data.AuthenticationType | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+                Write-Output "      Connection Name " $item.data.ConnectionName | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+                Write-Output "      Connection Type " $item.data.ConnectionType | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+            }
+            "Extension" 
+            {
+                Write-Output "      Extension Data" | Out-File -FilePath $outFile -Append
+                Write-Output "      Publisher Name  " $item.data.PublisherName | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+                Write-Output "      Extension Name  " $item.data.ExtensionName | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+                Write-Output "      Version         " $item.data.Version | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+            }
+            "Token" 
+            {
+                Write-Output "      Token Data" | Out-File -FilePath $outFile -Append
+                Write-Output "      Token  Type   " $item.data.TokenType | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+                Write-Output "      Display Name " $item.data.DisplayName | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+                Write-Output "      Valid From   " $item.data.ValidFrom | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+                Write-Output "      Valid To     " $item.data.ValidTo | Out-File -FilePath $outFile -Append -NoNewline
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+                foreach ($scope in $item.data.Scopes) 
+                {
+                    Write-Output "           Scope    " $scope | Out-File -FilePath $outFile -Append -NoNewline
+                    Write-Output "  " | Out-File -FilePath $outFile -Append
+                }
+                Write-Output "  " | Out-File -FilePath $outFile -Append
+
+            }
+            Default {}
+        }
+    }
+
+    Write-Output "  " | Out-File -FilePath $outFile -Append
+    Write-Output "Execute Log Count : " $ExecuteLogs.count  | Out-File -FilePath $outFile -Append -NoNewline
+    Write-Output "  " | Out-File -FilePath $outFile -Append
+    foreach ($item in $ExecuteLogs) 
+    {
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        Write-Output "  Details " $item.Details | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        Write-Output "  User    " $item.actorDisplayName | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        Write-Output "  Area    " $item.area | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+
+    }
+
+    Write-Output "  " | Out-File -FilePath $outFile -Append
+    Write-Output "Modify Log Count  : " $ModifyLogs.count | Out-File -FilePath $outFile -Append -NoNewline
+    Write-Output "  " | Out-File -FilePath $outFile -Append
+    foreach ($item in $ModifyLogs) 
+    {
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        Write-Output "  Details " $item.Details | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        Write-Output "  User    " $item.actorDisplayName | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        Write-Output "  Area    " $item.area | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+    }
+
+    Write-Output "  " | Out-File -FilePath $outFile -Append
+    Write-Output "Remove Log Count  : " $RemoveLogs.count | Out-File -FilePath $outFile -Append -NoNewline
+    Write-Output "  " | Out-File -FilePath $outFile -Append
+    foreach ($item in $RemoveLogs) 
+    {
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        Write-Output "  Details " $item.Details | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        Write-Output "  User    " $item.actorDisplayName | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        Write-Output "  Area    " $item.area | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+
+    }
+
+    Write-Output "  " | Out-File -FilePath $outFile -Append
+    Write-Output "Unknown Log Count : " $UnKnownLogs.count | Out-File -FilePath $outFile -Append -NoNewline
+    Write-Output "  " | Out-File -FilePath $outFile -Append
+    foreach ($item in $UnKnownLogs) 
+    {
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        Write-Output "  Details " $item.Details | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        Write-Output "  User    " $item.actorDisplayName | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+        Write-Output "  Area    " $item.area | Out-File -FilePath $outFile -Append -NoNewline
+        Write-Output "  " | Out-File -FilePath $outFile -Append
+
+    }
+
+
+}
 function Get-ReleaseNotesByBuildByTag()
 {
     #
@@ -277,7 +505,7 @@ function Get-ReleaseNotesByBuildByTag()
 
     # array for list of builds with a given tag
     $AllBuildswithTags = @()
-    
+   
     # Get a list of all builds with a specific tag
     # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-6.1
     # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds?definitions={definitions}&queues={queues}&buildNumber={buildNumber}&minTime={minTime}&maxTime={maxTime}&requestedFor={requestedFor}&reasonFilter={reasonFilter}&statusFilter={statusFilter}&resultFilter={resultFilter}&tagFilters={tagFilters}&properties={properties}&$top={$top}&continuationToken={continuationToken}&maxBuildsPerDefinition={maxBuildsPerDefinition}&deletedFilter={deletedFilter}&queryOrder={queryOrder}&branchName={branchName}&buildIds={buildIds}&repositoryId={repositoryId}&repositoryType={repositoryType}&api-version=6.1-preview.6
@@ -640,10 +868,15 @@ function Set-ReleaseNotesToWiKi()
 
     # build content
     # sort by sequence number  
+    # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/get-date?view=powershell-7.1
+    $dt = Get-Date -format "dddd MM/dd/yyyy HH:mm K"
     $contentData = "" 
     $contentData = "[[_TOC_]]" + $([char]13) + $([char]10) 
     $contentData +=  $([char]13) + $([char]10) 
     $contentData +=  "_Release Notes for Build Tags : "  + $userParams.BuildTags + "_"
+    $contentData +=  $([char]13) + $([char]10) 
+    $contentData +=  "_Release Notes Created        : "  + $dt + "_"
+    $contentData +=  $([char]13) + $([char]10) 
     
     # count number of changes
     $chgCount = 0

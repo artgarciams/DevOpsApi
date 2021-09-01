@@ -2,10 +2,8 @@
     
     "VSTSMasterAcct" : "artgarciavsts",
     "userEmail"      : "arthur.garcia@microsoft.com",
-    "PAT"            : "lykpfhhs63ldjxxtwcsvv5pxapcrhnlj43pqi44ewup6co77sn2a",
-    "ProjectName"    : "aagdevops",
-    "APICredientials": "6zotoznfi3pgdtsp4sbswtyffnnnb25rivdl7k2dyxamanwf74ga",
-    
+    "PAT"            : "",
+    "ProjectName"    : "aagdevops",    
     "BuildTags"      : "TEST123,ABC",
 
     "PublishWiKi"    : "aagdevops.wiki",

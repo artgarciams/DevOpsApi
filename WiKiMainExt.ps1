@@ -5,7 +5,7 @@
 # Purpose   : This script will generate a Wiki Page of release notes based on build tags.
 #             This file will be the interface to the ADO extension and called by the extension.
 #             
-# last Update: 07/20/2021
+# last Update: 09/01/2021
 
 $modName = ".\ReleaseNotes.psm1" 
 Import-Module -Name $modName

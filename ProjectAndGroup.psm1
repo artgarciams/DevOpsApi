@@ -1261,10 +1261,16 @@ function Set-ReleaseNotesToWiKi()
     }
 
     # build content
-    # sort by sequence number    
+    # sort by sequence number 
+    # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/get-date?view=powershell-7.1   
+    $dt = Get-Date -format "dddd MM/dd/yyyy HH:mm K"
+    $contentData = "" 
     $contentData = "[[_TOC_]]" + $([char]13) + $([char]10) 
     $contentData +=  $([char]13) + $([char]10) 
-    $contentData +=  "# _Release Notes for Build Tags : "  + $userParams.BuildTags + "_"
+    $contentData +=  "_Release Notes for Build Tags : "  + $userParams.BuildTags + "_"
+    $contentData +=  $([char]13) + $([char]10) 
+    $contentData +=  "_Release Notes Created        : "  + $dt + "_"
+    $contentData +=  $([char]13) + $([char]10) 
     
     # count number of changes
     $chgCount = 0
@@ -1674,12 +1680,13 @@ function ListGitBranches(){
                         $listProviderURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" +  $prj.Name + "/_apis/git/repositories/" + $rp.Id + "/refs?api-version=5.0"
                         $branchlist = Invoke-RestMethod -Uri $listProviderURL -Method Get -ContentType "application/json" -Headers $authorization 
 
-                        Write-Output "   Repository Name :  " $rp.name " , Branches found : " $branchlist.count | Out-File -FilePath $outFile -Append -NoNewline
+                        Write-Output "   Repository Name :  " $rp.name " , Branches found : " $branchlist.count  | Out-File -FilePath $outFile -Append -NoNewline
+                        Write-Output "     Default Branch:  " $rp.defaultBranch " , Last Updated : " $rp.project.lastUpdateTime  | Out-File -FilePath $outFile -Append -NoNewline
 
                         foreach ($item in $branchlist.value) {
-                            Write-Host "Branch : " $item.name 
+                            Write-Host "     Branch : " $item.name 
                             Write-Output "  " | Out-File -FilePath $outFile -Append
-                            Write-Output '    Branch : ' $item.name  ' -- Creator: ' $item.creator.displayName| Out-File -FilePath $outFile -Append -NoNewline
+                            Write-Output '     Branch : ' $item.name  ' -- Creator: ' $item.creator.displayName| Out-File -FilePath $outFile -Append -NoNewline
                         }  
                         Write-Output "  " | Out-File -FilePath $outFile -Append
 
