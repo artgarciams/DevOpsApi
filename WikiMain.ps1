@@ -38,6 +38,8 @@ if($userParameters.OutPutToFile -eq "Yes" )
     Set-DirectoryStructure -userParams $userParameters 
 }
 
+GetAuditLogs -userParams $userParameters -outFile "C:\tempdata\auditlog.txt"
+
 #Get-BuildDetailsByProject -userParams $userParameters  -outFile "C:\temp\buildprj.txt"
 
 # generate a file for each build showing build info, work items, and approvals
