@@ -14,7 +14,7 @@ Import-Module -Name $modName
 $UserDataFile = ".\ProjectDef.json"
 $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 
-# get current running parameters - for local teating
+# get current running parameters - for local testing 
     
 $org = $Env:SYSTEM_TEAMFOUNDATIONSERVERURI
 $org = $org.replace('https://dev.azure.com/','') 
@@ -52,7 +52,6 @@ $userParameters.PublishArtfNote = Get-VstsInput -Name 'PublishArtfNote'
 # variables for permanent notes
 $userParameters.PermNoteTitle = Get-VstsInput -Name 'PermanentNotesTitle'
 $userParameters.PermNoteBody = Get-VstsInput -Name 'PermanentNotes'
-
 
 Write-host "Current Running Environment Override : " $useCurrentEnv
 Write-Host "Using Orginization : " $userParameters.VSTSMasterAcct 

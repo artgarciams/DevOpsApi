@@ -11,6 +11,7 @@ $modName = $PSScriptRoot + "\SecurityHelper.psm1"
 Import-Module -Name $modName
 
 $modName = $PSScriptRoot + "\ReleaseNotes.psm1" 
+#$modName = $PSScriptRoot + "\ProjectAndGroup.psm1" 
 Import-Module -Name $modName
 
 # get parameter data for scripts
@@ -38,7 +39,7 @@ if($userParameters.OutPutToFile -eq "Yes" )
     Set-DirectoryStructure -userParams $userParameters 
 }
 
-GetAuditLogs -userParams $userParameters -outFile "C:\tempdata\auditlog.txt"
+#GetAuditLogs -userParams $userParameters -outFile "C:\tempdata\auditlog.txt"
 
 #Get-BuildDetailsByProject -userParams $userParameters  -outFile "C:\temp\buildprj.txt"
 
