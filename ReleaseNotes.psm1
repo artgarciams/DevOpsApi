@@ -482,17 +482,20 @@ function Get-ReleaseNotesByBuildByTag()
         [Parameter(Mandatory = $false)]
         $UsingExtension
     )
-     $usr =  [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-     $getcur = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-     $gp =   ConvertTo-Json  -InputObject $getcur.groups -Depth 24
-     Write-Host "Current User is : " $usr 
-     Write-Host "Current User Group is : "  $gp 
+    
 
      # Base64-encodes the Personal Access Token (PAT) appropriately    
      if($UsingExtension -eq "yes")
      {
          Write-Host " Using System Access Token"
          $authorization  = @{Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN"} 
+
+         $usr =  [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+         $getcur = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+         $gp =   ConvertTo-Json  -InputObject $getcur.groups -Depth 24
+         Write-Host "Current User is : " $usr 
+         Write-Host "Current User Group is : "  $gp 
+
      }else {
          $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail        
      }
@@ -806,6 +809,13 @@ function Set-ReleaseNotesToWiKi()
     {
         Write-Host "Using System Access Token"
         $authorization  = @{Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN"} 
+        
+        $usr =  [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        $getcur = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+        $gp =   ConvertTo-Json  -InputObject $getcur.groups -Depth 24
+        Write-Host "Current User is : " $usr 
+        Write-Host "Current User Group is : "  $gp 
+
     }else {
         $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail        
     }
@@ -838,7 +848,7 @@ function Set-ReleaseNotesToWiKi()
     {
         # first see if parent page exists, if not create it
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/get-page?view=azure-devops-rest-6.1#examples
-        $FindPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $userParams.PublishParent  + "&api-version=6.1-preview.1" 
+        $FindPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Name + "/pages?path=" + $userParams.PublishParent  + "&api-version=6.1-preview.1" 
         $FindParentPage = Invoke-RestMethod -Uri $FindPageUri -Method Get -ContentType "application/json" -Headers $authorization 
         Write-Host "Parent Page exist :  $userParams.PublishParent  " $FindParentPage.content       
     }
@@ -852,7 +862,7 @@ function Set-ReleaseNotesToWiKi()
             content  = "Parent Release Notes Page"
         }
         $tmJson = ConvertTo-Json -InputObject $tmData    
-        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $userParams.PublishParent  + "&api-version=6.1-preview.1" 
+        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Name + "/pages?path=" + $userParams.PublishParent  + "&api-version=6.0" 
         $CreatePage = Invoke-RestMethod -Uri $CreatePageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $tmJson
         Write-Host "Parent Page Created : $userParams.PublishParent  " $CreatePage
 
@@ -872,7 +882,7 @@ function Set-ReleaseNotesToWiKi()
         $BlankJson = ConvertTo-Json -InputObject $blankData
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/create%20or%20update?view=azure-devops-rest-6.1
         # PUT https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&api-version=6.1-preview.1
-        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&api-version=6.1-preview.1" 
+        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Name + "/pages?path=" + $landingPg + "&api-version=6.0" 
         $CreatePage = Invoke-RestMethod -Uri $CreatePageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $BlankJson
         Write-Host $CreatePage
         Write-Host "WiKi Landing Page Created "
@@ -1041,7 +1051,7 @@ function Set-ReleaseNotesToWiKi()
                               
         # add etag to the header. for update to work, must have etag in header
         # Base64-encodes the Personal Access Token (PAT) appropriately + etag used to allow update to wiki page
-        $getPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&recursionLevel=Full&api-version=6.1-preview.1"
+        $getPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Name + "/pages?path=" + $landingPg + "&recursionLevel=Full&api-version=6.0"
         $GetPage = Invoke-WebRequest -Uri $getPageUri -Method Get -ContentType "application/json" -Headers $authorization -UseBasicParsing
 
         # add etag to the header. for update to work, must have etag in header
@@ -1052,13 +1062,12 @@ function Set-ReleaseNotesToWiKi()
             Write-Host " Using System Access Token + ETag for update "
             $authorization =  GetADOTokenWithEtagForExt  -eTag $GetPage.Headers.ETag   
             Write-Host $authorization
-           # $authorization = GetVSTSCredentialWithEtag -Token $env:SYSTEM_ACCESSTOKEN -userEmail $env:build.requestedForEmail -eTag $GetPage.Headers.ETag
         }else {
             $authorization = GetVSTSCredentialWithEtag -Token $userParams.PAT -userEmail $userParams.userEmail  -eTag $GetPage.Headers.ETag      
         }
        
         # update or create page if it does not exist
-        $AddPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&api-version=6.1-preview.1"
+        $AddPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Name + "/pages?path=" + $landingPg + "&api-version=6.0"
         $AddPage = Invoke-RestMethod -Uri $AddPageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $tmJson -UseBasicParsing -Verbose
 
         Write-Host "Page created - Release Notes complete"

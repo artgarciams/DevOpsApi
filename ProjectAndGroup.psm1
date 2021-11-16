@@ -1412,7 +1412,7 @@ function Set-ReleaseNotesToWiKi()
     # add etag to the header. for update to work, must have etag in header
     # Base64-encodes the Personal Access Token (PAT) appropriately + etag used to allow update to wiki page
     Write-Host $GetPage.Headers.ETag
-    $authorization =GetVSTSCredentialWithEtag -Token $userParams.PAT -userEmail $userParams.userEmail -eTag $GetPage.Headers.ETag
+    $authorization = GetVSTSCredentialWithEtag -Token $userParams.PAT -userEmail $userParams.userEmail -eTag $GetPage.Headers.ETag
 
     # update or create page if it does not exist
     $AddPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&api-version=6.1-preview.1"
@@ -1645,8 +1645,13 @@ function ListGitBranches(){
     # Base64-encodes the Personal Access Token (PAT) appropriately
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
 
+
+
      try {
         
+        $url = "https://management.azure.com/subscriptions/" + $userParams.SubscriptionId + "/providers/Microsoft.ResourceHealth/availabilityStatuses?api-version=2015-01-01"               
+        $Allservices = Invoke-RestMethod -Uri $url -Method Get -ContentType "application/json" -Headers $authorization 
+
         Write-Output "  " | Out-File -FilePath $outFile 
         if($GetAllProjects -eq "yes")
         {

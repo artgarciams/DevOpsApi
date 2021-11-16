@@ -1,14 +1,15 @@
 { 
     
-    "VSTSMasterAcct" : "artgarciavsts",
-    "userEmail"      : "arthur.garcia@microsoft.com",
-    "PAT"            : "",
-    "ProjectName"    : "aagdevops",    
+    "VSTSMasterAcct" : "CSECodeHub",
+    "userEmail"      : "argarc@microsoft.com",
+    "PAT"            : "a3cn4sjrh5gqyfxly73smdpn3fmktzsqu2bffddlopwq7k7okffa",
+    "ProjectName"    : "424289 - Air Force WEAPS - Cloud One",    
     "BuildTags"      : "TEST123,ABC",
+    "SubscriptionId" : "8cb89774-19fb-4e8a-bc03-79e02c45254e",
 
-    "PublishWiKi"    : "aagdevops.wiki",
+    "PublishWiKi"    : "424289---Air-Force-WEAPS---Cloud-One.wiki",
     "PublishParent"  : "Release Notes",
-    "PublishPagePrfx": "System - Notes-2",
+    "PublishPagePrfx": "Test Build Release Notes",
     "PublishSummary" : "This release will encomass many things.",
 
     "PublishBldNote" : "This page is system generated. Do not Update this page. This is the Build Notes Section",
@@ -24,5 +25,5 @@
     
     "HTTP_preFix"    : "https",
     "DirRoot"        :"C:\\tempData\\",
-    "GitListFile"    :"gitrepos.txt"
+    "GitListFile"    :""
 }
