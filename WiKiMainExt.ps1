@@ -14,15 +14,18 @@ Import-Module -Name $modName
 $UserDataFile = ".\ProjectDef.json"
 $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 
-# get current running parameters - for local testing 
-    
+# get current running parameters - for local testing   
 $org = $Env:SYSTEM_TEAMFOUNDATIONSERVERURI
 $org = $org.replace('https://dev.azure.com/','') 
 $org = $org.replace('/','')
 
+$key = Get-VstsInput -Name 'PATKEY'    
+Write-Host "KEY = " $key
+
 Write-Host ""   
 Write-Host "Running in Orginization :  $org "
 Write-Host "Running in Team Project :  $Env:SYSTEM_TEAMPROJECT "
+Write-Host "Using PATKEY :  $key "
 Write-Host ""
 
 $userParameters.VSTSMasterAcct =$org
@@ -35,6 +38,9 @@ $userParameters.WorkItemTypes = Get-VstsInput -Name 'WorkItemTypes'
 $userParameters.OutPutToFile = "No"
 
 # variables for taging and wiki publish information
+$userParameters.PAT =  $key
+$useExt = "No"
+
 $userParameters.BuildTags = Get-VstsInput -Name 'BuildTags'
 $userParameters.PublishWiKi = Get-VstsInput -Name 'PublishWiKi'
 $userParameters.PublishParent = Get-VstsInput -Name 'PublishParent'
@@ -90,7 +96,7 @@ Write-Host ""
 #      "HTTP_preFix"    : "https",                 - THIS IS THE SECURITY TO USE IN THE API CALL . DO NOT CHANGE
 #      "OutPutToFile"   : "No",                    - THIS IS IF YOU WANT LOGS GENERATED TO AUDIT WHAT GETS CREATED
 #
-$BuildData = Get-ReleaseNotesByBuildByTag  -userParams $userParameters -UsingExtension "yes"
+$BuildData = Get-ReleaseNotesByBuildByTag  -userParams $userParameters -UsingExtension $useExt
 
 # create wiki page 
 # This method will create a wiki page of the release notes found. It will create a page using the
@@ -115,4 +121,4 @@ $BuildData = Get-ReleaseNotesByBuildByTag  -userParams $userParameters -UsingExt
 #      "HTTP_preFix"    : "https",                 - THIS IS THE SECURITY TO USE IN THE API CALL . DO NOT CHANGE
 #      "OutPutToFile"   : "No",                    - THIS IS IF YOU WANT LOGS GENERATED TO AUDIT WHAT GETS CREATED
 #
-Set-ReleaseNotesToWiKi  -userParams $userParameters -Data $BuildData -UsingExtension "yes"
+Set-ReleaseNotesToWiKi  -userParams $userParameters -Data $BuildData -UsingExtension $useExt
