@@ -19,8 +19,8 @@ $org = $Env:SYSTEM_TEAMFOUNDATIONSERVERURI
 $org = $org.replace('https://dev.azure.com/','') 
 $org = $org.replace('/','')
 
+# get PAT key from input variables.
 $key = Get-VstsInput -Name 'PATKEY'    
-Write-Host "KEY = " $key
 
 Write-Host ""   
 Write-Host "Running in Orginization :  $org "
@@ -28,9 +28,12 @@ Write-Host "Running in Team Project :  $Env:SYSTEM_TEAMPROJECT "
 Write-Host "Using PATKEY :  $key "
 Write-Host ""
 
+
+
 $userParameters.VSTSMasterAcct =$org
 $userParameters.ProjectName =  $Env:SYSTEM_TEAMPROJECT  	
-$userParameters.userEmail = $Env:BUILD_REQUESTEDFOREMAIL        
+$userParameters.userEmail = Get-VstsInput -Name 'userEmail'    
+#$userParameters.userEmail = $Env:BUILD_REQUESTEDFOREMAIL        
         
 # variables to run apis
 $userParameters.HTTP_preFix = "https"

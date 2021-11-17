@@ -465,6 +465,7 @@ function Get-ReleaseNotesByBuildByTag()
     #$AllBuildswithTags = New-Object System.Collections.ArrayList
     #$AllBuildswithTags = [System.Collections.ArrayList]::new()   
 
+
     foreach ($tag in $userParams.BuildTags) 
     {
         $AllBuildsUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds?tagFilters=" + $tag + "&api-version=6.1-preview.6"     
@@ -2383,5 +2384,72 @@ function Get-ResourceGroupBySubscription()
     Write-Host $rdJson
     
     return $rg
+
+}
+
+function Get-AllAzureServices()
+{
+    Param(
+        [Parameter(Mandatory = $false)]
+        $outFile
+    )
+
+    #
+    # this function will screen scrape the below site to find all azure categories, services within categories and doc url of service
+    # https://www.altaro.com/msp-dojo/web-scraping-tool-for-msps/
+    #
+
+    $data = invoke-webrequest -uri "https://azure.microsoft.com/en-us/services/"
+
+    $ServiceArray = @()
+    $product = ""
+    Write-Output "Category,Product,Preview,Url" | Out-File $outFile 
+
+    foreach ($item in $data.ParsedHtml.all ) 
+    {
+        $preview = ""
+        # product categories have a css class name of Product category   
+        if($item.classname -eq "product-category")
+        {
+            $product = $item.innertext           
+        }
+
+        # services have a class name of text-heading5 under the product categoty
+        if ($item.classname -eq "text-heading5" )
+        {
+            if($item.innerText.Contains("Preview") )
+            {
+                $preview = "Yes"
+            }
+
+            if (![string]::IsNullOrEmpty($outFile ) )
+            {
+                Write-Output $product | Out-File $outFile  -Append -NoNewline
+                Write-Output "," $item.innerText | Out-File $outFile  -Append -NoNewline
+                Write-Output "," $preview  | Out-File $outFile  -Append -NoNewline
+                Write-Output "," $item.children[0].href.Replace("about:","https://azure.microsoft.com") | Out-File $outFile  -Append -NoNewline
+                Write-Output " " | Out-File $outFile  -Append 
+            }
+            
+            Write-Host $product
+            Write-Host "     - "  $item.innertext
+            Write-Host "     - "  $item.children[0].href
+            Write-Host " "
+            
+
+            $chg = New-Object -TypeName PSObject -Property @{
+            Category = $product 
+            Preview = $preview
+            ServiceName = $item.innerText 
+            URL = $item.children[0].href.Replace("about:","https://azure.microsoft.com")
+            }
+            
+            $ServiceArray += $chg
+        }
+    
+    }
+
+    return $ServiceArray
+    Write-Host "Done"
 
 }

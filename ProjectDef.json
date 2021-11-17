@@ -1,16 +1,5 @@
 { 
     
-    "VSTSMasterAcct" : "CSECodeHub",
-    "userEmail"      : "argarc@microsoft.com",
-    "PAT"            : "a3cn4sjrh5gqyfxly73smdpn3fmktzsqu2bffddlopwq7k7okffa",
-    "ProjectName"    : "424289 - Air Force WEAPS - Cloud One",    
-    "BuildTags"      : "TEST123,ABC",
-    "SubscriptionId" : "8cb89774-19fb-4e8a-bc03-79e02c45254e",
-
-    "PublishWiKi"    : "424289---Air-Force-WEAPS---Cloud-One.wiki",
-    "PublishParent"  : "Release Notes",
-    "PublishPagePrfx": "Test Build Release Notes",
-    "PublishSummary" : "This release will encomass many things.",
 
     "PublishBldNote" : "This page is system generated. Do not Update this page. This is the Build Notes Section",
     "PublishWKItNote": "This is the Work Item section note",
