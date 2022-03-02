@@ -1394,28 +1394,22 @@ function GetWorkItemsByField()
     {
         $WorItemUrl =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $wk.Id + "?expand=Fields&api-version=7.1-preview.3"
         $WorkItem = Invoke-RestMethod -Uri $WorItemUrl -Method Get -Headers $authorization
-
-       if([string]::IsNullOrEmpty($WorkItem.fields.'Custom.ExcludefromReleaseNotes') -or $WorkItem.fields.'Custom.ExcludefromReleaseNotes' -ne "$true" )
-       {
-            Write-Host  $WorkItem.fields.'System.Title'
-            $stg = New-Object -TypeName PSObject -Property @{
-                Id = $wk.Id
-                Title =  $WorkItem.fields.'System.Title'
-                RequestType = $WorkItem.fields.'Custom.RequestType'
-                Program = $WorkItem.fields.'Custom.Program'
-                Bucket = $WorkItem.fields.'Custom.Bucket'
-                Description = $WorkItem.fields.'Custom.CTI'
-                Sprint = $WorkItem.fields.'Custom.Sprint'
-                Team = $WorkItem.fields.'Custom.Team'
-                Leads = $WorkItem.fields.'Custom.ProgramOwner'
-            }
-            $AllWorkItems += $stg   
-            $stg = $null           
+     
+        Write-Host  $WorkItem.fields.'System.Title'
+        $stg = New-Object -TypeName PSObject -Property @{
+            Id = $wk.Id
+            Title =  $WorkItem.fields.'System.Title'
+            RequestType = $WorkItem.fields.'Custom.RequestType'
+            Program = $WorkItem.fields.'Custom.Program'
+            Bucket = $WorkItem.fields.'Custom.Bucket'
+            Description = $WorkItem.fields.'Custom.CTI'
+            Sprint = $WorkItem.fields.'Custom.Sprint'
+            Team = $WorkItem.fields.'Custom.Team'
+            Leads = $WorkItem.fields.'Custom.ProgramOwner'
         }
-        else
-        {
-            Write-Host  $WorkItem.fields.'System.Title' + " excluded from release "
-        }
+        $AllWorkItems += $stg   
+        $stg = $null           
+      
     }
 
     # loop thru all future work items and store in array
@@ -1471,7 +1465,7 @@ function GetWorkItemsByField()
     $contentData += "*Suggested program/system/tooling enhancements?*   https://aka.ms/ISCJProgramsRequest" + $([char]13) + $([char]10)
     $contentData +=  $([char]13) + $([char]10) 
 
-    $contentData += "# Shipped in the previous sprint"
+    $contentData += "#" + $userParams.CurrentQryText + $([char]13) + $([char]10) 
     $contentData +=  $([char]13) + $([char]10) 
     $contentData +=  $([char]13) + $([char]10) 
  
@@ -1559,7 +1553,7 @@ function GetWorkItemsByField()
     $contentData +=  $([char]13) + $([char]10) 
     $contentData +=  $([char]13) + $([char]10) 
 
-    $contentData += "# What's planned for the next 2 sprints" + $([char]13) + $([char]10) 
+    $contentData += "# " + $userParams.FutureQryText + $([char]13) + $([char]10) 
     $contentData +=  $([char]13) + $([char]10) 
     $contentData +=  $([char]13) + $([char]10) 
     [int]$cnt = 1

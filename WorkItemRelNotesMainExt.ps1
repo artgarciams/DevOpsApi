@@ -54,6 +54,8 @@ $userParameters.PublishPagePrfx = Get-VstsInput -Name 'PublishPageName'
 $userParameters.WhatsNewComment = Get-VstsInput -Name 'WhatsNewComment'
 $userParameters.CurrentWitemQry = Get-VstsInput -Name 'CurrentSprintQuery'
 $userParameters.FutureWitemQry = Get-VstsInput -Name 'FutureSprintQuery'
+$userParameters.CurrentQryText = Get-VstsInput -Name 'CurrentQueryText'
+$userParameters.FutureQryText = Get-VstsInput -Name 'FutureQueryText'
 
 Write-host "Current Running Environment Override : " $useCurrentEnv
 Write-Host "Using Orginization : " $userParameters.VSTSMasterAcct 
@@ -69,7 +71,11 @@ Write-Host "Publishing to Page         : " $userParameters.PublishPagePrfx
 
 Write-Host ""
 Write-Host "Whats New Comments      : " $userParameters.WhatsNewComment
+Write-Host ""
+Write-Host "Title for Current Query : " $userParameters.CurrentQryText 
 Write-Host "Current Sprint query    : " $userParameters.CurrentWitemQry
+Write-Host ""
+Write-Host "Title for Future Query  : " $userParameters.FutureQryText 
 Write-Host "Future Sprint query     : " $userParameters.FutureWitemQry
 
 Write-Host ""

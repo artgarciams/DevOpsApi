@@ -23,7 +23,9 @@
     "PublishSaveEnd" : "",
 
     "WhatsNewComment": "",
+	"CurrentQryText" : "", 
     "CurrentWitemQry": "",
+	"FutureQryText"  : "",
     "FutureWitemQry" : "",
 
     "WorkItemTypes"  : [],
