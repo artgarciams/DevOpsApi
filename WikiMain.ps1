@@ -39,6 +39,8 @@ if($userParameters.OutPutToFile -eq "Yes" )
     Set-DirectoryStructure -userParams $userParameters 
 }
 
+GetWorkItemsByField -userParams $userParameters
+
 #GetAuditLogs -userParams $userParameters -outFile "C:\tempdata\auditlog.txt"
 
 #Get-BuildDetailsByProject -userParams $userParameters  -outFile "C:\temp\buildprj.txt"

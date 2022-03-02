@@ -28,8 +28,6 @@ Write-Host "Running in Team Project :  $Env:SYSTEM_TEAMPROJECT "
 Write-Host "Using PATKEY :  $key "
 Write-Host ""
 
-
-
 $userParameters.VSTSMasterAcct =$org
 $userParameters.ProjectName =  $Env:SYSTEM_TEAMPROJECT  	
 $userParameters.userEmail = Get-VstsInput -Name 'userEmail'    

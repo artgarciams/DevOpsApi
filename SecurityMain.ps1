@@ -30,6 +30,17 @@ Write-Output $userParameters.Description
 Set-DirectoryStructure -userParams $userParameters 
 
 
+# get list of members of group in project or all projects by adding -groupname "All"
+#       "VSTSMasterAcct" : "fdx-strat-pgm",
+#       "userEmail"      : "arthur.garcia.osv@fedex.com",
+#       "PAT"            : "",       
+#       "ProjectName"    : "fdx-surround",
+#       "HTTP_preFix"    : "https",
+#       "AllProjects"    : "True"
+#       "UserFileName"   : "Get-AllUSerMembership-12-2.txt",
+Get-AllUSerMembership  -userParams $userParameters -outFile $userParameters.UserFileName  -getAllProjects $userParameters.AllProjects
+
+
 # Get all groups and there permissions
 #       "VSTSMasterAcct" : "fdx-strat-pgm", 
 #       "userEmail"      : "arthur.garcia.osv@fedex.com",
@@ -43,12 +54,3 @@ Set-DirectoryStructure -userParams $userParameters
 Get-SecuritybyGroupByNamespace -userParams $userParameters  -rawDataDump $userParameters.rawDataFile  -getAllProjects $userParameters.AllProjects  -outFile $userParameters.GroupFileName
 
 
-# get list of members of group in project or all projects by adding -groupname "All"
-#       "VSTSMasterAcct" : "fdx-strat-pgm",
-#       "userEmail"      : "arthur.garcia.osv@fedex.com",
-#       "PAT"            : "",       
-#       "ProjectName"    : "fdx-surround",
-#       "HTTP_preFix"    : "https",
-#       "AllProjects"    : "True"
-#       "UserFileName"   : "Get-AllUSerMembership-12-2.txt",
-Get-AllUSerMembership  -userParams $userParameters -outFile $userParameters.UserFileName  -getAllProjects $userParameters.AllProjects 

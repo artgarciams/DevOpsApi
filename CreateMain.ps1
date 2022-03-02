@@ -22,12 +22,15 @@ $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 Write-Output $userParameters.ProjectName
 Write-Output $userParameters.Description
 
+
+Get-ProjectMetrics -userParams $userParameters
+
 #list available branches*
-#ListGitBranches -userParams $userParameters -outFile ($userParameters.DirRoot + "\\" + $userParameters.GitListFile) -GetAllProjects "yes"
+ListGitBranches -userParams $userParameters -outFile ($userParameters.DirRoot + "\\" + $userParameters.GitListFile) -GetAllProjects "no"
 
 # list all azure services 
-$allServices = Get-AllAzureServices -outFile "C:\\tempdata\\services.txt"
-
+ $allServices = Get-AllAzureServices -outFile "C:\\tempdata\\services.txt"
+ Write-Host $allServices
 
 # add a brance from master*
 #AddGitBranchFromMaster -userParams $userParameters -branchToCreate "refs/heads/release/v4"

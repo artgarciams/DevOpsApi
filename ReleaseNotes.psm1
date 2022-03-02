@@ -793,6 +793,140 @@ function Get-ReleaseNotesByBuildByTag()
 
 }
 
+function WriteToWikiPage()
+{
+
+    Param(
+        [Parameter(Mandatory = $true)]
+        $userParams,
+        [Parameter(Mandatory = $false)]
+        $contentData,
+        [Parameter(Mandatory = $false)]
+        $UsingExtension,
+        [Parameter(Mandatory = $false)]
+        $RelPageName
+    )
+
+    # Base64-encodes the Personal Access Token (PAT) appropriately    
+    if($UsingExtension -eq "yes")
+    {
+        Write-Host "Using System Access Token"
+        $authorization  = @{Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN"} 
+        
+        $usr =  [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        $getcur = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+        $gp =   ConvertTo-Json  -InputObject $getcur.groups -Depth 24
+        Write-Host "Current User is : " $usr 
+        Write-Host "Current User Group is : "  $gp 
+
+    }else {
+        $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail        
+    }
+
+    try {
+        # get all wiki for given org
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/wikis/list?view=azure-devops-rest-6.1
+        # GET https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis?api-version=6.1-preview.2
+        $wikiUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis?api-version=6.1-preview.2"
+        $wikiUri = $wikiUri.Replace(" ","%20")
+        $allWikifnd = Invoke-RestMethod -Uri $wikiUri -Method Get -Headers $authorization
+
+        # find desired wiki to use
+        $allWiki = $allWikifnd.value | Where-Object {$_.name -eq $userParams.PublishWiKi }
+
+        Write-Host ""
+        Write-Host "==========   WiKi Page Build Section  =========="
+        Write-Host "Wiki found :"  $allWiki.name
+        Write-Host "WiKi ID    :" $allWiki.id
+        Write-host "WiKi Type  :" $allWiki.type
+       
+    }
+    catch {
+        $ErrorMessage = $_.Exception.Message      
+        Write-Host "Error in getting Main WiKi : " + $ErrorMessage 
+    }
+
+    #
+    # create parent page if it does not exist
+    #
+    try 
+    {
+        # first see if parent page exists, if not create it
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/get-page?view=azure-devops-rest-6.1#examples
+        $FindPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $allWiki.Name + "/pages?path=" + $userParams.PublishParent  + "&api-version=6.1-preview.1" 
+        $FindParentPage = Invoke-RestMethod -Uri $FindPageUri -Method Get -ContentType "application/json" -Headers $authorization 
+        Write-Host "Parent Page exist :  $userParams.PublishParent  " $FindParentPage.content       
+    }
+    catch {
+        $ErrorMessage = $_.Exception.Message
+        Write-Host "Error in creating parent WiKi page : " $userParams.PublishParent  
+        Write-Host "Error returned  : " + $ErrorMessage 
+               
+        $tmData = @{
+            content  = "Parent Release Notes Page"
+        }
+        $tmJson = ConvertTo-Json -InputObject $tmData    
+        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $allWiki.Name + "/pages?path=" + $userParams.PublishParent  + "&api-version=6.1-preview.1" 
+        $CreatePage = Invoke-RestMethod -Uri $CreatePageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $tmJson -Verbose
+        Write-Host "Parent Page Created : $userParams.PublishParent  " $CreatePage
+
+    }
+
+    #
+    # Create wiki page if it does not exist, if exists it will throw an error
+    #
+    # create project page in wiki
+    if([string]::IsNullOrEmpty($RelPageName) )
+    {
+        $landingPg = $userParams.PublishParent + "/" + $userParams.PublishPagePrfx 
+    }
+    else
+    {
+        $landingPg = $userParams.PublishParent + "/" + $RelPageName    
+    }
+
+    try
+    {
+        #DELETE https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&api-version=7.1-preview.1
+        #https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/delete-page?view=azure-devops-rest-7.1
+        $DeletePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $allWiki.Name + "/pages?path=" + $landingPg + "&api-version=7.1-preview.1" 
+        $DeletePage = Invoke-RestMethod -Uri $DeletePageUri -Method Delete -Headers $authorization
+        Write-Host $DeletePage
+
+
+    }
+    catch {
+        $ErrorMessage = $_.Exception.Message
+        $FailedItem = $_.Exception.ItemName
+    }
+    try 
+    {
+       $blankData = @{
+            content  =  $contentData
+        }
+        $BlankJson = ConvertTo-Json -InputObject $blankData
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/create%20or%20update?view=azure-devops-rest-6.1
+        # PUT https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&api-version=6.1-preview.1
+        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $allWiki.Name + "/pages?path=" + $landingPg + "&api-version=6.0" 
+        $CreatePage = Invoke-RestMethod -Uri $CreatePageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $BlankJson
+        Write-Host $CreatePage
+        Write-Host "WiKi Landing Page Created "
+    }
+    catch {
+        
+        $ErrorMessage = $_.Exception.Message
+        $FailedItem = $_.Exception.ItemName
+        Write-Host "Error Creating parent Page : " $ErrorMessage 
+        Write-Host "WiKi Landing Page exists "
+    }   
+
+
+     Write-Host "Page created - Release Notes complete"
+     Write-Host $AddPage
+
+}
+
+
 function Set-ReleaseNotesToWiKi()
 {
     Param(
@@ -826,14 +960,17 @@ function Set-ReleaseNotesToWiKi()
         # GET https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis?api-version=6.1-preview.2
         $wikiUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis?api-version=6.1-preview.2"
         $wikiUri = $wikiUri.Replace(" ","%20")
-        $allWiki = Invoke-RestMethod -Uri $wikiUri -Method Get -Headers $authorization
+        $allWikifnd = Invoke-RestMethod -Uri $wikiUri -Method Get -Headers $authorization
+
+        # find desired wiki to use
+        $allWiki = $allWikifnd.value | Where-Object {$_.name -eq $userParams.PublishWiKi }
 
         Write-Host ""
         Write-Host "==========   WiKi Page Build Section  =========="
-        Write-Host "Wiki found :"  $allWiki.value[0].name
-        $wiki = $allWiki.value[0]
-        Write-Host "WiKi ID    :" $wiki.id
-
+        Write-Host "Wiki found :"  $allWiki.name
+        Write-Host "WiKi ID    :" $allWiki.id
+        Write-host "WiKi Type  :" $allWiki.type
+       
     }
     catch {
         $ErrorMessage = $_.Exception.Message
@@ -848,7 +985,7 @@ function Set-ReleaseNotesToWiKi()
     {
         # first see if parent page exists, if not create it
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/get-page?view=azure-devops-rest-6.1#examples
-        $FindPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Name + "/pages?path=" + $userParams.PublishParent  + "&api-version=6.1-preview.1" 
+        $FindPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $allWiki.Name + "/pages?path=" + $userParams.PublishParent  + "&api-version=6.1-preview.1" 
         $FindParentPage = Invoke-RestMethod -Uri $FindPageUri -Method Get -ContentType "application/json" -Headers $authorization 
         Write-Host "Parent Page exist :  $userParams.PublishParent  " $FindParentPage.content       
     }
@@ -862,8 +999,8 @@ function Set-ReleaseNotesToWiKi()
             content  = "Parent Release Notes Page"
         }
         $tmJson = ConvertTo-Json -InputObject $tmData    
-        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Name + "/pages?path=" + $userParams.PublishParent  + "&api-version=6.0" 
-        $CreatePage = Invoke-RestMethod -Uri $CreatePageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $tmJson
+        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $allWiki.Name + "/pages?path=" + $userParams.PublishParent  + "&api-version=6.1-preview.1" 
+        $CreatePage = Invoke-RestMethod -Uri $CreatePageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $tmJson -Verbose
         Write-Host "Parent Page Created : $userParams.PublishParent  " $CreatePage
 
     }
@@ -872,7 +1009,14 @@ function Set-ReleaseNotesToWiKi()
     # Create wiki page if it does not exist, if exists it will throw an error
     #
     # create project page in wiki
-    $landingPg = $userParams.PublishParent + "/" + $userParams.PublishPagePrfx 
+    if([string]::IsNullOrEmpty($RelPageName) )
+    {
+        $landingPg = $userParams.PublishParent + "/" + $userParams.PublishPagePrfx 
+    }
+    else
+    {
+        $landingPg = $userParams.PublishParent + "/" + $RelPageName    
+    }
 
     try 
     {
@@ -882,7 +1026,7 @@ function Set-ReleaseNotesToWiKi()
         $BlankJson = ConvertTo-Json -InputObject $blankData
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/create%20or%20update?view=azure-devops-rest-6.1
         # PUT https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&api-version=6.1-preview.1
-        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Name + "/pages?path=" + $landingPg + "&api-version=6.0" 
+        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $allWiki.Name + "/pages?path=" + $landingPg + "&api-version=6.0" 
         $CreatePage = Invoke-RestMethod -Uri $CreatePageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $BlankJson
         Write-Host $CreatePage
         Write-Host "WiKi Landing Page Created "
@@ -1041,9 +1185,49 @@ function Set-ReleaseNotesToWiKi()
     try {
 
         Write-Host "Begin Writting to WiKi "
-        
+     
+        # write to code wiki page
+        if ($allWiki.type -eq "codewiki")
+        {
+            $tmData = @{
+                refUpdates  = @{
+                    name = "ref/heads/master"
+                    newObjectId =  [guid]::NewGuid()
+                }
+                commits = @{
+                    comment = "new file"
+                    changes = @{
+                        changeType = "add"
+                        item = @{
+                            path = "/testaag.md"
+                        }
+                        newContent = @{
+                            content = $contentData
+                            contentType = "rawtext"
+                        }
+                    }
+                }
+            }
+
+            $tmJson = ConvertTo-Json -InputObject $tmData    
+
+            # test writing to code wiki
+            # https://docs.microsoft.com/en-us/rest/api/azure/devops/git/pushes/create?view=azure-devops-rest-6.1
+            # POST https://dev.azure.com/{organization}/{project}/_apis/git/repositories/{repositoryId}/pushes?api-version=6.1-preview.2
+            $codeWiki = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/git/repositories/" + $allWiki.repositoryId + "/pushes?api-version=6.1-preview.2"
+            $writeCodeWiki = Invoke-RestMethod -Uri $codeWiki -Method Put -ContentType "application/json" -Headers $authorization -Body $tmJson -Verbose
+        }
+   
+
         # Parent page / release notes page   
-        $landingPg = $userParams.PublishParent + "/"  + $userParams.PublishPagePrfx 
+        if([string]::IsNullOrEmpty($RelPageName) )
+        {
+            $landingPg = $userParams.PublishParent + "/" + $userParams.PublishPagePrfx 
+        }
+        else
+        {
+            $landingPg = $userParams.PublishParent + "/" + $RelPageName    
+        }
         $tmData = @{
                 content  = $contentData
         }
@@ -1051,7 +1235,7 @@ function Set-ReleaseNotesToWiKi()
                               
         # add etag to the header. for update to work, must have etag in header
         # Base64-encodes the Personal Access Token (PAT) appropriately + etag used to allow update to wiki page
-        $getPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Name + "/pages?path=" + $landingPg + "&recursionLevel=Full&api-version=6.0"
+        $getPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $allWiki.Name + "/pages?path=" + $landingPg + "&recursionLevel=Full&api-version=6.1-preview.1"
         $GetPage = Invoke-WebRequest -Uri $getPageUri -Method Get -ContentType "application/json" -Headers $authorization -UseBasicParsing
 
         # add etag to the header. for update to work, must have etag in header
@@ -1063,12 +1247,12 @@ function Set-ReleaseNotesToWiKi()
             $authorization =  GetADOTokenWithEtagForExt  -eTag $GetPage.Headers.ETag   
             Write-Host $authorization
         }else {
-            $authorization = GetVSTSCredentialWithEtag -Token $userParams.PAT -userEmail $userParams.userEmail  -eTag $GetPage.Headers.ETag      
+            $authorization = GetVSTSCredentialWithEtag -Token $userParams.PAT -userEmail $userParams.userEmail     
         }
        
         # update or create page if it does not exist
-        $AddPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Name + "/pages?path=" + $landingPg + "&api-version=6.0"
-        $AddPage = Invoke-RestMethod -Uri $AddPageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $tmJson -UseBasicParsing -Verbose
+        $AddPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $allWiki.Name + "/pages?path=" + $landingPg + "&api-version=6.1-preview.1"
+        $AddPage = Invoke-RestMethod -Uri $AddPageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $tmJson -Verbose
 
         Write-Host "Page created - Release Notes complete"
         Write-Host $AddPage
@@ -1137,3 +1321,306 @@ function GetVSTSCredentialWithEtag () {
             }
 }
 
+function GetWorkItemsByField()
+{
+    Param(
+        [Parameter(Mandatory = $true)]
+        $userParams,
+        [Parameter(Mandatory = $false)]
+        $Data,
+        [Parameter(Mandatory = $false)]
+        $UsingExtension
+    )
+
+    # Base64-encodes the Personal Access Token (PAT) appropriately    
+    if($UsingExtension -eq "yes")
+    {
+        Write-Host "Using System Access Token"
+        $authorization  = @{Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN"} 
+        
+        $usr =  [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        $getcur = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+        $gp =   ConvertTo-Json  -InputObject $getcur.groups -Depth 24
+        Write-Host "Current User is : " $usr 
+        Write-Host "Current User Group is : "  $gp 
+
+    }else {
+        $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail        
+    }
+  
+    # first get project because we need project id
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/core/projects/list?view=azure-devops-rest-7.1
+    # GET https://dev.azure.com/{organization}/_apis/projects?api-version=7.1-preview.4
+    $AllProjectsUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects?api-version=7.1-preview.4"     
+    $AllProjects = Invoke-RestMethod -Uri $AllProjectsUrl -Method Get -Headers $authorization
+    $project = $AllProjects.value | Where-Object {$_.name -eq $userParams.ProjectName}
+    Write-Host $project
+
+    # get query list and find specific query for current release
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/queries/list?view=azure-devops-rest-7.1
+    # GET https://dev.azure.com/{organization}/{project}/_apis/wit/queries?api-version=7.1-preview.2
+    $queryUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +"/" +  $project.Id +"/_apis/wit/queries?" + '$expand=all&$depth=1&api-version=7.1-preview.2'
+    $query = Invoke-RestMethod -Uri $queryUrl -Method Get -Headers $authorization -ContentType "application/json" 
+    $sharedQry =  $query.value | Where-Object {$_.name -eq "Shared Queries"}
+    $currRelQuery =  $sharedQry.children | Where-Object {$_.name -eq $userParams.CurrentWitemQry }
+   
+    $futureRelQuery =  $sharedQry.children | Where-Object {$_.name -eq $userParams.FutureWitemQry}
+
+    # get all workitems that are complete and of type
+    # POST https://dev.azure.com/{organization}/{project}/{team}/_apis/wit/wiql?api-version=7.1-preview.2
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query-by-wiql?view=azure-devops-rest-7.1#examples
+    $tmData = @{
+        query = $currRelQuery.wiql
+    }
+    $qryText = ConvertTo-Json -InputObject $tmData  
+
+    $tmData = @{
+        query = $futureRelQuery.wiql
+    }
+    $qryFutureText = ConvertTo-Json -InputObject $tmData  
+
+    # get current query items
+    $queryUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +"/" +  $project.Id +"/" + $userParams.DefaultTeam +"/_apis/wit/wiql?api-version=7.1-preview.2"     
+    $currquery = Invoke-RestMethod -Uri $queryUrl -Method Post -Headers $authorization -Body $qryText -ContentType "application/json" 
+    
+    # get future query items
+    $futurequery = Invoke-RestMethod -Uri $queryUrl -Method Post -Headers $authorization -Body $qryFutureText -ContentType "application/json" 
+
+    # setup array to house results
+    $AllWorkItems = @()
+    $FutureWkItems = @()
+
+    foreach ($wk in $currquery.workItems) 
+    {
+        $WorItemUrl =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $wk.Id + "?expand=Fields&api-version=7.1-preview.3"
+        $WorkItem = Invoke-RestMethod -Uri $WorItemUrl -Method Get -Headers $authorization
+
+       if([string]::IsNullOrEmpty($WorkItem.fields.'Custom.ExcludefromReleaseNotes') -or $WorkItem.fields.'Custom.ExcludefromReleaseNotes' -ne "$true" )
+       {
+            Write-Host  $WorkItem.fields.'System.Title'
+            $stg = New-Object -TypeName PSObject -Property @{
+                Id = $wk.Id
+                Title =  $WorkItem.fields.'System.Title'
+                RequestType = $WorkItem.fields.'Custom.RequestType'
+                Program = $WorkItem.fields.'Custom.Program'
+                Bucket = $WorkItem.fields.'Custom.Bucket'
+                Description = $WorkItem.fields.'Custom.CTI'
+                Sprint = $WorkItem.fields.'Custom.Sprint'
+                Team = $WorkItem.fields.'Custom.Team'
+                Leads = $WorkItem.fields.'Custom.ProgramOwner'
+            }
+            $AllWorkItems += $stg   
+            $stg = $null           
+        }
+        else
+        {
+            Write-Host  $WorkItem.fields.'System.Title' + " excluded from release "
+        }
+    }
+
+    # loop thru all future work items and store in array
+    foreach ($wk in $futurequery.workItems) 
+    {
+        $WorItemUrl =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $wk.Id + "?expand=Fields&api-version=7.1-preview.3"
+        $WorkItem = Invoke-RestMethod -Uri $WorItemUrl -Method Get -Headers $authorization
+
+        Write-Host  $WorkItem.fields.'System.Title'
+        $stg = New-Object -TypeName PSObject -Property @{
+            Id = $wk.Id
+            Title =  $WorkItem.fields.'System.Title'
+            RequestType = $WorkItem.fields.'Custom.RequestType'
+            Program = $WorkItem.fields.'Custom.Program'
+            Bucket = $WorkItem.fields.'Custom.Bucket'
+            Description = $WorkItem.fields.'Custom.CTI'
+            Sprint = $WorkItem.fields.'Custom.Sprint'
+            Team = $WorkItem.fields.'Custom.Team'
+            Leads = $WorkItem.fields.'Custom.ProgramOwner'
+        }
+        $FutureWkItems += $stg   
+        $stg = $null           
+    }
+
+    # sort data by Bucket and generate wiki markup
+    $srtData =  $AllWorkItems | Sort-Object -Property Program 
+    $srtFutureData =  $FutureWkItems | Sort-Object -Property Program 
+    
+    $lstBucket = ""
+    $lstNull = "false"
+
+    [int]$cnt = 1
+    $dt = Get-Date -format "dddd MM/dd/yyyy HH:mm K"
+    $contentData = "" 
+    $contentData = "[[_TOC_]]" + $([char]13) + $([char]10) 
+    $contentData +=  $([char]13) + $([char]10) 
+    $contentData +=  "_Release Notes from ISCJ Programs Requests Work Items_"
+    $contentData +=  $([char]13) + $([char]10) 
+    $contentData +=  "_Release Notes Created        : "  + $dt + "_"
+    $contentData +=  $([char]13) + $([char]10) 
+
+    $contentData +=  $([char]13) + $([char]10) 
+    $contentData +=  $([char]13) + $([char]10)     
+    $contentData += "**Whats New**" +  $([char]13) + $([char]10) 
+   
+    $dte = Get-Date -Format "MM/dd" 
+    $contentData += " The " + $dte + " release cycle "
+   
+    $contentData += $userParams.WhatsNewComment + $([char]13) + $([char]10)
+    $contentData +=  $([char]13) + $([char]10) 
+
+    $contentData += "*Feedback?  Questions?*   askISCJprograms@microsoft.com" + $([char]13) + $([char]10)
+    $contentData += "*Suggested program/system/tooling enhancements?*   https://aka.ms/ISCJProgramsRequest" + $([char]13) + $([char]10)
+    $contentData +=  $([char]13) + $([char]10) 
+
+    $contentData += "# Shipped in the previous sprint"
+    $contentData +=  $([char]13) + $([char]10) 
+    $contentData +=  $([char]13) + $([char]10) 
+ 
+    foreach ($srt in $srtData)
+    {
+       IF ([string]::IsNullOrEmpty($srt.Program) -and $lstNull -eq "false") 
+       {
+        $contentData +=  $([char]13) + $([char]10) 
+        $contentData +=  $([char]13) + $([char]10) 
+        $contentData += "##" + " No Program" + $([char]13) + $([char]10) 
+        $lstBucket = ""
+        $lstNull = "true"
+       }
+       else 
+       {
+           if($lstBucket -ne $srt.Program)
+           {
+            $contentData +=  $([char]13) + $([char]10) 
+            $contentData +=  $([char]13) + $([char]10) 
+            $contentData += "## " + $srt.Program + $([char]13) + $([char]10) 
+            $cnt = 1
+           }
+
+       }
+
+       $contentData += $cnt.ToString() + ". **" 
+       $contentData += $srt.Title.Trim() + "**"
+
+       $pjName = $userParams.ProjectName.Replace(" ","%20")
+       $url = "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $pjName + "/_workitems/edit/" + $srt.id + ")"
+       $contentData += " [" + $srt.id + "]" + $url  + $([char]13) + $([char]10) 
+       $contentData += " <U>Lead: </U>"
+       
+       # add tag for leads
+       if(![string]::IsNullOrEmpty($srt.Leads.Displayname) )
+       {
+            # for testing dont tag leads as it will show in inbox
+            if($userParams.TagLeads -eq $true)
+            {
+                $contentData +=  "@<" + $srt.Leads.uniqueName + ">" + $([char]13) + $([char]10) 
+            }
+            else
+            {
+                $contentData +=  $srt.Leads.Displayname + $([char]13) + $([char]10)                 
+            }
+       }
+       else
+       {
+        $contentData += $([char]13) + $([char]10) 
+       }
+
+       $desc = ""       
+       IF (![string]::IsNullOrEmpty($srt.Description) )
+       {
+            $HTML = New-Object -Com "HTMLFile"      
+            $Unicode = [System.Text.Encoding]::Unicode.GetBytes($srt.Description)
+            if ($HTML.IHTMLDocument2_Write) {
+                $HTML.IHTMLDocument2_Write($Unicode)
+            } else {
+                $HTML.write($Unicode)
+            }
+            $desc += $HTML.all.tags("div") | % InnerText
+    
+            # embed link in description
+            $lnkUrl = ""
+            $lnkUrl += $HTML.all.tags("a")
+            Write-Host "Anchor Tag " $lnkUrl
+            IF (![string]::IsNullOrEmpty($HTML.links[0].href) ) 
+            {
+                $desc = $desc.replace($HTML.links[0].outerText,  " [" + $HTML.links[0].outerText + "](" + $HTML.links[0].href + ") " )
+                #$desc += " [" + $HTML.links[0].outerText + "](" + $HTML.links[0].href + ") "
+            }
+            $desc += $HTML.all.tags("li") | % InnerText
+    
+       } 
+
+       $contentData += " <U>Description:</U> " + $desc +  $([char]13) + $([char]10)  
+
+       $cnt = $cnt + 1
+       $lstBucket = $srt.Program
+    }
+
+    $lstBucket = ""
+    $lstNull = "false"
+    $contentData +=  $([char]13) + $([char]10) 
+    $contentData +=  $([char]13) + $([char]10) 
+
+    $contentData += "# What's planned for the next 2 sprints" + $([char]13) + $([char]10) 
+    $contentData +=  $([char]13) + $([char]10) 
+    $contentData +=  $([char]13) + $([char]10) 
+    [int]$cnt = 1
+    
+    # get future items
+    foreach ($srt in $srtFutureData)
+    {
+       IF ([string]::IsNullOrEmpty($srt.Program) -and $lstNull -eq "false") 
+       {
+        $contentData +=  $([char]13) + $([char]10) 
+        $contentData +=  $([char]13) + $([char]10) 
+        $contentData += "##" + " No Program" + $([char]13) + $([char]10) 
+        $lstBucket = ""
+        $lstNull = "true"
+       }
+       else 
+       {
+           if($lstBucket -ne $srt.Program)
+           {
+            $contentData +=  $([char]13) + $([char]10) 
+            $contentData +=  $([char]13) + $([char]10) 
+            $contentData += "## " + $srt.Program + $([char]13) + $([char]10) 
+            $cnt = 1
+           }
+       }
+
+       $contentData += $cnt.ToString() + ". "
+       $contentData += $srt.Title 
+
+       $pjName = $userParams.ProjectName.Replace(" ","%20")
+       $url = "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $pjName + "/_workitems/edit/" + $srt.id + ")"
+       $contentData += " [" + $srt.id + "]" + $url  + $([char]13) + $([char]10) 
+       
+    #   $contentData += " **Leads:** " + $srt.Leads.Displayname + $([char]13) + $([char]10) 
+  
+    #    $HTML = New-Object -Com "HTMLFile"
+    #    $HTML.IHTMLDocument2_write($srt.Description)
+       
+    #    $desc = ""
+    #    $desc += $HTML.all.tags("div") | % InnerText
+    #    $desc += $HTML.all.tags("span") | % InnerText
+       
+    #    # embed link in description
+    #    $lnkUrl = ""
+    #    $lnkUrl += $HTML.all.tags("a")
+    #    IF (![string]::IsNullOrEmpty($HTML.links[0].href) ) 
+    #    {
+    #         $desc += " [" + $HTML.links[0].IHTMLElement_outerText + "](" + $HTML.links[0].href + ") "
+    #    }
+    #    $desc += $HTML.all.tags("li") | % InnerText
+    #    $contentData += " **Description :** " + $desc +  $([char]13) + $([char]10)  
+
+       $cnt = $cnt + 1
+       $lstBucket = $srt.Program
+    }
+
+    # set page name to todays date plus prefix
+    $relpg = get-date -Format "yyyy-MM-dd" 
+    $relpg += ":" + $userParams.PublishPagePrfx
+
+    WriteToWikiPage -userParams $userParams -contentData $contentData -UsingExtension $UsingExtension -RelPageName $relpg 
+
+       
+}

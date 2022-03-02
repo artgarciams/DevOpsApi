@@ -1646,13 +1646,8 @@ function ListGitBranches(){
     # Base64-encodes the Personal Access Token (PAT) appropriately
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
 
-
-
      try {
         
-        $url = "https://management.azure.com/subscriptions/" + $userParams.SubscriptionId + "/providers/Microsoft.ResourceHealth/availabilityStatuses?api-version=2015-01-01"               
-        $Allservices = Invoke-RestMethod -Uri $url -Method Get -ContentType "application/json" -Headers $authorization 
-
         Write-Output "  " | Out-File -FilePath $outFile 
         if($GetAllProjects -eq "yes")
         {
@@ -1712,8 +1707,9 @@ function ListGitBranches(){
             
             # find git repo
             # https://docs.microsoft.com/en-us/rest/api/azure/devops/git/repositories/list?view=azure-devops-rest-5.0
+            # GET https://dev.azure.com/{organization}/{project}/_apis/git/repositories?includeLinks={includeLinks}&includeAllUrls={includeAllUrls}&includeHidden={includeHidden}&api-version=6.0
             # GET https://dev.azure.com/{organization}/{project}/_apis/git/repositories?api-version=5.0
-            $listProviderURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories?api-version=5.0"
+            $listProviderURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/git/repositories?includeLinks=True&includeAllUrls=True&includeHidden=True&api-version=6.0"
             $repo = Invoke-RestMethod -Uri $listProviderURL -Method Get -ContentType "application/json" -Headers $authorization 
             
             Write-Output "  " | Out-File -FilePath $outFile 
@@ -2387,6 +2383,27 @@ function Get-ResourceGroupBySubscription()
 
 }
 
+function Get-ProjectMetrics()
+{
+    Param(
+        [Parameter(Mandatory = $false)]
+        $userParams
+    )
+
+    
+    # Base64-encodes the Personal Access Token (PAT) appropriately
+    $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
+    
+    # get list of project metrics
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/metrics/get-project-metrics?view=azure-devops-rest-5.0
+    # GET https://dev.azure.com/{organization}/{project}/_apis/build/metrics/{metricAggregationType}?api-version=5.0-preview.1
+    $listProJectsUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" +  $userParams.ProjectName + "/_apis/build/metrics/daily?api-version=5.0-preview.1"
+    $PrjMetricsDaily = Invoke-RestMethod -Uri $listProJectsUrl -Method Get -ContentType "application/json" -Headers $authorization 
+    
+    Write-Host $PrjMetricsDaily
+
+
+}
 function Get-AllAzureServices()
 {
     Param(
@@ -2411,12 +2428,13 @@ function Get-AllAzureServices()
         # product categories have a css class name of Product category   
         if($item.classname -eq "product-category")
         {
-            $product = $item.innertext           
+            $product = $item.innertext.Trim()          
         }
 
         # services have a class name of text-heading5 under the product categoty
         if ($item.classname -eq "text-heading5" )
         {
+            # if "preview" in description this is a service in preview
             if($item.innerText.Contains("Preview") )
             {
                 $preview = "Yes"
@@ -2425,9 +2443,9 @@ function Get-AllAzureServices()
             if (![string]::IsNullOrEmpty($outFile ) )
             {
                 Write-Output $product | Out-File $outFile  -Append -NoNewline
-                Write-Output "," $item.innerText | Out-File $outFile  -Append -NoNewline
+                Write-Output "," $item.innerText.Trim() | Out-File $outFile  -Append -NoNewline
                 Write-Output "," $preview  | Out-File $outFile  -Append -NoNewline
-                Write-Output "," $item.children[0].href.Replace("about:","https://azure.microsoft.com") | Out-File $outFile  -Append -NoNewline
+                Write-Output "," $item.children[0].href.Replace("about:","https://azure.microsoft.com").Trim() | Out-File $outFile  -Append -NoNewline
                 Write-Output " " | Out-File $outFile  -Append 
             }
             
@@ -2436,7 +2454,6 @@ function Get-AllAzureServices()
             Write-Host "     - "  $item.children[0].href
             Write-Host " "
             
-
             $chg = New-Object -TypeName PSObject -Property @{
             Category = $product 
             Preview = $preview

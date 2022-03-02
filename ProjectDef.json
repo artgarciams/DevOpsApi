@@ -1,18 +1,43 @@
 { 
-    
+    "VSTSMasterAcct" : "",
+    "userEmail"      : "",
+    "PAT"            : "",
+    "ProjectName"    : "",
+    "DefaultTeam"    : "",   
+	
+    "TagLeads"       : false,
+    "BuildTags"      : "",
+    "SubscriptionId" : "",
 
-    "PublishBldNote" : "This page is system generated. Do not Update this page. This is the Build Notes Section",
-    "PublishWKItNote": "This is the Work Item section note",
-    "PublishArtfNote": "Artifact notes go here",
-    "PermNoteTitle"  : "#Permanent Notes",
-    "PermNoteBody"   : "|test Item|\r|:---------|\r|this is a test of the permanent data section|",
+    "PublishWiKi"    : "",
+    "PublishParent"  : "",
+    "PublishPagePrfx": "",
+    "PublishSummary" : "",
+    "PublishBldNote" : "",
+    "PublishWKItNote": "",
+    "PublishArtfNote": "",
+    "PermNoteTitle"  : "",
+    "PermNoteBody"   : "",
     
     "PublishSaveStrt": "",
     "PublishSaveEnd" : "",
 
-    "WorkItemTypes"  : ["User Story","Bug","Task"],
+    "WhatsNewComment": "",
+    "CurrentWitemQry": "",
+    "FutureWitemQry" : "",
+
+    "WorkItemTypes"  : [],
     
-    "HTTP_preFix"    : "https",
-    "DirRoot"        :"C:\\tempData\\",
-    "GitListFile"    :""
+    "HTTP_preFix"    : "",
+	"OutPutToFile"   : "No",
+    "DirRoot"        : "",
+    "DumpDirectory"  : "",
+
+    "GitListFile"    : "",
+    "GroupFileName"  : "",
+    "rawDataFile"    : "",
+    "UserFileName"   : "",
+    "AllProjects"    : "",
+    "Namespaces"     : {}
 }
+
