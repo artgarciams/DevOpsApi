@@ -1516,7 +1516,7 @@ function GetWorkItemsByField()
        {
         $contentData += $([char]13) + $([char]10) 
        }
-
+      
        $desc = ""       
        IF (![string]::IsNullOrEmpty($srt.Description) )
        {
@@ -1527,24 +1527,79 @@ function GetWorkItemsByField()
             } else {
                 $HTML.write($Unicode)
             }
-            $desc += $HTML.all.tags("div") | % InnerText
-    
-            # embed link in description
-            $lnkUrl = ""
-            $lnkUrl += $HTML.all.tags("a")
-            Write-Host "Anchor Tag " $lnkUrl
-            IF (![string]::IsNullOrEmpty($HTML.links[0].href) ) 
+
+            # loop thru the HTML and filter out Tags
+            # Some DIV and SPAN tags have <A> anchor tags imbedded and you have to find them and replae the description
+            # careful not to duplicate inner text when building description
+            #
+            $lstATag = ""
+            $lstSpan = $false
+            foreach ($tag in $HTML.all) 
             {
-                $desc = $desc.replace($HTML.links[0].outerText,  " [" + $HTML.links[0].outerText + "](" + $HTML.links[0].href + ") " )
-                #$desc += " [" + $HTML.links[0].outerText + "](" + $HTML.links[0].href + ") "
-            }
-            $desc += $HTML.all.tags("li") | % InnerText
-    
+                Write-Host $tag.tagName " -- " $srt.Id " -- " $desc 
+                #
+                # swithcu thru the important tags and get description and link
+                switch ($tag.tagName) 
+                {
+                    "DIV"{
+                        $desc += $tag.outerText
+                        IF (![string]::IsNullOrEmpty($tag.href) ) 
+                        {
+                            if($lstATag -ne $tag.href)
+                            {
+                                $desc = $desc.replace($tag.outerText,  " [" + $tag.outerText + "](" + $tag.href + ") " )
+                            }
+                            $lstATag = $tag.href
+                        }                    
+                    }
+                    "SPAN" {
+                        if($lstSpan -eq $false)
+                        {
+                            if(!$desc.Contains($tag.outerText))
+                            {
+                                $desc += $tag.outerText
+                            }
+                        }
+                        else
+                        {
+                            $desc = $desc.replace($tag.outerText, $tag.outerText)
+                        }
+                        $lstSpan = $true
+                        #
+                        # loop thru any child tags
+                        foreach ($child in $tag.children) 
+                        {
+                            if($child.tagName -eq "A")
+                            {
+                                if($lstATag -ne $child.href )
+                                {
+                                    $desc = $desc.replace($child.innerText,  " [" + $child.innerText + "](" + $child.href + ") " )
+                                }
+                                $lstATag = $child.href
+                            }
+                        }
+                    }
+
+                    "A" {
+                        IF (![string]::IsNullOrEmpty($tag.href) ) 
+                        {
+                            if($lstATag -ne $tag.href)
+                            {
+                                $desc = $desc.replace($tag.outerText,  " [" + $tag.outerText + "](" + $tag.href + ") " )
+                            }
+                            $lstATag = $tag.href                            
+                        }
+                        
+                    }
+
+                    Default {}
+                }
+
+                Write-Host "Desc After Switch :" $desc
+            }    
        } 
 
-       $contentData += " <U>Description:</U> " + $desc +  $([char]13) + $([char]10)  
-
-       $cnt = $cnt + 1
+       $contentData += " <U>Description: </U> " + $desc +  $([char]13) + $([char]10)  
        $lstBucket = $srt.Program
     }
 
@@ -1587,25 +1642,6 @@ function GetWorkItemsByField()
        $url = "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $pjName + "/_workitems/edit/" + $srt.id + ")"
        $contentData += " [" + $srt.id + "]" + $url  + $([char]13) + $([char]10) 
        
-    #   $contentData += " **Leads:** " + $srt.Leads.Displayname + $([char]13) + $([char]10) 
-  
-    #    $HTML = New-Object -Com "HTMLFile"
-    #    $HTML.IHTMLDocument2_write($srt.Description)
-       
-    #    $desc = ""
-    #    $desc += $HTML.all.tags("div") | % InnerText
-    #    $desc += $HTML.all.tags("span") | % InnerText
-       
-    #    # embed link in description
-    #    $lnkUrl = ""
-    #    $lnkUrl += $HTML.all.tags("a")
-    #    IF (![string]::IsNullOrEmpty($HTML.links[0].href) ) 
-    #    {
-    #         $desc += " [" + $HTML.links[0].IHTMLElement_outerText + "](" + $HTML.links[0].href + ") "
-    #    }
-    #    $desc += $HTML.all.tags("li") | % InnerText
-    #    $contentData += " **Description :** " + $desc +  $([char]13) + $([char]10)  
-
        $cnt = $cnt + 1
        $lstBucket = $srt.Program
     }
