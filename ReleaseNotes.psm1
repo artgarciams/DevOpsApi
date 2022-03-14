@@ -1434,9 +1434,9 @@ function GetWorkItemsByField()
         $stg = $null           
     }
 
-    # sort data by Bucket and generate wiki markup
-    $srtData =  $AllWorkItems | Sort-Object -Property Program 
-    $srtFutureData =  $FutureWkItems | Sort-Object -Property Program 
+    # sort data by Bucket , title and generate wiki markup
+    $srtData =  $AllWorkItems | Sort-Object -Property @{Expression={$_.Program}; Descending=$false}, @{Expression={$_.Title}; Descending=$false}
+    $srtFutureData =  $FutureWkItems | Sort-Object -Property  @{Expression={$_.Program}; Descending=$false}, @{Expression={$_.Title}; Descending=$false} 
     
     $lstBucket = ""
     $lstNull = "false"
@@ -1517,7 +1517,9 @@ function GetWorkItemsByField()
         $contentData += $([char]13) + $([char]10) 
        }
       
-       $desc = ""       
+       $desc = ""     
+       $atags = $false
+
        IF (![string]::IsNullOrEmpty($srt.Description) )
        {
             $HTML = New-Object -Com "HTMLFile"      
@@ -1577,11 +1579,13 @@ function GetWorkItemsByField()
                                 }
                                 $lstATag = $child.href
                             }
+                            $atags = $true
                         }
+                        
                     }
 
                     "A" {
-                        IF (![string]::IsNullOrEmpty($tag.href) ) 
+                        IF (![string]::IsNullOrEmpty($tag.href) -and $atags -eq $false ) 
                         {
                             if($lstATag -ne $tag.href)
                             {
