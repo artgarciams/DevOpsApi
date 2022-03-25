@@ -1369,22 +1369,26 @@ function GetWorkItemsByField()
     # get all workitems that are complete and of type
     # POST https://dev.azure.com/{organization}/{project}/{team}/_apis/wit/wiql?api-version=7.1-preview.2
     # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query-by-wiql?view=azure-devops-rest-7.1#examples
+
+    
     $tmData = @{
         query = $currRelQuery.wiql
     }
     $qryText = ConvertTo-Json -InputObject $tmData  
-
-    $tmData = @{
-        query = $futureRelQuery.wiql
-    }
-    $qryFutureText = ConvertTo-Json -InputObject $tmData  
-
     # get current query items
     $queryUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +"/" +  $project.Id +"/" + $userParams.DefaultTeam +"/_apis/wit/wiql?api-version=7.1-preview.2"     
     $currquery = Invoke-RestMethod -Uri $queryUrl -Method Post -Headers $authorization -Body $qryText -ContentType "application/json" 
-    
-    # get future query items
-    $futurequery = Invoke-RestMethod -Uri $queryUrl -Method Post -Headers $authorization -Body $qryFutureText -ContentType "application/json" 
+
+    IF (![string]::IsNullOrEmpty($futureRelQuery.wiql) )
+    {
+        $tmData = @{
+            query = $futureRelQuery.wiql
+        }
+        $qryFutureText = ConvertTo-Json -InputObject $tmData  
+
+        # get future query items
+        $futurequery = Invoke-RestMethod -Uri $queryUrl -Method Post -Headers $authorization -Body $qryFutureText -ContentType "application/json" 
+    }      
 
     # setup array to house results
     $AllWorkItems = @()
@@ -1412,32 +1416,37 @@ function GetWorkItemsByField()
       
     }
 
-    # loop thru all future work items and store in array
-    foreach ($wk in $futurequery.workItems) 
+    IF (![string]::IsNullOrEmpty($futureRelQuery.wiql) )
     {
-        $WorItemUrl =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $wk.Id + "?expand=Fields&api-version=7.1-preview.3"
-        $WorkItem = Invoke-RestMethod -Uri $WorItemUrl -Method Get -Headers $authorization
+        # loop thru all future work items and store in array
+        foreach ($wk in $futurequery.workItems) 
+        {
+            $WorItemUrl =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $wk.Id + "?expand=Fields&api-version=7.1-preview.3"
+            $WorkItem = Invoke-RestMethod -Uri $WorItemUrl -Method Get -Headers $authorization
 
-        Write-Host  $WorkItem.fields.'System.Title'
-        $stg = New-Object -TypeName PSObject -Property @{
-            Id = $wk.Id
-            Title =  $WorkItem.fields.'System.Title'
-            RequestType = $WorkItem.fields.'Custom.RequestType'
-            Program = $WorkItem.fields.'Custom.Program'
-            Bucket = $WorkItem.fields.'Custom.Bucket'
-            Description = $WorkItem.fields.'Custom.CTI'
-            Sprint = $WorkItem.fields.'Custom.Sprint'
-            Team = $WorkItem.fields.'Custom.Team'
-            Leads = $WorkItem.fields.'Custom.ProgramOwner'
+            Write-Host  $WorkItem.fields.'System.Title'
+            $stg = New-Object -TypeName PSObject -Property @{
+                Id = $wk.Id
+                Title =  $WorkItem.fields.'System.Title'
+                RequestType = $WorkItem.fields.'Custom.RequestType'
+                Program = $WorkItem.fields.'Custom.Program'
+                Bucket = $WorkItem.fields.'Custom.Bucket'
+                Description = $WorkItem.fields.'Custom.CTI'
+                Sprint = $WorkItem.fields.'Custom.Sprint'
+                Team = $WorkItem.fields.'Custom.Team'
+                Leads = $WorkItem.fields.'Custom.ProgramOwner'
+            }
+            $FutureWkItems += $stg   
+            $stg = $null           
         }
-        $FutureWkItems += $stg   
-        $stg = $null           
-    }
 
+        # sort data by Bucket , title and generate wiki markup
+        $srtFutureData =  $FutureWkItems | Sort-Object -Property  @{Expression={$_.Program}; Descending=$false}, @{Expression={$_.Title}; Descending=$false} 
+    }
+    
     # sort data by Bucket , title and generate wiki markup
     $srtData =  $AllWorkItems | Sort-Object -Property @{Expression={$_.Program}; Descending=$false}, @{Expression={$_.Title}; Descending=$false}
-    $srtFutureData =  $FutureWkItems | Sort-Object -Property  @{Expression={$_.Program}; Descending=$false}, @{Expression={$_.Title}; Descending=$false} 
-    
+
     $lstBucket = ""
     $lstNull = "false"
 
@@ -1612,42 +1621,47 @@ function GetWorkItemsByField()
     $contentData +=  $([char]13) + $([char]10) 
     $contentData +=  $([char]13) + $([char]10) 
 
-    $contentData += "# " + $userParams.FutureQryText + $([char]13) + $([char]10) 
-    $contentData +=  $([char]13) + $([char]10) 
-    $contentData +=  $([char]13) + $([char]10) 
-    [int]$cnt = 1
-    
-    # get future items
-    foreach ($srt in $srtFutureData)
+    # second query - omit this section if query is not provided
+    IF (![string]::IsNullOrEmpty($futureRelQuery.wiql) )
     {
-       IF ([string]::IsNullOrEmpty($srt.Program) -and $lstNull -eq "false") 
-       {
+    
+        $contentData += "# " + $userParams.FutureQryText + $([char]13) + $([char]10) 
         $contentData +=  $([char]13) + $([char]10) 
         $contentData +=  $([char]13) + $([char]10) 
-        $contentData += "##" + " No Program" + $([char]13) + $([char]10) 
-        $lstBucket = ""
-        $lstNull = "true"
-       }
-       else 
-       {
-           if($lstBucket -ne $srt.Program)
-           {
-            $contentData +=  $([char]13) + $([char]10) 
-            $contentData +=  $([char]13) + $([char]10) 
-            $contentData += "## " + $srt.Program + $([char]13) + $([char]10) 
-            $cnt = 1
-           }
-       }
+        [int]$cnt = 1
+        
+        # get future items
+        foreach ($srt in $srtFutureData)
+        {
+            IF ([string]::IsNullOrEmpty($srt.Program) -and $lstNull -eq "false") 
+            {
+                $contentData +=  $([char]13) + $([char]10) 
+                $contentData +=  $([char]13) + $([char]10) 
+                $contentData += "##" + " No Program" + $([char]13) + $([char]10) 
+                $lstBucket = ""
+                $lstNull = "true"
+            }
+            else 
+            {
+                if($lstBucket -ne $srt.Program)
+                {
+                    $contentData +=  $([char]13) + $([char]10) 
+                    $contentData +=  $([char]13) + $([char]10) 
+                    $contentData += "## " + $srt.Program + $([char]13) + $([char]10) 
+                    $cnt = 1
+                }
+            }
 
-       $contentData += $cnt.ToString() + ". "
-       $contentData += $srt.Title 
+            $contentData += $cnt.ToString() + ". "
+            $contentData += $srt.Title 
 
-       $pjName = $userParams.ProjectName.Replace(" ","%20")
-       $url = "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $pjName + "/_workitems/edit/" + $srt.id + ")"
-       $contentData += " [" + $srt.id + "]" + $url  + $([char]13) + $([char]10) 
-       
-       $cnt = $cnt + 1
-       $lstBucket = $srt.Program
+            $pjName = $userParams.ProjectName.Replace(" ","%20")
+            $url = "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $pjName + "/_workitems/edit/" + $srt.id + ")"
+            $contentData += " [" + $srt.id + "]" + $url  + $([char]13) + $([char]10) 
+            
+            $cnt = $cnt + 1
+            $lstBucket = $srt.Program
+        }
     }
 
     # set page name to todays date plus prefix
