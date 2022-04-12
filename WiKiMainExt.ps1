@@ -79,10 +79,10 @@ Write-Host ""
 # generate a file for each build showing build info, work items, and approvals
 # for following parameters in ProjectDef. setting param to "" skips it
 #    
-#      "VSTSMasterAcct" : "fdx-strat-pgm",
+#      "VSTSMasterAcct" : "org name,
 #      "userEmail"      : "your email address",
 #      "PAT"            : "this is where you add your Personal access token (PAT) ",       
-#      "ProjectName"    : "fdx-surround",      - THIS IS THE NAME OF THE PROJECT YOU WANT TO REPORT ON
+#      "ProjectName"    : "project name",      - THIS IS THE NAME OF THE PROJECT YOU WANT TO REPORT ON
 #      "BuildTags"      : "Release:1.1.0",     - THIS IS THE RELEASE YOU WANT TO REPORT ON. NOTE IT MUST BE IN THE FORMAT SHOWN
 #                                                    :Release:x.x.x 
 #      "PublishWiKi"    : "lumina.wiki",           - THIS IS THE NAME OF THE WIKI TO PUBLISH TO 
@@ -104,10 +104,10 @@ $BuildData = Get-ReleaseNotesByBuildByTag  -userParams $userParameters -UsingExt
 # PublishSub value + the BuildTags value. it will put the page under  the PublishParent page and sub page called PublishSub. the Release
 # notes will reside in that page.
 #
-#      "VSTSMasterAcct" : "fdx-strat-pgm",
+#      "VSTSMasterAcct" : "org name",
 #      "userEmail"      : "your email address",
 #      "PAT"            : "this is where you add your Personal access token (PAT) ",       
-#      "ProjectName"    : "fdx-surround",      - THIS IS THE NAME OF THE PROJECT YOU WANT TO REPORT ON
+#      "ProjectName"    : "project name",      - THIS IS THE NAME OF THE PROJECT YOU WANT TO REPORT ON
 #      "BuildTags"      : "Release:1.1.0",     - THIS IS THE RELEASE YOU WANT TO REPORT ON. NOTE IT MUST BE IN THE FORMAT SHOWN
 #                                                    :Release:x.x.x 
 #      "PublishWiKi"    : "lumina.wiki",           - THIS IS THE NAME OF THE WIKI TO PUBLISH TO 
