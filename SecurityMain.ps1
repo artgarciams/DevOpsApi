@@ -31,7 +31,7 @@ Set-DirectoryStructure -userParams $userParameters
 
 
 # get list of members of group in project or all projects by adding -groupname "All"
-#       "VSTSMasterAcct" : "fdx-strat-pgm",
+#       "VSTSMasterAcct" : "",
 #       "userEmail"      : "arthur.garcia.osv@fedex.com",
 #       "PAT"            : "",       
 #       "ProjectName"    : "fdx-surround",
@@ -42,10 +42,10 @@ Get-AllUSerMembership  -userParams $userParameters -outFile $userParameters.User
 
 
 # Get all groups and there permissions
-#       "VSTSMasterAcct" : "fdx-strat-pgm", 
+#       "VSTSMasterAcct" : "", 
 #       "userEmail"      : "arthur.garcia.osv@fedex.com",
 #       "PAT"            : "",       
-#       "ProjectName"    : "fdx-surround",
+#       "ProjectName"    : "",
 #       "HTTP_preFix"    : "https",
 #       "Namespaces"     : ["Analytics","Tagging","Project","AnalyticsViews","AuditLog","BuildAdministration","Server","VersionControlPrivileges","Process","Collection"]
 #       "AllProjects"    : "True"
