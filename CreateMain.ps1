@@ -22,15 +22,20 @@ $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 Write-Output $userParameters.ProjectName
 Write-Output $userParameters.Description
 
+$userParameters.ProjectName = "Gov Portfolio"
+Get-AllFieldsWorkItemType -userParams $userParameters -InheritedProcessName "Opportunity Tracking - Master" -wkItemName "Government opportunity"  -OutputFile "C:\\tempdata\fields.txt"
 
-Get-ProjectMetrics -userParams $userParameters
+Copy-ProcessAndWorkItemType -userParams $userParameters -InheritedProcessName "Opportunity Tracking - Master" -DestinationProcess "Opportunity Tracking - Master" -NewWorkItemName "Master Opportunity" -WorkItemToCopy "Government opportunity"
+
+
+#Get-ProjectMetrics -userParams $userParameters
 
 #list available branches*
-ListGitBranches -userParams $userParameters -outFile ($userParameters.DirRoot + "\\" + $userParameters.GitListFile) -GetAllProjects "no"
+##ListGitBranches -userParams $userParameters -outFile ($userParameters.DirRoot + "\\" + $userParameters.GitListFile) -GetAllProjects "no"
 
 # list all azure services 
- $allServices = Get-AllAzureServices -outFile "C:\\tempdata\\services.txt"
- Write-Host $allServices
+# $allServices = Get-AllAzureServices -outFile "C:\\tempdata\\services.txt"
+# Write-Host $allServices
 
 # add a brance from master*
 #AddGitBranchFromMaster -userParams $userParameters -branchToCreate "refs/heads/release/v4"

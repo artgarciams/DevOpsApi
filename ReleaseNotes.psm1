@@ -1356,21 +1356,36 @@ function GetWorkItemsByField()
     $project = $AllProjects.value | Where-Object {$_.name -eq $userParams.ProjectName}
     Write-Host $project
 
+    # get all processes
+    # GET https://dev.azure.com/{organization}/_apis/work/processes?api-version=7.1-preview.2
+    $AllProcessesUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes?api-version=7.1-preview.2"     
+    $AllProcesses = Invoke-RestMethod -Uri $AllProcessesUrl -Method Get -Headers $authorization
+    $proc =  $AllProcesses.value | Where-Object {$_.name -eq "Pipeline Opportunity Tracking"}
+
+    # get work item types
+    # GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workitemtypes?api-version=7.1-preview.2
+    $AllWorkItemTypeUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId + "/workitemtypes?api-version=7.1-preview.2"     
+    $AllWorkItemTypes = Invoke-RestMethod -Uri $AllWorkItemTypeUrl -Method Get -Headers $authorization
+    $workType =  $AllWorkItemTypes.value | Where-Object {$_.name -eq "Government opportunity"}
+   
+    # get workitem type
+    #GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workitemtypes/{witRefName}?api-version=7.1-preview.2
+    $WorkItemTypeUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId + "/workitemtypes/" + $workType.referenceName + '?$expand=layout&api-version=7.1-preview.2'     
+    $WorkItemType = Invoke-RestMethod -Uri $WorkItemTypeUrl -Method Get -Headers $authorization
+   
+
     # get query list and find specific query for current release
     # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/queries/list?view=azure-devops-rest-7.1
     # GET https://dev.azure.com/{organization}/{project}/_apis/wit/queries?api-version=7.1-preview.2
     $queryUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +"/" +  $project.Id +"/_apis/wit/queries?" + '$expand=all&$depth=1&api-version=7.1-preview.2'
     $query = Invoke-RestMethod -Uri $queryUrl -Method Get -Headers $authorization -ContentType "application/json" 
+    
     $sharedQry =  $query.value | Where-Object {$_.name -eq "Shared Queries"}
     $currRelQuery =  $sharedQry.children | Where-Object {$_.name -eq $userParams.CurrentWitemQry }
    
     $futureRelQuery =  $sharedQry.children | Where-Object {$_.name -eq $userParams.FutureWitemQry}
 
-    # get all workitems that are complete and of type
-    # POST https://dev.azure.com/{organization}/{project}/{team}/_apis/wit/wiql?api-version=7.1-preview.2
-    # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query-by-wiql?view=azure-devops-rest-7.1#examples
-
-    
+        
     $tmData = @{
         query = $currRelQuery.wiql
     }
