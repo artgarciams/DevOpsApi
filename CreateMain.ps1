@@ -23,9 +23,9 @@ Write-Output $userParameters.ProjectName
 Write-Output $userParameters.Description
 
 $userParameters.ProjectName = "Gov Portfolio"
-Get-AllFieldsWorkItemType -userParams $userParameters -InheritedProcessName "Opportunity Tracking - Master" -wkItemName "Government opportunity"  -OutputFile "C:\\tempdata\fields.txt"
+#Get-AllFieldsWorkItemType -userParams $userParameters -InheritedProcessName "Opportunity Tracking - Master" -wkItemName "Government opportunity"  -OutputFile "C:\\tempdata\fields.txt"
 
-Copy-ProcessAndWorkItemType -userParams $userParameters -InheritedProcessName "Opportunity Tracking - Master" -DestinationProcess "Opportunity Tracking - Master" -NewWorkItemName "Master Opportunity" -WorkItemToCopy "Government opportunity"
+Copy-ProcessAndWorkItemType -userParams $userParameters -InheritedProcessName "Opportunity Tracking - Master" -DestinationProcess "Opportunity Tracking - Master" -NewWorkItemName "Test Opportunity" -WorkItemToCopy "Government opportunity"
 
 
 #Get-ProjectMetrics -userParams $userParameters

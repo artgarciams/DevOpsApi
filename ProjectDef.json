@@ -9,7 +9,7 @@
     "BuildTags"      : "TEST123",
     "SubscriptionId" : "",
 
-    "PublishWiKi"    : "ISCJ-Global-Programs.wiki",
+    "PublishWiKi"    : "",
     "PublishParent"  : "Automated Release Notes",
     "PublishPagePrfx": "Release Notes",
     "PublishSummary" : "This release will encomass many things.",
