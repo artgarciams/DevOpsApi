@@ -2588,7 +2588,7 @@ function Copy-ProcessAndWorkItemType()
         $DestinationProcess,
 
         [Parameter(Mandatory = $true)]      
-        $NewWorkItemName,
+        $WorkItemCopyFrom,
 
         [Parameter(Mandatory = $true)]      
         $WorkItemToCopy
@@ -2630,15 +2630,14 @@ function Copy-ProcessAndWorkItemType()
     # GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workitemtypes?api-version=7.1-preview.2
     $findWkProcessUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId + "/workitemtypes" + '?$expand=layout&api-version=7.1-preview.2' 
     $findWkProcess = Invoke-RestMethod -Uri $findWkProcessUrl -Method Get -Headers $authorization 
-    $newWKItem = $findWkProcess.value | Where-Object {$_.name -eq $NewWorkItemName}
+    $newWKItem = $findWkProcess.value | Where-Object {$_.name -eq $WorkItemToCopy}
 
-    
     # get work item types to inherit from
     # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/work-item-types/list?view=azure-devops-rest-7.1
     # GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workitemtypes?api-version=7.1-preview.2    
     $AllWorkItemTypeUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $inheritProc.typeId + '/workitemtypes?$expand=layout&api-version=7.1-preview.2'      
     $AllWorkItemTypes = Invoke-RestMethod -Uri $AllWorkItemTypeUrl -Method Get -Headers $authorization
-    $WorkItemType =  $AllWorkItemTypes.value | Where-Object {$_.name -eq $WorkItemToCopy}
+    $WorkItemType =  $AllWorkItemTypes.value | Where-Object {$_.name -eq $WorkItemCopyFrom}
 
     # new process work item type does not exist add it
     if([string]::IsNullOrEmpty($newWKItem) )
@@ -2650,10 +2649,10 @@ function Copy-ProcessAndWorkItemType()
             color = "f6546a"
             icon = "icon_airplane"
             description = "my first powershell induced workitem type"
-            name = $NewWorkItemName
+            name = $WorkItemToCopy
             isDisabled = $false       
         }
-        # add work itme
+        # add work item
         $newWkJson = ConvertTo-Json -InputObject $workitemTypeJson
         $newWkItemsUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId + '/workitemtypes?$expand=layout&api-version=7.1-preview.2'    
         $newWKItem = Invoke-RestMethod -Uri $newWkItemsUrl -Method Post -ContentType "application/json" -Headers $authorization -Body $newWkJson
@@ -2661,7 +2660,7 @@ function Copy-ProcessAndWorkItemType()
         # not get list of all work items including the one we added
         $AllWorkItemTypeUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + '/workitemtypes?$expand=layout&api-version=7.1-preview.2'      
         $newWKItemList = Invoke-RestMethod -Uri $AllWorkItemTypeUrl -Method Get -Headers $authorization
-        $newWKItem =  $newWKItemList.value | Where-Object {$_.name -eq $NewWorkItemName}
+        $newWKItem =  $newWKItemList.value | Where-Object {$_.name -eq $WorkItemToCopy}
 
         # get states of work item to copy. this will be used to add states to new work item
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/list?view=azure-devops-rest-7.1
@@ -2673,19 +2672,55 @@ function Copy-ProcessAndWorkItemType()
         # loop thru states of work item to copy and add to new work item
         foreach ($state in $getAllStates.value) 
         {
-            $ddState = @{
-                name = $state.name
-                color = $state.color
-                stateCategory = $state.stateCategory
-               # order = $state.order
+            switch ($state.name )
+            {
+                "New"    {  Write-Host "State " $state.name " Exists" }
+                "Active" {  Write-Host "State " $state.name " Exists" }
+                "Closed" {  Write-Host "State " $state.name " Exists" }
+                Default 
+                {
+                    $ddState = @{
+                        name = $state.name
+                        color = $state.color
+                        stateCategory = $state.stateCategory
+                    # order = $state.order
+                    }
+                    $newState = ConvertTo-Json -InputObject $ddState
+                    # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/create?view=azure-devops-rest-7.1
+                    # POST https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states?api-version=7.1-preview.1
+                    $addStateUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/states?api-version=7.1-preview.1"
+                    $addState = Invoke-RestMethod -Uri $addStateUrl -Method Post -ContentType "application/json" -Headers $authorization -Body $newState
+                    Write-Host "Added State " $state.name " --- " $addState 
+                }
             }
-            $newState = ConvertTo-Json -InputObject $ddState
-           # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/create?view=azure-devops-rest-7.1
-           # POST https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states?api-version=7.1-preview.1
-           $addStateUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/states?api-version=7.1-preview.1"
-           $addState = Invoke-RestMethod -Uri $addStateUrl -Method Post -ContentType "application/json" -Headers $authorization -Body $newState
-           Write-Host $addState 
         }
+
+        # now make sure all the states from the work item type to copy from are the same as the copy to
+        # will remove any states not in the copy from 
+        # get states of work item to copy. this will be used to add states to new work item
+
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/list?view=azure-devops-rest-7.1
+        # GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states?api-version=7.1-preview.1
+        $getNewStatesUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/states?api-version=7.1-preview.1"
+        $NewStates = Invoke-RestMethod -Uri $getNewStatesUrl -Method Get -Headers $authorization
+        Write-Host $NewStates
+
+        foreach ($st in $NewStates.value) 
+        {
+            $fndState =  $getAllStates.value | Where-Object {$_.name -eq $st.name}
+            
+            # if not found in copy from work item delete it. WHen a work item get created it is given a few default states.
+            if([string]::IsNullOrEmpty($fndState) )
+            {
+                # stat does not exist in copy from work item so it should be removed from copy to work item.
+                # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/delete?view=azure-devops-rest-7.1
+                # DELETE https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states/{stateId}?api-version=7.1-preview.1
+                $DelstateURL =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/states/" + $st.id + "?api-version=7.1-preview.1"
+                $DelStates = Invoke-RestMethod -Uri $DelstateURL -Method Delete -Headers $authorization
+                Write-Host "Deleted state " $st.name " from Work item to copy to" $DelStates
+            }
+        }
+        
     }
 
     # get pages from new work item type. needed to add groups to page.
@@ -2727,7 +2762,8 @@ function Copy-ProcessAndWorkItemType()
     # refresh pages in new work item. when new process is created it has default pages. after we add pages need to get work item type again to get all new pages
     $AllWorkItemTypeUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + '/workitemtypes?$expand=layout&api-version=7.1-preview.2'      
     $newWKItemList = Invoke-RestMethod -Uri $AllWorkItemTypeUrl -Method Get -Headers $authorization
-    $newWKItem =  $newWKItemList.value | Where-Object {$_.name -eq $NewWorkItemName}
+    $newWKItem =  $newWKItemList.value | Where-Object {$_.name -eq $WorkItemToCopy}
+
     # get pages from new work item type. needed to add groups to page.
     # each page has 4 sections that arte created on page creation.they are situated left to right on page. section 4 i believe is hidden( not sure yet)
     $newPages = $newWKItem.layout.pages
@@ -2770,7 +2806,6 @@ function Copy-ProcessAndWorkItemType()
                                         $newGrp = $newSection.groups | Where-Object {$_.label.Trim() -eq $grp.label.Trim()}    
                                         
                                          # multi line text fields cannot be inside a group. they are their own group on the UI
-                                       
                                         if($grp.controls[0].controlType -eq "HtmlFieldControl")
                                         {
                                             $isMultiLine = $true
@@ -2998,18 +3033,7 @@ function Copy-ProcessAndWorkItemType()
                                                 $editGroup = Invoke-RestMethod -Uri $editURL -Method PATCH -ContentType "application/json" -Headers $authorization -Body $editJSON
                                                 Write-Host $editGroup
                                             }
-
-                                            # now go thru each control in the group and add any missing controls
-                                            # foreach ($item in $grp.controls) 
-                                            # {
-                                            #     $cntrlFnd = $editGroup.controls.value | Where-Object {$_.id -eq $item.id }
-                                            #     # control not in group so add it
-                                            #     if([string]::IsNullOrEmpty($cntrlFnd))
-                                            #     {
-
-                                            #     }
-                                            # }
-
+                                        
                                         }
                                        
                                     
@@ -3040,15 +3064,6 @@ function Copy-ProcessAndWorkItemType()
 
         } # page exists
        
-
     }
-
-   
-   
-    $pages = 1
-   
-  
-    
-    # 
 
 }

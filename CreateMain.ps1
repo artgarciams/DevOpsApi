@@ -25,8 +25,15 @@ Write-Output $userParameters.Description
 $userParameters.ProjectName = "Gov Portfolio"
 #Get-AllFieldsWorkItemType -userParams $userParameters -InheritedProcessName "Opportunity Tracking - Master" -wkItemName "Government opportunity"  -OutputFile "C:\\tempdata\fields.txt"
 
-Copy-ProcessAndWorkItemType -userParams $userParameters -InheritedProcessName "Opportunity Tracking - Master" -DestinationProcess "Opportunity Tracking - Master" -NewWorkItemName "Test Opportunity" -WorkItemToCopy "Government opportunity"
-
+#
+# INPUTS:
+#          userParams - Projectdef.json file with parameters used by the script.
+#          InheritedProcessName - The process to copy work item type from
+#          DestinationProcess   - Name of the process to copy the new work item type to
+#          WorkItemCopyFrom     - Name of the work item type to copy from
+#          WorkItemToCopy       - Name of work item type to copy to
+#
+Copy-ProcessAndWorkItemType -userParams $userParameters -InheritedProcessName "Opportunity Tracking - Master" -DestinationProcess "Opportunity Tracking - Master" -WorkItemCopyFrom "Government opportunity" -WorkItemToCopy "Master Opportunity"
 
 #Get-ProjectMetrics -userParams $userParameters
 
