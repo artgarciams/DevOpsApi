@@ -5,7 +5,7 @@
     "ProjectName"    : "Project name goes here",
     "DefaultTeam"    : "",   
     
-    "TagLeads"       : false,
+    "TagLeads"       : false,  
     "BuildTags"      : "TEST123",
     "SubscriptionId" : "",
 
