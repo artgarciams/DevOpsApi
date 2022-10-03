@@ -100,19 +100,3 @@ Execution process
            
 </br>
 </br>
-5 - WiKiMain.ps1 - This will generate release notes based on build tags. If you tag a build
-                                   with a specific tag it will generate release notes based on the builds and work items associated with those builds.
-                                   
-           To run tis script you must update the ProjectDef.json and update the following fields
-           A - "PublishWiKi"    : "xxxxxxxxxxxxx.wiki"
-           
-           B -"VSTSMasterAcct" : "Org Name goes here"
-           C- "userEmail"      : "user email address assocaited with pat key"
-           D- "PAT"            : "pay key goes here"
-           E - "ProjectName"   : "Project name goes here"
-           F - "DefaultTeam"   : "default team name"  
-           
-           G - "BuildTags"     : "TEST123",
-                   
-</br>
-</br>
