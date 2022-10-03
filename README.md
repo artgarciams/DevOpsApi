@@ -84,8 +84,7 @@ Execution process
             the error will be : Page exists - Script terminated, Please review page
 
 4 - WorkItemReleaseNotesMain.ps1 - This will generate release notes from a given shared query. It will take the first query and call it the current
-                                   items and then a second query called future items. You can also run the release notes based on build tags. If you tag a build
-                                   with a specific tag it will generate release notes based on the builds and work items associated with those builds.
+                                   items and then a second query called future items. 
                                    
            To run tis script you must update the ProjectDef.json and update the following fields
            A - "CurrentWitemQry": "name of current query to use"
@@ -97,11 +96,11 @@ Execution process
            F- "PAT"            : "pay key goes here"
            G - "ProjectName"   : "Project name goes here"
            H - "DefaultTeam"   : "default team name"   
-           I - "BuildTags"     : "TEST123",
+          
            
 </br>
 </br>
-4 - WiKiMain.ps1 - This will generate release notes based on build tags. If you tag a build
+5 - WiKiMain.ps1 - This will generate release notes based on build tags. If you tag a build
                                    with a specific tag it will generate release notes based on the builds and work items associated with those builds.
                                    
            To run tis script you must update the ProjectDef.json and update the following fields
@@ -111,7 +110,8 @@ Execution process
            C- "userEmail"      : "user email address assocaited with pat key"
            D- "PAT"            : "pay key goes here"
            E - "ProjectName"   : "Project name goes here"
-           F - "DefaultTeam"   : "default team name"   
+           F - "DefaultTeam"   : "default team name"  
+           
            G - "BuildTags"     : "TEST123",
                    
 </br>
