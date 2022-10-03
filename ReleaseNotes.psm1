@@ -890,7 +890,7 @@ function WriteToWikiPage()
         #DELETE https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&api-version=7.1-preview.1
         #https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/delete-page?view=azure-devops-rest-7.1
         $DeletePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $allWiki.Name + "/pages?path=" + $landingPg + "&api-version=7.1-preview.1" 
-        $DeletePage = Invoke-RestMethod -Uri $DeletePageUri -Method Delete -Headers $authorization
+        $DeletePage = Invoke-RestMethod -Uri $DeletePageUri -Method Delete -Headers $authorization -Verbose
         Write-Host $DeletePage
 
 
@@ -901,14 +901,18 @@ function WriteToWikiPage()
     }
     try 
     {
-       $blankData = @{
+       $contentData = @{
             content  =  $contentData
         }
-        $BlankJson = ConvertTo-Json -InputObject $blankData
+        # $blankData = @{
+        #     "content" = "Wiki page content"
+        # }
+
+        $ContentJson = ConvertTo-Json -InputObject $contentData
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/create%20or%20update?view=azure-devops-rest-6.1
         # PUT https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&api-version=6.1-preview.1
-        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $allWiki.Name + "/pages?path=" + $landingPg + "&api-version=6.0" 
-        $CreatePage = Invoke-RestMethod -Uri $CreatePageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $BlankJson
+        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $allWiki.Name + "/pages?path=" + $landingPg + "&api-version=7.1-preview.1" 
+        $CreatePage = Invoke-RestMethod -Uri $CreatePageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $ContentJson -Verbose
         Write-Host $CreatePage
         Write-Host "WiKi Landing Page Created "
     }
@@ -922,7 +926,7 @@ function WriteToWikiPage()
 
 
      Write-Host "Page created - Release Notes complete"
-     Write-Host $AddPage
+  
 
 }
 
@@ -1181,92 +1185,45 @@ function Set-ReleaseNotesToWiKi()
     #     $contentData += $secReplace
     # }
 
-  
-    try {
+  WriteToWikiPage -userParams $userParams -contentData $contentData
 
-        Write-Host "Begin Writting to WiKi "
+    # try {
+
+    #     Write-Host "Begin Writting to WiKi "
      
-        # write to code wiki page
-        if ($allWiki.type -eq "codewiki")
-        {
-            $tmData = @{
-                refUpdates  = @{
-                    name = "ref/heads/master"
-                    newObjectId =  [guid]::NewGuid()
-                }
-                commits = @{
-                    comment = "new file"
-                    changes = @{
-                        changeType = "add"
-                        item = @{
-                            path = "/testaag.md"
-                        }
-                        newContent = @{
-                            content = $contentData
-                            contentType = "rawtext"
-                        }
-                    }
-                }
-            }
+    #     # write to code wiki page
+    #     if ($allWiki.type -eq "codewiki")
+    #     {
+    #         $tmData = @{
+    #             refUpdates  = @{
+    #                 name = "ref/heads/master"
+    #                 newObjectId =  [guid]::NewGuid()
+    #             }
+    #             commits = @{
+    #                 comment = "new file"
+    #                 changes = @{
+    #                     changeType = "add"
+    #                     item = @{
+    #                         path = "/testaag.md"
+    #                     }
+    #                     newContent = @{
+    #                         content = $contentData
+    #                         contentType = "rawtext"
+    #                     }
+    #                 }
+    #             }
+    #         }
 
-            $tmJson = ConvertTo-Json -InputObject $tmData    
+    #         $tmJson = ConvertTo-Json -InputObject $tmData    
 
-            # test writing to code wiki
-            # https://docs.microsoft.com/en-us/rest/api/azure/devops/git/pushes/create?view=azure-devops-rest-6.1
-            # POST https://dev.azure.com/{organization}/{project}/_apis/git/repositories/{repositoryId}/pushes?api-version=6.1-preview.2
-            $codeWiki = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/git/repositories/" + $allWiki.repositoryId + "/pushes?api-version=6.1-preview.2"
-            $writeCodeWiki = Invoke-RestMethod -Uri $codeWiki -Method Put -ContentType "application/json" -Headers $authorization -Body $tmJson -Verbose
-        }
-   
+    #         # test writing to code wiki
+    #         # https://docs.microsoft.com/en-us/rest/api/azure/devops/git/pushes/create?view=azure-devops-rest-6.1
+    #         # POST https://dev.azure.com/{organization}/{project}/_apis/git/repositories/{repositoryId}/pushes?api-version=6.1-preview.2
+    #         $codeWiki = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/git/repositories/" + $allWiki.repositoryId + "/pushes?api-version=6.1-preview.2"
+    #         $writeCodeWiki = Invoke-RestMethod -Uri $codeWiki -Method Put -ContentType "application/json" -Headers $authorization -Body $tmJson -Verbose
+    #     }
 
-        # Parent page / release notes page   
-        if([string]::IsNullOrEmpty($RelPageName) )
-        {
-            $landingPg = $userParams.PublishParent + "/" + $userParams.PublishPagePrfx 
-        }
-        else
-        {
-            $landingPg = $userParams.PublishParent + "/" + $RelPageName    
-        }
-        $tmData = @{
-                content  = $contentData
-        }
-        $tmJson = ConvertTo-Json -InputObject $tmData
-                              
-        # add etag to the header. for update to work, must have etag in header
-        # Base64-encodes the Personal Access Token (PAT) appropriately + etag used to allow update to wiki page
-        $getPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $allWiki.Name + "/pages?path=" + $landingPg + "&recursionLevel=Full&api-version=6.1-preview.1"
-        $GetPage = Invoke-WebRequest -Uri $getPageUri -Method Get -ContentType "application/json" -Headers $authorization -UseBasicParsing
-
-        # add etag to the header. for update to work, must have etag in header
-        # Base64-encodes the Personal Access Token (PAT) appropriately + etag used to allow update to wiki page
-        Write-Host $GetPage.Headers.ETag       
-        if($UsingExtension -eq "yes")
-        {
-            Write-Host " Using System Access Token + ETag for update "
-            $authorization =  GetADOTokenWithEtagForExt  -eTag $GetPage.Headers.ETag   
-            Write-Host $authorization
-        }else {
-            $authorization = GetVSTSCredentialWithEtag -Token $userParams.PAT -userEmail $userParams.userEmail     
-        }
-       
-        # update or create page if it does not exist
-        $AddPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $allWiki.Name + "/pages?path=" + $landingPg + "&api-version=6.1-preview.1"
-        $AddPage = Invoke-RestMethod -Uri $AddPageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $tmJson -Verbose
-
-        Write-Host "Page created - Release Notes complete"
-        Write-Host $AddPage
-
-    }
-    catch {
-        $ErrorMessage = $_.Exception.Message
-        $FailedItem = $_.Exception.ItemName
-        Write-Host "Error in getting updating Landing page : "  $ErrorMessage 
-        Write-Host "Failed Item : "  $FailedItem
-    }
-  
-    Write-Host "- Release Notes complete -"
-
+    
 }
 
 function GetADOToken() {
@@ -1321,7 +1278,7 @@ function GetVSTSCredentialWithEtag () {
             }
 }
 
-function GetWorkItemsByField()
+function GeReleaseNotesByQuery()
 {
     Param(
         [Parameter(Mandatory = $true)]
@@ -1356,24 +1313,6 @@ function GetWorkItemsByField()
     $project = $AllProjects.value | Where-Object {$_.name -eq $userParams.ProjectName}
     Write-Host $project
 
-    # get all processes
-    # GET https://dev.azure.com/{organization}/_apis/work/processes?api-version=7.1-preview.2
-    $AllProcessesUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes?api-version=7.1-preview.2"     
-    $AllProcesses = Invoke-RestMethod -Uri $AllProcessesUrl -Method Get -Headers $authorization
-    $proc =  $AllProcesses.value | Where-Object {$_.name -eq "Pipeline Opportunity Tracking"}
-
-    # get work item types
-    # GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workitemtypes?api-version=7.1-preview.2
-    $AllWorkItemTypeUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId + "/workitemtypes?api-version=7.1-preview.2"     
-    $AllWorkItemTypes = Invoke-RestMethod -Uri $AllWorkItemTypeUrl -Method Get -Headers $authorization
-    $workType =  $AllWorkItemTypes.value | Where-Object {$_.name -eq "Government opportunity"}
-   
-    # get workitem type
-    #GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workitemtypes/{witRefName}?api-version=7.1-preview.2
-    $WorkItemTypeUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId + "/workitemtypes/" + $workType.referenceName + '?$expand=layout&api-version=7.1-preview.2'     
-    $WorkItemType = Invoke-RestMethod -Uri $WorkItemTypeUrl -Method Get -Headers $authorization
-   
-
     # get query list and find specific query for current release
     # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/queries/list?view=azure-devops-rest-7.1
     # GET https://dev.azure.com/{organization}/{project}/_apis/wit/queries?api-version=7.1-preview.2
@@ -1381,15 +1320,14 @@ function GetWorkItemsByField()
     $query = Invoke-RestMethod -Uri $queryUrl -Method Get -Headers $authorization -ContentType "application/json" 
     
     $sharedQry =  $query.value | Where-Object {$_.name -eq "Shared Queries"}
-    $currRelQuery =  $sharedQry.children | Where-Object {$_.name -eq $userParams.CurrentWitemQry }
-   
+    $currRelQuery =  $sharedQry.children | Where-Object {$_.name -eq $userParams.CurrentWitemQry } 
     $futureRelQuery =  $sharedQry.children | Where-Object {$_.name -eq $userParams.FutureWitemQry}
-
         
     $tmData = @{
         query = $currRelQuery.wiql
     }
     $qryText = ConvertTo-Json -InputObject $tmData  
+    
     # get current query items
     $queryUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +"/" +  $project.Id +"/" + $userParams.DefaultTeam +"/_apis/wit/wiql?api-version=7.1-preview.2"     
     $currquery = Invoke-RestMethod -Uri $queryUrl -Method Post -Headers $authorization -Body $qryText -ContentType "application/json" 

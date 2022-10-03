@@ -11,7 +11,6 @@ $modName = $PSScriptRoot + "\SecurityHelper.psm1"
 Import-Module -Name $modName
 
 $modName = $PSScriptRoot + "\ReleaseNotes.psm1" 
-#$modName = $PSScriptRoot + "\ProjectAndGroup.psm1" 
 Import-Module -Name $modName
 
 # get parameter data for scripts
@@ -24,26 +23,6 @@ Write-host $userParameters.BuildTags
 
 $slp = $userParameters.BuildTags.Split(',')
 $userParameters.BuildTags = $slp
-
-
-# $userParameters.userEmail =  ${env:USEREMAIL}
-
-# make sure directory structure exists
-#    "DirRoot"        : "C:\\TempData",
-#    "ReleaseDir"     : "\\BuildNotes\\",
-#    "LogDirectory"   : "\\Logs\\",
-#    "DumpDirectory"  : "\\RawData\\",
-#    "SecurityDir"    : "\\Security\\", 
-if($userParameters.OutPutToFile -eq "Yes" )
-{
-    Set-DirectoryStructure -userParams $userParameters 
-}
-
-GetWorkItemsByField -userParams $userParameters
-
-#GetAuditLogs -userParams $userParameters -outFile "C:\tempdata\auditlog.txt"
-
-#Get-BuildDetailsByProject -userParams $userParameters  -outFile "C:\temp\buildprj.txt"
 
 # generate a file for each build showing build info, work items, and approvals
 # for following parameters in ProjectDef. setting param to "" skips it

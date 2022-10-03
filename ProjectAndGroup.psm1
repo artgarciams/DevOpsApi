@@ -429,326 +429,6 @@ function Get-ApprovalsByEnvironment()
 
 }
 
-function Get-ReleaseNotesByBuildByTag()
-{
-    #
-    # this function will find all builds with the given tags in the workitems and generate release
-    # notes for each build
-    #
-    Param(
-        [Parameter(Mandatory = $true)]
-        $userParams,
-        [Parameter(Mandatory = $false)]
-        $outFile
-    )
-
-    # Base64-encodes the Personal Access Token (PAT) appropriately
-    $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
-   
-    #build table array - list of all builds for this release
-    $buildTableArray = @()
-
-    # array for changes to a given build
-    $buildChangesArray = @()
-
-    # array for artifacts to a given build
-    $buildArtifactArray = @()
-   
-    # array for release notes
-    $ReleaseWorkItems = @()
-
-    $AllBuildswithTags = @()
-    
-    # Get a list of all builds with a specific tag
-    # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-6.1
-    # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds?definitions={definitions}&queues={queues}&buildNumber={buildNumber}&minTime={minTime}&maxTime={maxTime}&requestedFor={requestedFor}&reasonFilter={reasonFilter}&statusFilter={statusFilter}&resultFilter={resultFilter}&tagFilters={tagFilters}&properties={properties}&$top={$top}&continuationToken={continuationToken}&maxBuildsPerDefinition={maxBuildsPerDefinition}&deletedFilter={deletedFilter}&queryOrder={queryOrder}&branchName={branchName}&buildIds={buildIds}&repositoryId={repositoryId}&repositoryType={repositoryType}&api-version=6.1-preview.6
-    #$AllBuildswithTags = New-Object System.Collections.ArrayList
-    #$AllBuildswithTags = [System.Collections.ArrayList]::new()   
-
-
-    foreach ($tag in $userParams.BuildTags) 
-    {
-        $AllBuildsUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds?tagFilters=" + $tag + "&api-version=6.1-preview.6"     
-        $BuildswithTags = Invoke-RestMethod -Uri $AllBuildsUri -Method Get -Headers $authorization 
-        foreach($bl in $BuildswithTags.value)
-        {
-            $AllBuildswithTags += $bl
-        }
-       # $AllBuildswithTags.Add($BuildswithTags)
-    } 
-
-    Write-Host "Builds found :" $AllBuildswithTags.count
-
-    # work items for all builds found
-    $ReleaseWorkItems = New-Object System.Collections.ArrayList
-    $ReleaseWorkItems = [System.Collections.ArrayList]::new()
-
-    # loop thru each build in list found
-    foreach ($build in $AllBuildswithTags) 
-    {
-        # get work all items for this build
-        # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/get%20build%20work%20items%20refs?view=azure-devops-rest-6.1
-        # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/workitems?api-version=6.1-preview.2
-        $workItemUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $build.id + "/workitems?api-version=6.1-preview.2"
-        $allBuildWorkItems = Invoke-RestMethod -Uri $workItemUri -Method Get -Headers $authorization 
-       
-        Write-Host "   Build Number:" $build.buildNumber " Build Definition :" $build.definition.name "  Results: " $build.result  " Status : " $build.status 
-        Write-Host "   Number of work Items in this Build : "  $allBuildWorkItems.count
-    
-        # loop thru all workitems get work items 
-        foreach ($workItem in $allBuildWorkItems)
-        {
-            try {
-                # get individual work item
-                # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/work%20items/get%20work%20item?view=azure-devops-rest-6.1
-                # GET https://dev.azure.com/{organization}/{project}/_apis/wit/workitems/{id}?api-version=6.1-preview.3
-                $BuildworkItemUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $workItem.id + "?$" + "expand=All&api-version=6.1-preview.3" 
-                $WItems = Invoke-RestMethod -Uri $BuildworkItemUri -Method Get -Headers $authorization 
-                    
-                $fld = $WItems.fields
-                $tg = $fld.'System.Tags'
-
-                $wkType = $fld.'System.WorkItemType'
-
-                # Check if this is a userstory or bug
-                  # if not user story find parent user story  "User Story", "Bug"
-                if( !$userParams.WorkItemTypes.Contains($wkType) )
-                {
-                    try {
-                        $prnt = $fld.'System.Parent'
-                        # get parent work item
-                        # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/work%20items/get%20work%20item?view=azure-devops-rest-6.1
-                        # GET https://dev.azure.com/{organization}/{project}/_apis/wit/workitems/{id}?api-version=6.1-preview.3
-                        $BuildworkItemUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $prnt + "?$" + "expand=All&api-version=6.1-preview.3" 
-                        $WItems = Invoke-RestMethod -Uri $BuildworkItemUri -Method Get -Headers $authorization 
-                       
-                        $fld = $WItems.fields
-                        $tg = $fld.'System.Tags'
-        
-                        $wkType = $fld.'System.WorkItemType'
-                        # add field to house work item type. this will allow sorting of workitems by type
-                        $WItems | Add-Member -MemberType NoteProperty -name "WorkItemType" -Value $wkType
-                        $WItems | Add-Member -MemberType NoteProperty -name "Version" -Value $build.buildNumber
-                        $WItems | Add-Member -MemberType NoteProperty -name "PipeLine" -Value $build.definition.name
-
-                    }
-                    catch {
-                        $ErrorMessage = $_.Exception.Message
-                        $FailedItem = $_.Exception.ItemName
-                        Write-Host "Error in Finding work items parent  : " + $ErrorMessage 
-                    }
-                    
-                }else 
-                {
-                    # add field to house work item type. this will allow sorting of workitems by type
-                    $WItems | Add-Member -MemberType NoteProperty -name "WorkItemType" -Value $wkType
-                    $WItems | Add-Member -MemberType NoteProperty -name "Version" -Value $build.buildNumber
-                    $WItems | Add-Member -MemberType NoteProperty -name "PipeLine" -Value $build.definition.name
-
-                }
-              
-                # save work items into an array to sort if tag was found
-                $ReleaseWorkItems.Add($WItems) | Out-Null
-                Write-Host   " WorkItem ID:" $workItem.id " Version : "  $build.buildNumber.ToString()
-            }
-            catch {
-                $ErrorMessage = $_.Exception.Message
-                $FailedItem = $_.Exception.ItemName
-                Write-Host "Error in work item lookup : " + $ErrorMessage + " iTEM : " + $WItems.fields
-            }
-        }
-
-        $bldChanges = ""
-        try 
-        {
-            # get all changes for a given build       
-            # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/get%20build%20changes?view=azure-devops-rest-6.1
-            # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/changes?api-version=6.1-preview.2
-            $bldChangegUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/changes?api-version=6.1-preview.2"
-            $bldChanges = Invoke-RestMethod -Uri $bldChangegUri -Method Get -Headers $authorization 
-        }
-        catch 
-        {
-            $ErrorMessage = $_.Exception.Message
-            $FailedItem = $_.Exception.ItemName
-            Write-Host "Error in Finding Changes for given build : " + $ErrorMessage + " iTEM : " + $FailedItem    
-        }
-       
-        foreach ($bldChg in $bldChanges.value) 
-        {
-            Write-Host "     Build Change: " $bldChg.message " Date Changed : " $bldChg.timestamp   "   Changed by: " $bldChg.'author'.DisplayName
-            try {
-
-                $locationData = Invoke-RestMethod -Uri $bldChg.Location -Method Get -Headers $authorization 
-                $loc = $locationData.remoteUrl.Replace(" ", "%20")
-    
-                $chg = New-Object -TypeName PSObject -Property @{
-                    BuildChange = $bldChg.message
-                    DateChanged = $bldChg.timestamp 
-                    ChangedBy = $bldChg.'author'.DisplayName   
-                    Location =   $loc
-                    type = $bldChg.type 
-                    Id = $bldChg.Id                    
-                }
-                $buildChangesArray += $chg
-            }
-            catch {
-                $ErrorMessage = $_.Exception.Message
-                $FailedItem = $_.Exception.ItemName
-                Write-Host "Error in change location api : " + $ErrorMessage + " iTEM : " + $FailedItem    
-            }           
-            
-        }
-
-        try {
-            # get build stages
-            # 
-            # get build timeline 
-            # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/timeline/get?view=azure-devops-rest-6.1
-            # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/timeline/{timelineId}?api-version=6.1-preview.2
-            $BuildTimelineUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $build.id + "/timeline?api-version=6.1-preview.2"
-            $BuildTimeLine = Invoke-RestMethod -Uri $BuildTimelineUri -Method Get -Headers $authorization 
-
-            # get stages for this build
-            $tmStages = $BuildTimeLine.records | Where-Object { $_.type -eq "Stage" } | Sort-Object -Property order 
-            $buildStagesArray = @()
-
-            foreach ($stages in $tmStages) 
-            {
-                $stg = New-Object -TypeName PSObject -Property @{
-                    stageName = $stages.name
-                    result = $stages.result
-                    startTime = $stages.startTime
-                    endTime = $stages.finishTime
-                    order = $stages.order
-                    type = $stages.type                     
-                }
-                $buildStagesArray += $stg   
-                $stg = $null         
-            }
-        }
-        catch {
-            $ErrorMessage = $_.Exception.Message
-            $FailedItem = $_.Exception.ItemName
-            Write-Host "Error in getting build stages : " + $ErrorMessage 
-        }
-        
-        # get code coverage for build
-        # https://docs.microsoft.com/en-us/rest/api/azure/devops/test/code%20coverage/get%20build%20code%20coverage?view=azure-devops-rest-6.0
-        # GET https://dev.azure.com/{organization}/{project}/_apis/test/codecoverage?buildId={buildId}&flags={flags}&api-version=6.0-preview.1
-        #$codeCvgUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/test/codecoverage?buildId=" + $Build.id + "&api-version=6.0-preview.1"
-        #$codeCvgForBuild = Invoke-RestMethod -Uri $codeCvgUri -Method Get -Headers $authorization 
-        #foreach ($codeCv in $codeCvgForBuild.value)
-        #{
-        #    Write-Host $codecv.length    
-        #}
-
-        # get plan details
-        #
-        
-
-        # get all artifacts for this build
-        # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/artifacts/list?view=azure-devops-rest-6.0
-        # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/artifacts?api-version=6.0
-        $artifactUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/artifacts?api-version=6.0"
-        $allBuildartifacts = Invoke-RestMethod -Uri $artifactUri -Method Get -Headers $authorization 
-
-        Write-Host "    Artifacts Found: " $allBuildartifacts.count 
-        Write-host ""  
-        
-        foreach ($artifact in $allBuildartifacts.value) 
-        {
-            $stg = New-Object -TypeName PSObject -Property @{
-                ArtifactName = $artifact.name 
-                type = $res.type 
-            }
-            $buildArtifactArray += $stg            
-        }
-        
-        # try 
-        # {
-        #     #get build report
-        #     # https://docs.microsoft.com/en-us/rest/api/azure/devops/build/report/get?view=azure-devops-rest-6.0
-        #     # GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/report?api-version=6.0-preview.2
-        #     $buildReportUri = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $userParams.ProjectName + "/_apis/build/builds/" + $Build.id + "/report?api-version=6.0-preview.2"
-        #     $buildReport = Invoke-RestMethod -Uri $buildReportUri -Method Get -Headers $authorization     
-
-        #     $BuildRep = ConvertTo-Json -InputObject $buildReport -Depth 32
-        #     Write-Host $BuildRep
-        # }
-        # catch 
-        # {
-        #     $ErrorMessage = $_.Exception.Message
-        #     $FailedItem = $_.Exception.ItemName
-        #     Write-Host "Error in Finding build report : " + $ErrorMessage + " iTEM : " + $FailedItem    
-        # }
-        
-        Write-Host ""   
-        Write-Host "Build ID: " $build.id " - Build Number : " $build.buildNumber    
-        Write-Host "    Build Status: " $build.Status " - Result: " $build.result
-        $def = $build.definition
-        $repo = $build.repository
-        
-        # get tags
-        $buildTag = ""
-        foreach ($tg in $build.tags) 
-        {
-            $buildTag += $tg + " "
-        }
-
-        # write build record table . this arraylist will hold all builds found
-        $bld = New-Object -TypeName PSObject -Property @{
-            Status =  $build.Status
-            tag = $buildTag
-            Pipeline = $build.definition.name.ToString()
-            RequestedBy =  $def.name 
-            Started = $build.startTime 
-            Finished = $build.finishTime
-            Version = $build.buildNumber.ToString()
-            Source = $build.sourceBranch 
-            Repo = $repo.name           
-            BuildNumber =  $build.id.ToString()    
-            BuildChanges = $buildChangesArray
-            BuildStages = $buildStagesArray
-
-        }
-        $buildTableArray += $bld
-       
-
-        # to count work items associated with this build
-        $workitemsReported = 0
-        
-        # sort by url( work item type) decending
-        $allBuildWorkItemsSorted =  $ReleaseWorkItems | Sort-Object -Property WorkItemType -Descending
-       
-        
-        # add count of workitems to report to summary. this will count all reported workitems for this build. 
-        # note reported is user stories and bugs. all tasks are rolled up into userstories
-        if ($buildTableArray.Length -gt 0)
-        {
-            $buildTableArray[$buildTableArray.Length -1]  | Add-Member -MemberType NoteProperty -name "WorkItemCount" -Value  $allBuildWorkItems.count
-            Write-Host "    Work Items Found :" $workitemsReported
-        }
-
-    }
-
-    # generate build release table
-    # $out = $userParams.DirRoot + $userParams.LogDirectory + $userParams.ReleaseFile
-    # Get-BuildReleaseTable -userParams $userParams -buildTableArray $buildTableArray -BuildTable $out -ReleaseWorkItems $ReleaseWorkItems
-   
-    # return build and workitems to add to wiki
-   
-       # write build record table and workitems  . this arraylist will hold all builds found and workitems
-       $ReleaseArray = New-Object -TypeName PSObject -Property @{
-        Builds = $buildTableArray
-        WorkItems = $allBuildWorkItemsSorted
-        Artifacts = $buildArtifactArray
-    }
-  
-    return $ReleaseArray
-
-}
-
 
 function Get-BuildReleaseTable()
 {
@@ -1168,263 +848,6 @@ function Get-BuildDetailsByProject(){
 
 }
 
-function Set-ReleaseNotesToWiKi()
-{
-    Param(
-        [Parameter(Mandatory = $true)]
-        $userParams,
-        [Parameter(Mandatory = $false)]
-        $Data
-    )
-
-    # Base64-encodes the Personal Access Token (PAT) appropriately
-    $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
-    
-    # get all wiki for given org
-    # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/wikis/list?view=azure-devops-rest-6.1
-    # GET https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis?api-version=6.1-preview.2
-    $wikiUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis?api-version=6.1-preview.2"
-    $allWiki = Invoke-RestMethod -Uri $wikiUri -Method Get -Headers $authorization 
-
-    # find wiki to publish to
-    $wiki  = $allWiki.value | Where-Object { ($_.name -eq $userParams.PublishWiKi ) }
-    Write-Host $wiki
-
-    # create subpages if not exists
-    # create a page under Release Notes 
-    #                  Release number - this is the tags used in the build
-    #      then add a page  "System Generated Release Notes" and add data to it.
-    
-    # Parent page / release notes page
-    $landingPg = $userParams.PublishParent + "/" + $userParams.PublishPagePrfx
-        
-    try 
-    {  
-        # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/create%20or%20update?view=azure-devops-rest-6.1
-        # PUT https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&api-version=6.1-preview.1
-        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&api-version=6.1-preview.1" 
-        $CreatePage = Invoke-RestMethod -Uri $CreatePageUri -Method Put -ContentType "application/json" -Headers $authorization  
-        Write-Host $CreatePage
-    }
-    catch 
-    {
-        # page exists
-        Write-Host "Page exists - Please review page " $landingPg    
-        
-        # if page exists save section called out in projectdef file as area to save. PublishSaveSect is the key to use
-        # if something is in here save that section and add to end of page.
-        # $secReplace = ""
-        # if($userParams.PublishSaveStrt -ne "")
-        # {
-        #     # first get current page data.
-        #     # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/get%20page?view=azure-devops-rest-6.1
-        #     # GET https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&recursionLevel={recursionLevel}&versionDescriptor.version={versionDescriptor.version}&versionDescriptor.versionOptions={versionDescriptor.versionOptions}&versionDescriptor.versionType={versionDescriptor.versionType}&includeContent={includeContent}&api-version=6.1-preview.1
-        #     $GetPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&includeContent=True&api-version=6.1-preview.1" 
-        #     $GetPage = Invoke-RestMethod -Uri $GetPageUri -Method Get -ContentType "application/json" -Headers $authorization  
-        #     Write-Host $GetPage.content
-            
-        #     # work on editting parts of the page
-        #     # find the section to save. PublishSaveStrt is begining of section to save
-        #     # PublishSaveEnd is next section so the end of what to save
-        #     $secStart = $GetPage.content.IndexOf($userParams.PublishSaveStrt)
-        #     $secEnd = $GetPage.content.IndexOf($userParams.PublishSaveEnd )
-
-        #     $secReplace = $([char]13) + $([char]10) 
-        #     $secReplace += $GetPage.content.substring($secStart, $secEnd - $secStart)
-        #     $secReplace += $([char]13) + $([char]10) 
-        #     $secReplace.Replace($userParams.PublishSaveStrt , $userParams.PublishSaveStrt + "- Saved")
-        #     Write-Host $secReplace
-                        
-        # }
-    }
-
-    # create project page in wiki
-    # $landingPg = $userParams.PublishParent + "/" + $userParams.ProjectName # +  "/" + $userParams.PublishPagePrfx 
-
-    try 
-    {
-       $blankData = @{
-            content  = "Blank Page"
-        }
-        $BlankJson = ConvertTo-Json -InputObject $blankData
-        # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/create%20or%20update?view=azure-devops-rest-6.1
-        # PUT https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&api-version=6.1-preview.1
-        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&api-version=6.1-preview.1" 
-        $CreatePage = Invoke-RestMethod -Uri $CreatePageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $BlankJson
-        Write-Host $CreatePage
-                        
-    }
-    catch {
-        
-        $ErrorMessage = $_.Exception.Message
-        $FailedItem = $_.Exception.ItemName
-        Write-Host "Error creating page Error : " + $ErrorMessage + " iTEM : " + $FailedItem 
-    }
-
-    # build content
-    # sort by sequence number 
-    # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/get-date?view=powershell-7.1   
-    $dt = Get-Date -format "dddd MM/dd/yyyy HH:mm K"
-    $contentData = "" 
-    $contentData = "[[_TOC_]]" + $([char]13) + $([char]10) 
-    $contentData +=  $([char]13) + $([char]10) 
-    $contentData +=  "_Release Notes for Build Tags : "  + $userParams.BuildTags + "_"
-    $contentData +=  $([char]13) + $([char]10) 
-    $contentData +=  "_Release Notes Created        : "  + $dt + "_"
-    $contentData +=  $([char]13) + $([char]10) 
-    
-    # count number of changes
-    $chgCount = 0
-    foreach ($item in $Data.builds) 
-    {
-        $chgCount += $Data.Builds.BuildChanges.count
-    }
-    
-    $contentData +=  $([char]13) + $([char]10) 
-    $contentData +=  $([char]13) + $([char]10) 
-    $contentData +=  "#Build Summary" + $([char]13) + $([char]10) 
-    $contentData += "|Summary Item|Count" + $([char]13) + $([char]10) 
-    $contentData += "|:---------|:---------|" + $([char]13) + $([char]10) 
-    $contentData += "|" + "Builds in this Release" + "|" + $Data.builds.count + "|" + $([char]13) + $([char]10) 
-    $contentData += "|" + "Builds Changes in this Release" + "|" + $chgCount + "|" + $([char]13) + $([char]10) 
-    $contentData += "|" + "Work Items(user stories,bugs,Tasks) in this release" + "|" + $Data.WorkItems.count + "|" + $([char]13) + $([char]10) 
-
-    $contentData +=  $([char]13) + $([char]10) 
-    $contentData +=  $([char]13) + $([char]10) 
-    $contentData +=  "#Build Details" + $([char]13) + $([char]10) 
-    if($userParams.PublishBldNote -ne "")
-    {
-        $contentData +=   $userParams.PublishBldNote + $([char]13) + $([char]10) 
-    }
-
-    $contentData +=  $([char]13) + $([char]10) 
-    $contentData +=  $([char]13) + $([char]10) 
-    $contentData += "|Tag|Build|Pipeline|Requestor|Start|Finish|Source|Repo|Work Items|Changes" + $([char]13) + $([char]10) 
-    $contentData += "|:---------|:---------|:---------|:---------|:---------|:---------|:---------|:---------|:---------|:---------|" + $([char]13) + $([char]10) 
-    $buildBySeq = $Data.builds | Sort-Object -Property Solution,Sequence
-    foreach ($item in $buildBySeq) 
-    {
-        $pjName = $userParams.ProjectName.Replace(" ","%20")
-        $url =  "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $pjName + "/_build/results?buildid=" + $item.BuildNumber + "&view=results" + ")"
-        $contentData += "|" + $item.tag + "|" + " [" + $item.Version + "]" + $url + " |"  +  $item.Pipeline + "|"  + $item.RequestedBy + "|" + $item.Started + "|" + $item.Finished + "|" + $item.Source + "|"  + $item.Repo + "|" + $item.WorkItemCount + "|" + $item.BuildChanges.Count + "|" + $([char]13) + $([char]10)         
-    }
-
-    # stages and approvers - later
-    $contentData +=  $([char]13) + $([char]10) 
-    $contentData +=  $([char]13) + $([char]10) 
-    $contentData +=  "#Build Stages" + $([char]13) + $([char]10) 
-    $contentData += $([char]13) + $([char]10) 
-    $contentData += "|Build Link |Stage |Order|Status|" + $([char]13) + $([char]10) 
-    $contentData += "|:---------|---------|---------|---------|---------|" + $([char]13) + $([char]10) 
-    foreach ($bld in $Data.Builds) 
-    {
-        $pjName = $userParams.ProjectName.Replace(" ","%20")
-        $url =  "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $pjName + "/_build/results?buildid=" + $bld.BuildNumber + "&view=results" + ")"
-        foreach ($stage in $bld.BuildStages) 
-        {
-            $contentData += "|" + " [" + $bld.Version + "]" + $url + " |"  +  $stage.stageName + "|"  + $stage.order + "|" + $stage.result + "|" + $([char]13) + $([char]10)         
-        }
-    }
-
-    
-    # add work items 
-    $contentData += $([char]13) + $([char]10) 
-    $contentData += "#Work Items Associated in This Release" + $([char]13) + $([char]10) 
-    if($userParams.PublishWKItNote -ne "")
-    {
-        $contentData +=   $userParams.PublishWKItNote + $([char]13) + $([char]10) 
-    }
-
-    $contentData += "|Id|Pipeline|Build|Type|Title|" + $([char]13) + $([char]10) 
-    $contentData += "|:---------|:---------|---------:|---------:|:---------|" + $([char]13) + $([char]10) 
-    foreach ($item in $Data.WorkItems) 
-    {
-        $pjName = $userParams.ProjectName.Replace(" ","%20")
-        $url = "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $pjName + "/_workitems/edit/" + $item.id + ")"
-        $contentData += "|" + " [" + $item.id + "]" + $url  + " |" + $item.Pipeline + "|" +  $item.Version +  "|" + $item.WorkItemType + "|"  + $item.fields.'System.Title' + "|" +$([char]13) + $([char]10) 
-    }
-
-
-     # add changes to build
-     $contentData += $([char]13) + $([char]10) 
-     $contentData += "#Changes Associated With each Build" + $([char]13) + $([char]10) 
-     $contentData += "|Change|Build Link |Change|Changed By|Date Changed|" + $([char]13) + $([char]10) 
-     $contentData += "|:---------|---------|---------|---------|---------|" + $([char]13) + $([char]10) 
-     foreach ($item in $Data.Builds) 
-     {
-         $url =  "(" + $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $pjName + "/_build/results?buildid=" + $item.BuildNumber + "&view=results" + ")"
-         foreach ($bldChg in $Data.Builds.BuildChanges) 
-         {
-             $chid = $bldChg.Id.substring($bldChg.Id.Length -7,7)
-             $contentData += "|" + " [" + $chid + "]" + "(" + $bldChg.Location + ")" + " |" +  " [" + $item.Version + "]" + $url + " |" + $bldChg.BuildChange + "|" +  $bldChg.ChangedBy +  "|" + $bldChg.DateChanged + "|" + $([char]13) + $([char]10) 
-         }
-     }
-
-    # add Artifacts section
-    $contentData += $([char]13) + $([char]10) 
-    $contentData += "#Artifacts in each Build" + $([char]13) + $([char]10) 
-    if($userParams.PublishArtfNote -ne "")
-    {
-        $contentData +=   $userParams.PublishArtfNote + $([char]13) + $([char]10) 
-    }
-    $contentData += $([char]13) + $([char]10) 
-    $contentData += "Artifacts" + $([char]13) + $([char]10) 
-    $contentData += "|Name|Type|" + $([char]13) + $([char]10) 
-    $contentData += "|:---------|:---------|" + $([char]13) + $([char]10)    
-    
-    foreach ($bldArt in $Data.buildArtifactArray) 
-    {
-        $chid = $bldChg.Id.substring($bldChg.Id.Length -7,7)
-        $contentData += "|" + $bldChg.Name + "|" +  $bldChg.Type + "|" + $([char]13) + $([char]10) 
-    }
-
-    $contentData += $([char]13) + $([char]10) 
-    $contentData += $([char]13) + $([char]10) 
-        
-    <# 
-        $contentData += $([char]13) + $([char]10) 
-        $contentData += "#Backout Plan" + $([char]13) + $([char]10) 
-        $contentData += "|Solution|Pipeline|Sequence|Version|" + $([char]13) + $([char]10) 
-        $contentData += "|:---------|:---------|:---------|:---------|" + $([char]13) + $([char]10)      
-    #>
-
-    # if replace was generated add it to the end of page.
-    If($secReplace -ne "")
-    {
-        $contentData += $secReplace
-    }
-
-    $tmData = @{
-         content  = $contentData
-    }
-    $tmJson = ConvertTo-Json -InputObject $tmData
-
-    # get page version number to update must use Invoke-WebRequest to get e-tag. needed to do an update to the page
-    # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/get%20page?view=azure-devops-rest-6.1
-    # GET https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path=/SamplePage973&api-version=6.1-preview.1
-    #
-    # https://stackoverflow.com/questions/57056375/azure-devops-how-to-edit-wiki-page-via-rest-api
-       
-    # get wiki page to find etag
-    #$landingPg = $userParams.PublishParent + "/" + $userParams.ProjectName + "/" + $userParams.PublishPagePrfx 
-    $getPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&recursionLevel=Full&api-version=6.1-preview.1"
-    $GetPage = Invoke-WebRequest -Uri $getPageUri -Method Get -ContentType "application/json" -Headers $authorization -UseBasicParsing
-    
-    # add etag to the header. for update to work, must have etag in header
-    # Base64-encodes the Personal Access Token (PAT) appropriately + etag used to allow update to wiki page
-    Write-Host $GetPage.Headers.ETag
-    $authorization = GetVSTSCredentialWithEtag -Token $userParams.PAT -userEmail $userParams.userEmail -eTag $GetPage.Headers.ETag
-
-    # update or create page if it does not exist
-    $AddPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $wiki.Id + "/pages?path=" + $landingPg + "&api-version=6.1-preview.1"
-    $AddPage = Invoke-RestMethod -Uri $AddPageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $tmJson   
-
-    Write-Host "Page created - Release Notes complete"
-
-   
-
-}
-
 
 function Get-AllUSerMembership(){
     Param(
@@ -1631,6 +1054,281 @@ function Get-GroupInfo() {
         $FailedItem = $_.Exception.ItemName
         Write-Host "Error : " + $ErrorMessage + " iTEM : " + $FailedItem
     }
+}
+
+function GetFirstRepoCommitDate()
+{
+     # this function will list the GIT repos
+     Param(
+        [Parameter(Mandatory = $true)]
+        $userParams,
+        [Parameter(Mandatory = $true)]
+        $outFile
+       
+    )
+
+    # Base64-encodes the Personal Access Token (PAT) appropriately
+    $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
+
+     # get list of all projects in org
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/core/projects/list?view=azure-devops-rest-6.1
+        # GET https://dev.azure.com/{organization}/_apis/projects?api-version=6.1-preview.4
+        $listProJectsUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects?api-version=7.1-preview.4"
+        $AllProjects = Invoke-RestMethod -Uri $listProJectsUrl -Method Get -ContentType "application/json" -Headers $authorization 
+        
+        $projectList = @()
+
+        foreach ($prj in $AllProjects.value) 
+        {
+            # get all repos in project
+            # https://docs.microsoft.com/en-us/rest/api/azure/devops/git/repositories/list?view=azure-devops-rest-7.1&tabs=HTTP
+            # GET https://dev.azure.com/{organization}/{project}/_apis/git/repositories?api-version=7.1-preview.1
+
+            $listProjReposURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" +  $prj.name + "/_apis/git/repositories?api-version=7.1-preview.1"
+            $PrjRepos = Invoke-RestMethod -Uri $listProjReposURL -Method Get -ContentType "application/json" -Headers $authorization 
+                                   
+            $AuditList = @()
+            Write-Host $prj.name
+
+            foreach ($repo in $PrjRepos.value) 
+            {
+                Write-Host "     Repo: " $repo.name  "   ID: " $repo.id
+                try 
+                {
+                    if($repo.isDisabled -eq $false)
+                    {
+                        # get repo stats
+                        # https://docs.microsoft.com/en-us/rest/api/azure/devops/git/stats/get?view=azure-devops-rest-7.1&tabs=HTTP
+                        # GET https://dev.azure.com/{organization}/{project}/_apis/git/repositories/{repositoryId}/stats/branches?name={name}&api-version=7.1-preview.1
+                        $listReposStatsURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" +  $prj.name + "/_apis/git/repositories/" + $repo.id + "/commits?api-version=7.1-preview.1"
+                        $PrjRepoStats = Invoke-RestMethod -Uri $listReposStatsURL -Method Get -ContentType "application/json" -Headers $authorization 
+                        
+                        foreach ($st  in $PrjRepoStats.value) 
+                        {
+                            $stat = New-Object -TypeName PSObject -Property @{
+                                commitId = $st.commitId
+                                commitDate = $st.author.date
+                                reponame = $repo.name
+                                comment = $st.comment
+                                project = $prj.name
+                                prjlastUpdate = $prj.lastUpdateTime
+                            }
+                            $AuditList += $stat
+                        }    
+                    }
+                }
+                catch 
+                {
+                    $ErrorMessage = $_.Exception.Message      
+                    Write-Host "Error in gettin commits : " + $ErrorMessage 
+                    $stat = New-Object -TypeName PSObject -Property @{
+                        commitId = " no commit found"
+                        commitDate =  $prj.lastUpdateTime
+                        comment = " no commit found"
+                        reponame = $repo.name
+                        project = $prj.name
+                        prjlastUpdate = $prj.lastUpdateTime
+                    }
+                    $AuditList += $stat
+                }
+
+                # sort all commits by earilest commit date among all repos
+                $AuditList = $AuditList  | Sort-Object -Property commitDate 
+               
+
+            }
+            
+            # add earilest commit
+            $projectList += $AuditList[0]
+            $AuditList = @()
+
+            # get earilest commit date
+           # $AuditList = $AuditList  | Sort-Object -Property commitDate 
+            #$projectList += $AuditList[0]
+
+            # if($AuditList[0].commitDate -ge "2022-01-01T00:00:00Z")
+            # {
+            #     $projectList += $AuditList[0]
+            # }
+
+        }    
+
+         
+          Write-Output "Project Name|First Commit Date|Repo Name|Last Update Date|Frrst Commit comment" | Out-File -FilePath $outFile
+
+          foreach ($project in $projectList)                     
+          {
+              Write-Output $project.project "|" | Out-File -FilePath $outFile -Append -NoNewline  
+              Write-Output $project.commitDate "|" | Out-File -FilePath $outFile -Append -NoNewline  
+              Write-Output $project.reponame "|" | Out-File -FilePath $outFile -Append -NoNewline  
+              Write-Output $project.prjlastUpdate "|" | Out-File -FilePath $outFile -Append -NoNewline  
+              Write-Output $project.comment  | Out-File -FilePath $outFile -Append -NoNewline  
+              Write-Output "  " | Out-File -FilePath $outFile -Append 
+
+          }
+            Write-Output "  " | Out-File -FilePath $outFile -Append
+ 
+           Write-Host $projectList      
+    
+
+}
+
+function ListAllProjectsAndRepos() {
+    # this function will list the GIT repos
+    Param(
+        [Parameter(Mandatory = $true)]
+        $userParams,
+        [Parameter(Mandatory = $true)]
+        $outFile
+       
+    )
+
+    # Base64-encodes the Personal Access Token (PAT) appropriately
+    $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
+
+     # get list of all projects in org
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/core/projects/list?view=azure-devops-rest-6.1
+        # GET https://dev.azure.com/{organization}/_apis/projects?api-version=6.1-preview.4
+        $listProJectsUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects?api-version=7.1-preview.4"
+        $AllProjects = Invoke-RestMethod -Uri $listProJectsUrl -Method Get -ContentType "application/json" -Headers $authorization 
+        
+        $projectList = @()
+
+        foreach ($prj in $AllProjects.value) 
+        {
+            # get all repos in project
+            # https://docs.microsoft.com/en-us/rest/api/azure/devops/git/repositories/list?view=azure-devops-rest-7.1&tabs=HTTP
+            # GET https://dev.azure.com/{organization}/{project}/_apis/git/repositories?api-version=7.1-preview.1
+
+            $listProjReposURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" +  $prj.name + "/_apis/git/repositories?api-version=7.1-preview.1"
+            $PrjRepos = Invoke-RestMethod -Uri $listProjReposURL -Method Get -ContentType "application/json" -Headers $authorization 
+                                   
+            $AuditList = @()
+            Write-Host $prj.name
+
+            foreach ($repo in $PrjRepos.value) 
+            {
+                Write-Host "     Repo: " $repo.name  "   ID: " $repo.id
+                try 
+                {
+                    if($repo.isDisabled -eq $false)
+                    {
+
+                    }
+                    # get repo stats
+                    # https://docs.microsoft.com/en-us/rest/api/azure/devops/git/stats/get?view=azure-devops-rest-7.1&tabs=HTTP
+                    # GET https://dev.azure.com/{organization}/{project}/_apis/git/repositories/{repositoryId}/stats/branches?name={name}&api-version=7.1-preview.1
+                    $listReposStatsURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" +  $prj.name + "/_apis/git/repositories/" + $repo.id + "/commits?api-version=7.1-preview.1"
+                    $PrjRepoStats = Invoke-RestMethod -Uri $listReposStatsURL -Method Get -ContentType "application/json" -Headers $authorization 
+                    
+                    foreach ($st  in $PrjRepoStats.value) 
+                    {
+                        $stat = New-Object -TypeName PSObject -Property @{
+                            commitId = $st.commitId
+                            commitDate = $st.author.date
+                            comment = $st.comment
+                            project = $prj.name
+                            prjlastUpdate = $prj.lastUpdateTime
+                        }
+                        $AuditList += $stat
+                    }    
+                }
+                catch 
+                {
+                    $ErrorMessage = $_.Exception.Message      
+                    Write-Host "Error in gettin commits : " + $ErrorMessage 
+                    $stat = New-Object -TypeName PSObject -Property @{
+                        commitId = " no commit found"
+                        commitDate =  $prj.lastUpdateTime
+                        comment = " no commit found"
+                        project = $prj.name
+                        prjlastUpdate = $prj.lastUpdateTime
+                    }
+                    $AuditList += $stat
+                }
+
+                # sort all commits by earilest commit date among all repos
+                $AuditList = $AuditList  | Sort-Object -Property commitDate 
+               
+
+            }
+            
+            # add earilest commit
+            $projectList += $AuditList[0]
+            $AuditList = @()
+
+            # get earilest commit date
+           # $AuditList = $AuditList  | Sort-Object -Property commitDate 
+            #$projectList += $AuditList[0]
+
+            # if($AuditList[0].commitDate -ge "2022-01-01T00:00:00Z")
+            # {
+            #     $projectList += $AuditList[0]
+            # }
+
+        }    
+
+         
+          Write-Output "Project Name|First Commit Date|Last Update Date|Frrst Commit comment" | Out-File -FilePath $outFile
+
+          foreach ($project in $projectList)                     
+          {
+              Write-Output $project.project "|" | Out-File -FilePath $outFile -Append -NoNewline  
+              Write-Output $project.commitDate "|" | Out-File -FilePath $outFile -Append -NoNewline  
+              Write-Output $project.prjlastUpdate "|" | Out-File -FilePath $outFile -Append -NoNewline  
+              Write-Output $project.comment  | Out-File -FilePath $outFile -Append -NoNewline  
+              Write-Output "  " | Out-File -FilePath $outFile -Append 
+
+          }
+            Write-Output "  " | Out-File -FilePath $outFile -Append
+ 
+           Write-Host $projectList
+
+            # &continuationToken={continuationToken}
+            # # find git repo
+            # # https://docs.microsoft.com/en-us/rest/api/azure/devops/git/repositories/list?view=azure-devops-rest-6.1&tabs=HTTP
+            # # GET repositories?includeLinks={includeLinks}&includeAllUrls={includeAllUrls}&includeHidden={includeHidden}&api-version=6.1-preview.1
+            # $listProviderURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" + $prj.Name + "/_apis/git/repositories?api-version=6.1-preview.1"
+            # $repo = Invoke-RestMethod -Uri $listProviderURL -Method Get -ContentType "application/json" -Headers $authorization 
+            
+            # Write-Output "  " | Out-File -FilePath $outFile -Append
+            # Write-Output $repo.count " Repositories found for Project : "  $prj.Name | Out-File -FilePath $outFile -Append -NoNewline
+            # Write-Output "  " | Out-File -FilePath $outFile -Append
+        
+            # foreach ($rp in $repo.value) 
+            # {
+            #     Write-Output "  " | Out-File -FilePath $outFile -Append
+            
+            #     try {
+                    
+            #         # find branches for given repo
+            #         # https://docs.microsoft.com/en-us/rest/api/azure/devops/git/refs/list?view=azure-devops-rest-5.0
+            #         # GET https://dev.azure.com/{organization}/{project}/_apis/git/repositories/{repositoryId}/refs?api-version=5.0
+            #         $listProviderURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/" +  $prj.Name + "/_apis/git/repositories/" + $rp.Id + "/refs?api-version=5.0"
+            #         $branchlist = Invoke-RestMethod -Uri $listProviderURL -Method Get -ContentType "application/json" -Headers $authorization 
+
+            #         Write-Output "   Repository Name :  " $rp.name " , Branches found : " $branchlist.count  | Out-File -FilePath $outFile -Append -NoNewline
+            #         Write-Output "     Default Branch:  " $rp.defaultBranch " , Last Updated : " $rp.project.lastUpdateTime  | Out-File -FilePath $outFile -Append -NoNewline
+
+            #         foreach ($item in $branchlist.value) {
+            #             Write-Host "     Branch : " $item.name 
+            #             Write-Output "  " | Out-File -FilePath $outFile -Append
+            #             Write-Output '     Branch : ' $item.name  ' -- Creator: ' $item.creator.displayName| Out-File -FilePath $outFile -Append -NoNewline
+            #         }  
+            #         Write-Output "  " | Out-File -FilePath $outFile -Append
+
+            #     }
+            #     catch {
+            #         $ErrorMessage = $_.Exception.Message
+            #         $FailedItem = $_.Exception.ItemName
+            #         Write-Host "Error : " + $ErrorMessage + " iTEM : " + $FailedItem
+            #         Write-Output "   Repository Name :  " $rp.name " , Branches found : 0 "  | Out-File -FilePath $outFile -Append -NoNewline
+            #         Write-Output "  " | Out-File -FilePath $outFile -Append
+            #     }          
+            # }
+        
+    
+
 }
 
 function ListGitBranches(){
@@ -2657,9 +2355,11 @@ function Copy-ProcessAndWorkItemType()
         $newWkItemsUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId + '/workitemtypes?$expand=layout&api-version=7.1-preview.2'    
         $newWKItem = Invoke-RestMethod -Uri $newWkItemsUrl -Method Post -ContentType "application/json" -Headers $authorization -Body $newWkJson
 
-        # not get list of all work items including the one we added
+        # now get list of all work items including the one we added
         $AllWorkItemTypeUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + '/workitemtypes?$expand=layout&api-version=7.1-preview.2'      
         $newWKItemList = Invoke-RestMethod -Uri $AllWorkItemTypeUrl -Method Get -Headers $authorization
+        
+        # find new work item type
         $newWKItem =  $newWKItemList.value | Where-Object {$_.name -eq $WorkItemToCopy}
 
         # get states of work item to copy. this will be used to add states to new work item
