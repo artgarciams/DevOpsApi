@@ -79,6 +79,6 @@ Write-Host "Future Sprint query     : " $userParameters.FutureWitemQry
 
 Write-Host ""
 
-GetWorkItemsByField -userParams $userParameters -UsingExtension $useExt
+GeReleaseNotesByQuery -userParams $userParameters -UsingExtension $useExt
 
 
