@@ -41,6 +41,6 @@ if($userParameters.OutPutToFile -eq "Yes" )
     Set-DirectoryStructure -userParams $userParameters 
 }
 
-GetWorkItemsByField -userParams $userParameters
+GeReleaseNotesByQuery -userParams $userParameters
 
 

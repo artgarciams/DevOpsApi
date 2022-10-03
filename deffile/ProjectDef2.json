@@ -1,18 +1,15 @@
 { 
-    "VSTSMasterAcct" : "artgarciavsts",
-    "userEmail"      : "argarc@microsoft.com",
-    "PAT"            : "vzwspqxcwark4ta4faaqf5v5tz6tcqy33wtr2xat6f7xtplqum7a",
-    "ProjectName"    : "genPartsUnlimited",
-    "DefaultTeam"    : "genPartsUnlimited Team",   
-    
-    "ISCJ PAT"       : "gtvnnsbpcm63hhhxd6afhn7hwnt4xp22zqbgq5wgkjqveu6ibspq",
-    "CODEHUBPAT"     : "x4coy5hapf24oiu6acm3ewh75jjnxdjbaxaodgynrhjcnx4branq",
+    "VSTSMasterAcct" : "Org Name goes here",
+    "userEmail"      : "user email address assocaited with pat key",
+    "PAT"            : "pay key goes here",
+    "ProjectName"    : "Project name goes here",
+    "DefaultTeam"    : "",   
     
     "TagLeads"       : false,
-    "BuildTags"      : "test123",
+    "BuildTags"      : "TEST123",
     "SubscriptionId" : "",
 
-    "PublishWiKi"    : "genPartsUnlimited_wiki",
+    "PublishWiKi"    : "xxxxxxxxxxxxx.wiki",
     "PublishParent"  : "Automated Release Notes",
     "PublishPagePrfx": "Release Notes",
     "PublishSummary" : "This release will encomass many things.",
@@ -27,10 +24,10 @@
 
     "WhatsNewComment": "introduces a number of updates benefitting many partner organizations and programs as follows.  Many thanks to the Leads who have helped drive execution for this work across the programs and partner orgs.  ",    
     "CurrentQryText" : " Shipped in the previous sprint 111",    
-    "CurrentWitemQry": "All Items_WI",
+    "CurrentWitemQry": "xxxxx_Completed Last 2 Weeks",
     
     "FutureQryText" : "What's planned for the next 2 sprints 222",
-    "FutureWitemQry" : "",
+    "FutureWitemQry" : "yyyy_What's coming in next 2 sprints",
     
 
     "WorkItemTypes"  : ["User Story","Bug","Task"],

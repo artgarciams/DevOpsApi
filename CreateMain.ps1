@@ -37,8 +37,14 @@ Copy-ProcessAndWorkItemType -userParams $userParameters -InheritedProcessName "O
 
 #Get-ProjectMetrics -userParams $userParameters
 
+GetFirstRepoCommitDate -userParams $userParameters -outFile ($userParameters.DirRoot + "\\" + "ProjectList.txt")
+
+# list all projects and repos
+#ListAllProjectsAndRepos -userParams $userParameters -outFile ($userParameters.DirRoot + "\\" + "ProjectList.csv")
+
+
 #list available branches*
-##ListGitBranches -userParams $userParameters -outFile ($userParameters.DirRoot + "\\" + $userParameters.GitListFile) -GetAllProjects "no"
+#ListGitBranches -userParams $userParameters -outFile ($userParameters.DirRoot + "\\" + $userParameters.GitListFile) -GetAllProjects "no"
 
 # list all azure services 
 # $allServices = Get-AllAzureServices -outFile "C:\\tempdata\\services.txt"
