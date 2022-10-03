@@ -1,0 +1,45 @@
+{ 
+    "VSTSMasterAcct" : "Org Name goes here",
+    "userEmail"      : "user email address assocaited with pat key",
+    "PAT"            : "pay key goes here",
+    "ProjectName"    : "Project name goes here",
+    "DefaultTeam"    : "",   
+    
+    "TagLeads"       : false,
+    "BuildTags"      : "TEST123",
+    "SubscriptionId" : "",
+
+    "PublishWiKi"    : "xxxxxxxxxxxxx.wiki",
+    "PublishParent"  : "Automated Release Notes",
+    "PublishPagePrfx": "Release Notes",
+    "PublishSummary" : "This release will encomass many things.",
+    "PublishBldNote" : "This page is system generated. Do not Update this page. This is the Build Notes Section",
+    "PublishWKItNote": "This is the Work Item section note",
+    "PublishArtfNote": "Artifact notes go here",
+    "PermNoteTitle"  : "#Permanent Notes",
+    "PermNoteBody"   : "|test Item|\r|:---------|\r|this is a test of the permanent data section|",
+    
+    "PublishSaveStrt": "",
+    "PublishSaveEnd" : "",
+
+    "WhatsNewComment": "introduces a number of updates benefitting many partner organizations and programs as follows.  Many thanks to the Leads who have helped drive execution for this work across the programs and partner orgs.  ",    
+    "CurrentQryText" : " Shipped in the previous sprint 111",    
+    "CurrentWitemQry": "xxxxx_Completed Last 2 Weeks",
+    
+    "FutureQryText" : "What's planned for the next 2 sprints 222",
+    "FutureWitemQry" : "yyyy_What's coming in next 2 sprints",
+    
+
+    "WorkItemTypes"  : ["User Story","Bug","Task"],
+    
+    "HTTP_preFix"    : "https",
+    "DirRoot"        : "C:\\tempData\\",
+    "DumpDirectory"  : "\\raw\\",
+
+    "GitListFile"    : "repo.txt",
+    "GroupFileName"  : "SEC_TEMP.TXT",
+    "rawDataFile"    : "rawdump.txt",
+    "UserFileName"   : "Get-AllUSerMembership-01-19.txt",
+    "AllProjects"    : "True",
+    "Namespaces"     : ["Analytics","Tagging","Project","AnalyticsViews","AuditLog","BuildAdministration","Server","VersionControlPrivileges","Process","Collection"]
+}
