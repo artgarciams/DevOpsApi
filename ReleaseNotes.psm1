@@ -899,16 +899,19 @@ function WriteToWikiPage()
         $ErrorMessage = $_.Exception.Message
         $FailedItem = $_.Exception.ItemName
     }
+
+
     try 
     {
        $contentData = @{
             content  =  $contentData
         }
-        # $blankData = @{
-        #     "content" = "Wiki page content"
-        # }
+        $blankData = @{
+            "content" = "Wiki page content"
+        }
 
         $ContentJson = ConvertTo-Json -InputObject $contentData
+      
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/create%20or%20update?view=azure-devops-rest-6.1
         # PUT https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&api-version=6.1-preview.1
         $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $allWiki.Name + "/pages?path=" + $landingPg + "&api-version=7.1-preview.1" 
@@ -1346,26 +1349,48 @@ function GeReleaseNotesByQuery()
     # setup array to house results
     $AllWorkItems = @()
     $FutureWkItems = @()
+    #$qryCnt = 0
 
     foreach ($wk in $currquery.workItems) 
     {
         $WorItemUrl =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $wk.Id + "?expand=Fields&api-version=7.1-preview.3"
         $WorkItem = Invoke-RestMethod -Uri $WorItemUrl -Method Get -Headers $authorization
      
-        Write-Host  $WorkItem.fields.'System.Title'
+        # remove special characters from title. they cause the markup for the page to be invalid
+        $title = $WorkItem.fields.'System.Title'
+        $title = $title.Replace('"',"'").Replace('~',"-") 
+
+        #$title = $title.Replace('~',"-")
+
+        $Desc = $WorkItem.fields.'Custom.CTI'
+        if($desc -ne $null)
+        {
+            if($Desc.length -ge 150)
+            {
+                #$desc = $Desc.substring(0,150)
+            }
+        }
+
+        Write-Host  $title
         $stg = New-Object -TypeName PSObject -Property @{
             Id = $wk.Id
-            Title =  $WorkItem.fields.'System.Title'
+            Title = $title 
             RequestType = $WorkItem.fields.'Custom.RequestType'
             Program = $WorkItem.fields.'Custom.Program'
             Bucket = $WorkItem.fields.'Custom.Bucket'
-            Description = $WorkItem.fields.'Custom.CTI'
+            Description = $desc 
             Sprint = $WorkItem.fields.'Custom.Sprint'
             Team = $WorkItem.fields.'Custom.Team'
             Leads = $WorkItem.fields.'Custom.ProgramOwner'
         }
+
         $AllWorkItems += $stg   
-        $stg = $null           
+        $stg = $null   
+        # $qryCnt += 1
+        # if($qryCnt -ge 300)
+        # {
+        #     break
+        # }        
       
     }
 
@@ -1378,6 +1403,7 @@ function GeReleaseNotesByQuery()
             $WorkItem = Invoke-RestMethod -Uri $WorItemUrl -Method Get -Headers $authorization
 
             Write-Host  $WorkItem.fields.'System.Title'
+
             $stg = New-Object -TypeName PSObject -Property @{
                 Id = $wk.Id
                 Title =  $WorkItem.fields.'System.Title'
@@ -1413,6 +1439,15 @@ function GeReleaseNotesByQuery()
     $contentData +=  "_Release Notes Created        : "  + $dt + "_"
     $contentData +=  $([char]13) + $([char]10) 
 
+    $contentData +=  "_Current Work Items Query used : "  + $userParams.CurrentWitemQry + "_"
+    $contentData +=  $([char]13) + $([char]10) 
+    
+    if( $userParams.FutureWitemQry -ne "")
+    {
+        $contentData +=  "_Future Work Items Query used  : "  + $userParams.FutureWitemQry + "_"
+        $contentData +=  $([char]13) + $([char]10) 
+    }
+    
     $contentData +=  $([char]13) + $([char]10) 
     $contentData +=  $([char]13) + $([char]10)     
     $contentData += "**Whats New**" +  $([char]13) + $([char]10) 
