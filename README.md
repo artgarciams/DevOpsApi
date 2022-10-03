@@ -82,3 +82,22 @@ Execution process
         Step 4:
             Run the script. IF the page already exists the script will stop and generate an error message at the bottom of the page.
             the error will be : Page exists - Script terminated, Please review page
+
+4 - WorkItemReleaseNotesMain.ps1 - This will generate release notes from a given shared query. It will take the first query and call it the current
+                                   items and then a second query called future items.
+                                   
+           To run tis script you must update the ProjectDef.json and update the following fields
+           A - "CurrentWitemQry": "name of current query to use"
+           B - "FutureWitemQry" : "name of future query"
+           C - "PublishWiKi"    : "xxxxxxxxxxxxx.wiki"
+           
+           D -"VSTSMasterAcct" : "Org Name goes here"
+           E- "userEmail"      : "user email address assocaited with pat key"
+           F- "PAT"            : "pay key goes here"
+           G - "ProjectName"    : "Project name goes here"
+           H - "DefaultTeam"    : "default team name"   
+           
+    "DefaultTeam"    : "",   
+                   
+</br>
+</br>
