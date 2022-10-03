@@ -4,7 +4,7 @@
 # Author    : Arthur A. Garcia
 # Purpose   : This script will generate release notes from a work item query and move them into a WiKi page.
 #             This script is for demonstration only not to be used as production code
-# last Update: 12/04/2020
+# last Update: 10/03/2022
 
 #import modules
 $modName = $PSScriptRoot + "\SecurityHelper.psm1" 
@@ -19,26 +19,8 @@ $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 
 Write-host $userParameters.ProjectName
 Write-host $userParameters.userEmail
-Write-host $userParameters.BuildTags 
-Write-Host $userParameters.TagLeads
-
-
-$slp = $userParameters.BuildTags.Split(',')
-$userParameters.BuildTags = $slp
-
-
-# $userParameters.userEmail =  ${env:USEREMAIL}
-
-# make sure directory structure exists
-#    "DirRoot"        : "C:\\TempData",
-#    "ReleaseDir"     : "\\BuildNotes\\",
-#    "LogDirectory"   : "\\Logs\\",
-#    "DumpDirectory"  : "\\RawData\\",
-#    "SecurityDir"    : "\\Security\\", 
-if($userParameters.OutPutToFile -eq "Yes" )
-{
-    Set-DirectoryStructure -userParams $userParameters 
-}
+Write-host $userParameters.CurrentWitemQry 
+Write-Host $userParameters.FutureWitemQry
 
 GeReleaseNotesByQuery -userParams $userParameters
 

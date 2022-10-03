@@ -23,6 +23,9 @@
     "PublishSaveEnd" : "",
 
     "WhatsNewComment": "introduces a number of updates benefitting many partner organizations and programs as follows.  Many thanks to the Leads who have helped drive execution for this work across the programs and partner orgs.  ",    
+    "FeedBackText"   : "*Feedback?  Questions?*   xxxxxxx.com",
+    "SuggestionText" : "*Suggested program/system/tooling enhancements?*   https://xxx.com",
+
     "CurrentQryText" : " Shipped in the previous sprint 111",    
     "CurrentWitemQry": "xxxxx_Completed Last 2 Weeks",
     

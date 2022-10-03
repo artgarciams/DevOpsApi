@@ -906,10 +906,7 @@ function WriteToWikiPage()
        $contentData = @{
             content  =  $contentData
         }
-        $blankData = @{
-            "content" = "Wiki page content"
-        }
-
+      
         $ContentJson = ConvertTo-Json -InputObject $contentData
       
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/create%20or%20update?view=azure-devops-rest-6.1
@@ -1349,7 +1346,6 @@ function GeReleaseNotesByQuery()
     # setup array to house results
     $AllWorkItems = @()
     $FutureWkItems = @()
-    #$qryCnt = 0
 
     foreach ($wk in $currquery.workItems) 
     {
@@ -1360,37 +1356,42 @@ function GeReleaseNotesByQuery()
         $title = $WorkItem.fields.'System.Title'
         $title = $title.Replace('"',"'").Replace('~',"-") 
 
-        #$title = $title.Replace('~',"-")
-
-        $Desc = $WorkItem.fields.'Custom.CTI'
-        if($desc -ne $null)
+        if($WorkItem.fields.'Custom.CTI' -eq $null)
         {
-            if($Desc.length -ge 150)
-            {
-                #$desc = $Desc.substring(0,150)
-            }
+            $Desc = $WorkItem.fields.'System.Description'
+        }
+        else
+        {
+            $Desc = $WorkItem.fields.'Custom.CTI'           
+        }
+
+        $AssignedTo = $WorkItem.fields.'Custom.ProgramOwner'
+        if($AssignedTo -eq $null)
+        {
+            $AssignedTo = $WorkItem.fields.'System.AssignedTo'.displayName
+        }
+        else
+        {
+            $AssignedTo = $WorkItem.fields.'Custom.ProgramOwner'
         }
 
         Write-Host  $title
+        Write-Host  $Desc
+
         $stg = New-Object -TypeName PSObject -Property @{
             Id = $wk.Id
             Title = $title 
             RequestType = $WorkItem.fields.'Custom.RequestType'
             Program = $WorkItem.fields.'Custom.Program'
             Bucket = $WorkItem.fields.'Custom.Bucket'
-            Description = $desc 
+            Description = $Desc
             Sprint = $WorkItem.fields.'Custom.Sprint'
             Team = $WorkItem.fields.'Custom.Team'
-            Leads = $WorkItem.fields.'Custom.ProgramOwner'
+            Leads = $AssignedTo
         }
 
         $AllWorkItems += $stg   
         $stg = $null   
-        # $qryCnt += 1
-        # if($qryCnt -ge 300)
-        # {
-        #     break
-        # }        
       
     }
 
@@ -1403,17 +1404,39 @@ function GeReleaseNotesByQuery()
             $WorkItem = Invoke-RestMethod -Uri $WorItemUrl -Method Get -Headers $authorization
 
             Write-Host  $WorkItem.fields.'System.Title'
+            remove special characters from title. they cause the markup for the page to be invalid
+            $title = $WorkItem.fields.'System.Title'
+            $title = $title.Replace('"',"'").Replace('~',"-") 
 
+            if($WorkItem.fields.'Custom.CTI' -eq $null)
+            {
+                $Desc = $WorkItem.fields.'System.Description'
+            }
+            else
+            {
+                $Desc = $WorkItem.fields.'Custom.CTI'           
+            }
+
+            $AssignedTo = $WorkItem.fields.'Custom.ProgramOwner'
+            if($AssignedTo -eq $null)
+            {
+                $AssignedTo = $WorkItem.fields.'System.AssignedTo'.displayName
+            }
+            else
+            {
+                $AssignedTo = $WorkItem.fields.'Custom.ProgramOwner'
+            }
             $stg = New-Object -TypeName PSObject -Property @{
                 Id = $wk.Id
-                Title =  $WorkItem.fields.'System.Title'
+                Title =  $title
                 RequestType = $WorkItem.fields.'Custom.RequestType'
                 Program = $WorkItem.fields.'Custom.Program'
                 Bucket = $WorkItem.fields.'Custom.Bucket'
-                Description = $WorkItem.fields.'Custom.CTI'
+                Description = $Desc
                 Sprint = $WorkItem.fields.'Custom.Sprint'
                 Team = $WorkItem.fields.'Custom.Team'
-                Leads = $WorkItem.fields.'Custom.ProgramOwner'
+                Leads = $AssignedTo 
+
             }
             $FutureWkItems += $stg   
             $stg = $null           
@@ -1458,8 +1481,8 @@ function GeReleaseNotesByQuery()
     $contentData += $userParams.WhatsNewComment + $([char]13) + $([char]10)
     $contentData +=  $([char]13) + $([char]10) 
 
-    $contentData += "*Feedback?  Questions?*   askISCJprograms@microsoft.com" + $([char]13) + $([char]10)
-    $contentData += "*Suggested program/system/tooling enhancements?*   https://aka.ms/ISCJProgramsRequest" + $([char]13) + $([char]10)
+    $contentData +=  $userParams.FeedBackText.Trim() + $([char]13) + $([char]10)
+    $contentData +=  $userParams.SuggestionText.Trim() + $([char]13) + $([char]10)
     $contentData +=  $([char]13) + $([char]10) 
 
     $contentData += "#" + $userParams.CurrentQryText + $([char]13) + $([char]10) 
@@ -1497,16 +1520,16 @@ function GeReleaseNotesByQuery()
        $contentData += " <U>Lead: </U>"
        
        # add tag for leads
-       if(![string]::IsNullOrEmpty($srt.Leads.Displayname) )
+       if(![string]::IsNullOrEmpty($srt.Leads) )
        {
             # for testing dont tag leads as it will show in inbox
             if($userParams.TagLeads -eq $true)
             {
-                $contentData +=  "@<" + $srt.Leads.uniqueName + ">" + $([char]13) + $([char]10) 
+                $contentData +=  "@<" + $srt.Leads + ">" + $([char]13) + $([char]10) 
             }
             else
             {
-                $contentData +=  $srt.Leads.Displayname + $([char]13) + $([char]10)                 
+                $contentData +=  $srt.Leads + $([char]13) + $([char]10)                 
             }
        }
        else
@@ -1593,7 +1616,9 @@ function GeReleaseNotesByQuery()
                         
                     }
 
-                    Default {}
+                    Default {
+                        $desc = $srt.Description
+                    }
                 }
 
                 Write-Host "Desc After Switch :" $desc
