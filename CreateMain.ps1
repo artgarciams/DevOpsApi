@@ -22,7 +22,7 @@ $userParameters = Get-Content -Path $UserDataFile | ConvertFrom-Json
 Write-Output $userParameters.ProjectName
 Write-Output $userParameters.Description
 
-$userParameters.ProjectName = "Gov Portfolio"
+#$userParameters.ProjectName = "Gov Portfolio"
 #Get-AllFieldsWorkItemType -userParams $userParameters -InheritedProcessName "Opportunity Tracking - Master" -wkItemName "Government opportunity"  -OutputFile "C:\\tempdata\fields.txt"
 
 #
@@ -33,11 +33,11 @@ $userParameters.ProjectName = "Gov Portfolio"
 #          WorkItemCopyFrom     - Name of the work item type to copy from
 #          WorkItemToCopy       - Name of work item type to copy to
 #
-Copy-ProcessAndWorkItemType -userParams $userParameters -InheritedProcessName "Opportunity Tracking - Master" -DestinationProcess "Opportunity Tracking - Master" -WorkItemCopyFrom "Government opportunity" -WorkItemToCopy "Master Opportunity"
+Copy-ProcessAndWorkItemType -userParams $userParameters -InheritedProcessName "artgarciavsts Agile" -DestinationProcess "New Agile Process" -WorkItemCopyFrom "Feature" -WorkItemToCopy "New Feature"
 
 #Get-ProjectMetrics -userParams $userParameters
 
-GetFirstRepoCommitDate -userParams $userParameters -outFile ($userParameters.DirRoot + "\\" + "ProjectList.txt")
+#GetFirstRepoCommitDate -userParams $userParameters -outFile ($userParameters.DirRoot + "\\" + "ProjectList.txt")
 
 # list all projects and repos
 #ListAllProjectsAndRepos -userParams $userParameters -outFile ($userParameters.DirRoot + "\\" + "ProjectList.csv")

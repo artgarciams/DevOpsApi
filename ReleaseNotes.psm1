@@ -892,8 +892,6 @@ function WriteToWikiPage()
         $DeletePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $allWiki.Name + "/pages?path=" + $landingPg + "&api-version=7.1-preview.1" 
         $DeletePage = Invoke-RestMethod -Uri $DeletePageUri -Method Delete -Headers $authorization -Verbose
         Write-Host $DeletePage
-
-
     }
     catch {
         $ErrorMessage = $_.Exception.Message
@@ -958,92 +956,7 @@ function Set-ReleaseNotesToWiKi()
         $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail        
     }
 
-    try {
-        # get all wiki for given org
-        # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/wikis/list?view=azure-devops-rest-6.1
-        # GET https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis?api-version=6.1-preview.2
-        $wikiUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis?api-version=6.1-preview.2"
-        $wikiUri = $wikiUri.Replace(" ","%20")
-        $allWikifnd = Invoke-RestMethod -Uri $wikiUri -Method Get -Headers $authorization
-
-        # find desired wiki to use
-        $allWiki = $allWikifnd.value | Where-Object {$_.name -eq $userParams.PublishWiKi }
-
-        Write-Host ""
-        Write-Host "==========   WiKi Page Build Section  =========="
-        Write-Host "Wiki found :"  $allWiki.name
-        Write-Host "WiKi ID    :" $allWiki.id
-        Write-host "WiKi Type  :" $allWiki.type
-       
-    }
-    catch {
-        $ErrorMessage = $_.Exception.Message
-        $FailedItem = $_.Exception.ItemName
-        Write-Host "Error in getting Main WiKi : " + $ErrorMessage 
-    }
     
-    #
-    # create parent page if it does not exist
-    #
-    try 
-    {
-        # first see if parent page exists, if not create it
-        # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/get-page?view=azure-devops-rest-6.1#examples
-        $FindPageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $allWiki.Name + "/pages?path=" + $userParams.PublishParent  + "&api-version=6.1-preview.1" 
-        $FindParentPage = Invoke-RestMethod -Uri $FindPageUri -Method Get -ContentType "application/json" -Headers $authorization 
-        Write-Host "Parent Page exist :  $userParams.PublishParent  " $FindParentPage.content       
-    }
-    catch {
-        $ErrorMessage = $_.Exception.Message
-        $FailedItem = $_.Exception.ItemName
-        Write-Host "Error in creating parent WiKi page : " $userParams.PublishParent  
-        Write-Host "Error returned  : " + $ErrorMessage 
-               
-        $tmData = @{
-            content  = "Parent Release Notes Page"
-        }
-        $tmJson = ConvertTo-Json -InputObject $tmData    
-        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $allWiki.Name + "/pages?path=" + $userParams.PublishParent  + "&api-version=6.1-preview.1" 
-        $CreatePage = Invoke-RestMethod -Uri $CreatePageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $tmJson -Verbose
-        Write-Host "Parent Page Created : $userParams.PublishParent  " $CreatePage
-
-    }
-
-    #
-    # Create wiki page if it does not exist, if exists it will throw an error
-    #
-    # create project page in wiki
-    if([string]::IsNullOrEmpty($RelPageName) )
-    {
-        $landingPg = $userParams.PublishParent + "/" + $userParams.PublishPagePrfx 
-    }
-    else
-    {
-        $landingPg = $userParams.PublishParent + "/" + $RelPageName    
-    }
-
-    try 
-    {
-       $blankData = @{
-            content  = "Blank Page"
-        }
-        $BlankJson = ConvertTo-Json -InputObject $blankData
-        # https://docs.microsoft.com/en-us/rest/api/azure/devops/wiki/pages/create%20or%20update?view=azure-devops-rest-6.1
-        # PUT https://dev.azure.com/{organization}/{project}/_apis/wiki/wikis/{wikiIdentifier}/pages?path={path}&api-version=6.1-preview.1
-        $CreatePageUri = $userParams.HTTP_preFix  + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wiki/wikis/" + $allWiki.Name + "/pages?path=" + $landingPg + "&api-version=6.0" 
-        $CreatePage = Invoke-RestMethod -Uri $CreatePageUri -Method Put -ContentType "application/json" -Headers $authorization -Body $BlankJson
-        Write-Host $CreatePage
-        Write-Host "WiKi Landing Page Created "
-    }
-    catch {
-        
-        $ErrorMessage = $_.Exception.Message
-        $FailedItem = $_.Exception.ItemName
-        Write-Host "Error Creating parent Page : " $ErrorMessage 
-        Write-Host "WiKi Landing Page exists "
-    }   
-  
-
     # build content
     # sort by sequence number  
     # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/get-date?view=powershell-7.1
@@ -1185,7 +1098,7 @@ function Set-ReleaseNotesToWiKi()
     #     $contentData += $secReplace
     # }
 
-  WriteToWikiPage -userParams $userParams -contentData $contentData
+  WriteToWikiPage -userParams $userParams -contentData $contentData -UsingExtension  $UsingExtension
 
     # try {
 
@@ -1436,7 +1349,6 @@ function GeReleaseNotesByQuery()
                 Sprint = $WorkItem.fields.'Custom.Sprint'
                 Team = $WorkItem.fields.'Custom.Team'
                 Leads = $AssignedTo 
-
             }
             $FutureWkItems += $stg   
             $stg = $null           
