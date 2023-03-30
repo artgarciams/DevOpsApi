@@ -5,8 +5,8 @@
     "ProjectName"    : "Project name goes here",
     "DefaultTeam"    : "",   
     
-    "TagLeads"       : false,
     "BuildTags"      : "TEST123",
+    "TagLeads"       : false,
     "SubscriptionId" : "",
 
     "PublishWiKi"    : "xxxxxxxxxxxxx.wiki",
