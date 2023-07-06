@@ -6,6 +6,221 @@
 #
 # last update 12/04/2020
 
+
+function GetProspectResults(){
+
+    Param(
+        [Parameter(Mandatory = $true)]
+        $userParams,
+        [Parameter(Mandatory = $false)]
+        $Data,
+        [Parameter(Mandatory = $false)]
+        $UsingExtension,
+        [Parameter(Mandatory = $true)]
+        $BuildTable,
+        [Parameter(Mandatory = $true)]
+        $ParentTable
+    )
+
+    # Base64-encodes the Personal Access Token (PAT) appropriately    
+    if($UsingExtension -eq "yes")
+    {
+        Write-Host "Using System Access Token"
+        $authorization  = @{Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN"} 
+        
+        $usr =  [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        $getcur = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+        $gp =   ConvertTo-Json  -InputObject $getcur.groups -Depth 24
+        Write-Host "Current User is : " $usr 
+        Write-Host "Current User Group is : "  $gp 
+
+    }else {
+        $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail        
+    }
+  
+    # first get project because we need project id
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/core/projects/list?view=azure-devops-rest-7.1
+    # GET https://dev.azure.com/{organization}/_apis/projects?api-version=7.1-preview.4
+    $AllProjectsUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects?api-version=7.1-preview.4"     
+    $AllProjects = Invoke-RestMethod -Uri $AllProjectsUrl -Method Get -Headers $authorization
+    $project = $AllProjects.value | Where-Object {$_.name -eq $userParams.ProjectName}
+    Write-Host $project
+
+    # get query list and find specific query for current release
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/queries/list?view=azure-devops-rest-7.1
+    # GET https://dev.azure.com/{organization}/{project}/_apis/wit/queries?api-version=7.1-preview.2
+    # $queryUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +"/" +  $project.Id +"/_apis/wit/queries/'Shared Queries/People Industries/Government/gov-00 prospect US'?" + '$expand=all&$depth=2&api-version=7.1-preview.2'
+    $queryUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +"/" +  $project.Id +"/_apis/wit/queries/" + $userParams.ParentFolder + "?" + '$expand=all&$depth=2&api-version=7.1-preview.2'
+    $query = Invoke-RestMethod -Uri $queryUrl -Method Get -Headers $authorization -ContentType "application/json" 
+    
+    $currRelQuery =  $query.children | Where-Object {$_.name -eq $userParams.CurrentWitemQry } 
+           
+    $tmData = @{
+        query = $currRelQuery.wiql
+    }
+    $qryText = ConvertTo-Json -InputObject $tmData  
+    
+    # get current query items
+    $queryUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +"/" +  $project.Id +"/" + $userParams.DefaultTeam +"/_apis/wit/wiql?api-version=7.1-preview.2"     
+    $currquery = Invoke-RestMethod -Uri $queryUrl -Method Post -Headers $authorization -Body $qryText -ContentType "application/json" 
+
+    # setup array to house results
+    $AllWorkItems = @()
+    $AllParents = @()
+
+    foreach ($wk in $currquery.workItems) 
+    {
+        $WorItemUrl =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $wk.Id + "?" + '$expand=All&api-version=7.1-preview.3'
+        $WorkItem = Invoke-RestMethod -Uri $WorItemUrl -Method Get -Headers $authorization
+     
+        # get parent
+        $parentId = $WorkItem.fields.'System.Parent'
+        $WorItemParentUrl =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $parentId + "?" + '$expand=All&api-version=7.1-preview.3'
+        $WorkItemParent = Invoke-RestMethod -Uri $WorItemParentUrl -Method Get -Headers $authorization
+
+        $parentName = $WorkItemParent.fields.'System.Title'
+        $fnd = $AllParents  | Where-Object {$_.name -eq $parentName}
+        if([string]::IsNullOrEmpty($fnd) )
+        {
+            $stg = New-Object -TypeName PSObject -Property @{
+                Id = $WorkItemParent.fields.'System.Id'
+                Name = $WorkItemParent.fields.'System.Title'
+                S500 = $WorkItemParent.fields.'Custom.S500'
+                ISEPriority = $WorkItemParent.fields.'Custom.CSEPriorityNext'
+            }
+            $AllParents += $stg   
+            $stg = $null   
+        }
+
+        # get comments  
+        $WorItemCommentUrl =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $wk.Id + "/comments?$expand=All&api-version=7.1-preview.4"
+        $WorkItemComment = Invoke-RestMethod -Uri $WorItemCommentUrl -Method Get -Headers $authorization
+     
+        $sortedComments = $WorkItemComment | Sort-Object -Property createdDate  -Descending
+
+        $H1 = ""
+        $H2 = ""
+        $hFound = ""
+
+        foreach ($comment in $sortedComments.comments) {
+           $H1pos = $comment.text.IndexOf('[H1') 
+           $H1end = $comment.text.IndexOf(']')
+           $H2pos = $comment.text.IndexOf('[H2') 
+           $H2end = $comment.text.LastIndexOf(']')
+
+           # get first h1 & h2 comment 
+           if($hFound -eq "") 
+           {
+                if($H1pos -gt 0)
+                {
+                    $H1 = $comment.text.substring($H1pos+1,($H1end - $H1pos) -1)
+                    $H1 =$H1.replace("H1-","")
+                    $hFound = "true"
+                }
+                if($H2pos -gt 0)
+                {
+                    $H2 = $comment.text.substring($H2pos+1,($H2end - $H2pos) -1 )
+                    $H2 =$H2.replace("H2-","")
+                    $hFound = "true"
+                }
+           } 
+        }
+        # remove special characters from title. they cause the markup for the page to be invalid
+        $title = $WorkItem.fields.'System.Title'
+        $title = $title.Replace('"',"'").Replace('~',"-") 
+
+        $AssignedTo = $WorkItem.fields.'Custom.ProgramOwner'
+        if($AssignedTo -eq $null)
+        {
+            $AssignedTo = $WorkItem.fields.'System.AssignedTo'.displayName
+        }
+        else
+        {
+            $AssignedTo = $WorkItem.fields.'Custom.ProgramOwner'
+        }
+
+        Write-Host  $title $H1 $H2
+      
+        if (![string]::IsNullOrEmpty($WorkItem.fields.'Custom.ProjectedACR') )
+        {
+            $ProJACR = $WorkItem.fields.'Custom.ProjectedACR'.substring(2)
+        }
+        else
+        {
+            $ProJACR = ""
+        }
+
+        if(![string]::IsNullOrEmpty($WorkItem.fields.'Custom.CustomerAzureCommit'))
+        {
+            $AzureCommit = $WorkItem.fields.'Custom.CustomerAzureCommit'.substring(2)
+        }else
+        {
+            $AzureCommit = ""
+        }
+        
+        if(![string]::IsNullOrEmpty($WorkItem.fields.'Custom.CustomerDeadlineFlexibility') )
+        {
+            $TimeLine = $WorkItem.fields.'Custom.CustomerDeadlineFlexibility'.substring(2)
+        }else
+        {
+            $TimeLine = ""
+        }
+
+        $st = [datetime] $WorkItem.fields.'System.ChangedDate'
+        $today = Get-Date
+        $diff  = New-TimeSpan -Start $st -End $today
+        
+
+
+        $stg = New-Object -TypeName PSObject -Property @{
+            Id = $wk.Id
+            Title = $title 
+            
+            PMOLead = $AssignedTo
+            Industry = $WorkItem.fields.'Custom.Industry'
+            Region = $WorkItem.fields.'Custom.Region'
+            PriorityIndex = $WorkItem.fields.'Custom.PriorityIndex'
+            ReadinessScore = $WorkItem.fields.'Custom.ReadinessScore'
+            Parent = $parentName
+            ParentID = $WorkItemParent.fields.'System.Id'
+            LastUpdate = $diff.Days
+            
+            ProJACR = $ProJACR 
+            AzureCommit = $AzureCommit
+            TimeLine = $TimeLine
+                       
+            Initiative = $WorkItem.fields.'Custom.Initiative'
+
+            H1 = $H1
+            H2 = $H2
+
+        }
+
+        $AllWorkItems += $stg   
+        $stg = $null   
+      
+    }
+
+    if($userParams.OutPutToFile -eq "Yes")
+    {
+        Write-Output "Eng ID|Title|H1|H2|Parent Id|Industry|Region|ReadinessScore|PriorityIndex|Projected ACR|Azure Commit|Initiative|Days Idle" | Out-File $BuildTable 
+        
+        foreach ($item in $AllWorkItems) 
+        {       
+            Write-Output $item.Id "|" $item.Title "|" $item.H1 "|" $item.H2 "|" $item.ParentID  "|" $item.Industry "|" $item.Region "|" $item.ReadinessScore "|" $item.PriorityIndex "|" $item.ProJACR  "|" $item.AzureCommit "|" $item.Initiative "|" $item.LastUpdate | Out-File $BuildTable -Append -NoNewline
+            Write-Output ""  | Out-File $BuildTable -Append
+        }
+
+        Write-Output "ID|Parent Org|S500|ISE Priority" | Out-File $ParentTable 
+        foreach ($item in $AllParents) 
+        {       
+            Write-Output $item.Id "|" $item.Name "|" $item.S500 "|" $item.ISEPriority  | Out-File $ParentTable -Append -NoNewline
+            Write-Output ""  | Out-File $ParentTable -Append
+        }
+    }
+
+}
+
 function Get-ApprovalsByEnvironment()
 {
     Param(
