@@ -33,7 +33,7 @@ Write-Output $userParameters.Description
 #          WorkItemCopyFrom     - Name of the work item type to copy from
 #          WorkItemToCopy       - Name of work item type to copy to
 #
-Copy-ProcessAndWorkItemType -userParams $userParameters -InheritedProcessName "artgarciavsts Agile" -DestinationProcess "New Agile Process" -WorkItemCopyFrom "Feature" -WorkItemToCopy "New Feature"
+Copy-ProcessAndWorkItemType -userParams $userParameters -InheritedProcessName "Customized Scrum" -DestinationProcess "New Scrum" -WorkItemCopyFrom "Feature" -WorkItemToCopy "New Feature"
 
 #Get-ProjectMetrics -userParams $userParameters
 

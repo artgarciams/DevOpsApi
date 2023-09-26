@@ -143,7 +143,7 @@ function GetProspectResults(){
       
         if (![string]::IsNullOrEmpty($WorkItem.fields.'Custom.ProjectedACR') )
         {
-            $ProJACR = $WorkItem.fields.'Custom.ProjectedACR'.substring(2)
+            $ProJACR = $WorkItem.fields.'Custom.ProjectedACR'.substring(0,1)
         }
         else
         {
@@ -152,7 +152,7 @@ function GetProspectResults(){
 
         if(![string]::IsNullOrEmpty($WorkItem.fields.'Custom.CustomerAzureCommit'))
         {
-            $AzureCommit = $WorkItem.fields.'Custom.CustomerAzureCommit'.substring(2)
+            $AzureCommit = $WorkItem.fields.'Custom.CustomerAzureCommit'.substring(0,1)
         }else
         {
             $AzureCommit = ""
@@ -160,7 +160,7 @@ function GetProspectResults(){
         
         if(![string]::IsNullOrEmpty($WorkItem.fields.'Custom.CustomerDeadlineFlexibility') )
         {
-            $TimeLine = $WorkItem.fields.'Custom.CustomerDeadlineFlexibility'.substring(2)
+            $TimeLine = $WorkItem.fields.'Custom.CustomerDeadlineFlexibility'.substring(0,1)
         }else
         {
             $TimeLine = ""

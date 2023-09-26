@@ -2365,7 +2365,7 @@ function Copy-ProcessAndWorkItemType()
         # get states of work item to copy. this will be used to add states to new work item
         # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/list?view=azure-devops-rest-7.1
         # GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states?api-version=7.1-preview.1
-        $getAllStatesUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $WorkItemType.referenceName + "/states?api-version=7.1-preview.1"
+        $getAllStatesUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $inheritProc.typeId  + "/workitemtypes/" + $WorkItemType.referenceName + "/states?api-version=7.1-preview.1"
         $getAllStates = Invoke-RestMethod -Uri $getAllStatesUrl -Method Get -Headers $authorization
         Write-Host $getAllStates
 
@@ -2374,6 +2374,8 @@ function Copy-ProcessAndWorkItemType()
         {
             switch ($state.name )
             {
+                # these are default states the system adds when creating a new workitem type
+                # note for this may be different by process type ir scrum, agile.
                 "New"    {  Write-Host "State " $state.name " Exists" }
                 "Active" {  Write-Host "State " $state.name " Exists" }
                 "Closed" {  Write-Host "State " $state.name " Exists" }
@@ -2409,7 +2411,7 @@ function Copy-ProcessAndWorkItemType()
         {
             $fndState =  $getAllStates.value | Where-Object {$_.name -eq $st.name}
             
-            # if not found in copy from work item delete it. WHen a work item get created it is given a few default states.
+            # if not found in copy from work item delete it. WHen a work item get created it is given a few default states. If any are deleted in inherited process remove them in new
             if([string]::IsNullOrEmpty($fndState) )
             {
                 # stat does not exist in copy from work item so it should be removed from copy to work item.
@@ -2421,6 +2423,68 @@ function Copy-ProcessAndWorkItemType()
             }
         }
         
+    }
+
+    # copy rules from inherited process to new process
+    # get list of all rules from inherited process
+    # https://learn.microsoft.com/en-us/rest/api/azure/devops/processes/rules?view=azure-devops-rest-7.2
+    # GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/rules/{ruleId}?api-version=7.2-preview.2
+    $GetRulesURL =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $inheritProc.typeId  + "/workitemtypes/" + $WorkItemType.referenceName + "/rules?api-version=7.2-preview.2"
+    $GetRules = Invoke-RestMethod -Uri $GetRulesURL -Method Get -Headers $authorization
+    Write-Host $GetRules
+
+    # if rules found add new rules
+    if(![string]::IsNullOrEmpty($GetRules) )
+    {
+        # find customized rules
+        $fndCustomRules =  $GetRules.value | Where-Object {$_.customizationType -eq 'custom'}
+        Write-Host $fndCustomRules
+
+        foreach ($rules in $fndCustomRules)
+        {
+            $jSonRules = ""
+            
+            # you need to get the condition and then the action for each rule
+
+            $jSonRules = @{ name = $rules.name}
+            $cond = @()   
+            $act = @()           
+
+            # first the condition
+            foreach ($cd in $rules.conditions)
+            {
+                $cd1 = New-Object -TypeName PSObject -Property @{ conditionType = $cd.conditionType
+                                   field = $cd.field
+                                   value = $cd.value }
+                $cond += $cd1
+                $cd1 = $null
+               
+            }
+            $jSonRules += @{ conditions = $cond}
+
+            # now the action
+            foreach ($ac in $rules.actions) 
+            {
+                $ac1 = New-Object -TypeName PSObject -Property @{ actionType = $ac.actionType
+                    targetField = $ac.targetField
+                    value = $ac.value }
+                $act += $ac1
+                $ac1 = $null
+                
+            }
+            $jSonRules += @{ actions = $act}
+            $jSonRules += @{isDisabled = 'false'}
+
+            $newRules = ConvertTo-Json -InputObject $jSonRules
+            
+            #
+            # now add the rule to the new process
+            # https://learn.microsoft.com/en-us/rest/api/azure/devops/processes/rules/add?view=azure-devops-rest-7.1&tabs=HTTP
+            # POST https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/rules?api-version=7.2-preview.2
+            $AddRulesURL =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/rules?api-version=7.2-preview.2"
+            $AddRules = Invoke-RestMethod -Uri $AddRulesURL -Method Post -Headers $authorization -Body $newRules -ContentType "application/json"
+            Write-Host $AddRules
+        }        
     }
 
     # get pages from new work item type. needed to add groups to page.
