@@ -63,6 +63,8 @@ The scripts contain the following modules:
                     You can also create , List and delete branches in the Git Repos
                     There is also a function that allows you to copy processes and workItem Types within the process. You select the Process and WorkItem to copy from
                     and then the process and workItem to copy to.
+
+                    Some other functions deal with getting repo information, copying deleting, etc. They are currently commented out, but feel free to use as needed.
                    
 </br>
 </br>
