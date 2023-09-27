@@ -2422,7 +2422,6 @@ function Copy-ProcessAndWorkItemType()
                 Write-Host "Deleted state " $st.name " from Work item to copy to" $DelStates
             }
         }
-        
     }
 
     # copy rules from inherited process to new process
@@ -2445,7 +2444,6 @@ function Copy-ProcessAndWorkItemType()
             $jSonRules = ""
             
             # you need to get the condition and then the action for each rule
-
             $jSonRules = @{ name = $rules.name}
             $cond = @()   
             $act = @()           
@@ -2458,7 +2456,6 @@ function Copy-ProcessAndWorkItemType()
                                    value = $cd.value }
                 $cond += $cd1
                 $cd1 = $null
-               
             }
             $jSonRules += @{ conditions = $cond}
 
@@ -2470,13 +2467,11 @@ function Copy-ProcessAndWorkItemType()
                     value = $ac.value }
                 $act += $ac1
                 $ac1 = $null
-                
             }
             $jSonRules += @{ actions = $act}
             $jSonRules += @{isDisabled = 'false'}
 
             $newRules = ConvertTo-Json -InputObject $jSonRules
-            
             #
             # now add the rule to the new process
             # https://learn.microsoft.com/en-us/rest/api/azure/devops/processes/rules/add?view=azure-devops-rest-7.1&tabs=HTTP
