@@ -61,6 +61,8 @@ The scripts contain the following modules:
 </br>
 3 - CreatMain.ps1 - This will generate a project,team and add users to a team. It will also create environments and default builds.
                     You can also create , List and delete branches in the Git Repos
+                    There is also a function that allows you to copy processes and workItem Types within the process. You select the Process and WorkItem to copy from
+                    and then the process and workItem to copy to.
                    
 </br>
 </br>
