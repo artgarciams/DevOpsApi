@@ -2273,6 +2273,290 @@ function Get-AllFieldsWorkItemType()
 }
 
 
+function CreateWorkItemFromFile()
+{
+    Param(
+        [Parameter(Mandatory = $false)]
+        $userParams,
+      
+        [Parameter(Mandatory = $true)]      
+        $TargetProcessName,
+
+        [Parameter(Mandatory = $true)]      
+        $TargetWorkItemToCreate,
+
+        [Parameter(Mandatory = $true)]      
+        $WorkItemInputFile
+    )
+
+    $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail        
+
+    # get all processes
+    # GET https://dev.azure.com/{organization}/_apis/work/processes?api-version=7.1-preview.2
+    $AllProcessesUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes?api-version=7.1-preview.2"     
+    $AllProcesses = Invoke-RestMethod -Uri $AllProcessesUrl -Method Get -Headers $authorization
+     
+    # find Target process - process to copy into
+     $IntoProc =  $AllProcesses.value | Where-Object {$_.name -eq $TargetProcessName}
+    
+    # if process does not exist add it
+    if([string]::IsNullOrEmpty($IntoProc) )
+    {
+        # create new process
+        # POST https://dev.azure.com/{organization}/_apis/work/processes?api-version=7.1-preview.2
+        $processJson = @{
+            description  =  "New process added with PowerShell"
+            name = $DestinationProcess
+            parentProcessTypeId = $inheritProc.parentProcessTypeId
+        }
+        $newProcess = ConvertTo-Json -InputObject $processJson
+        $newProcessesUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes?api-version=7.1-preview.2"     
+        $IntoProc = Invoke-RestMethod -Uri $newProcessesUrl -Method Post -ContentType "application/json" -Headers $authorization -Body $newProcess
+    }
+
+     # 
+     # now load the process from json file
+     $WrkItemFromFile = Get-Content -Raw -Path $WorkItemInputFile |ConvertFrom-Json
+
+     #
+     # rename workitme to name entered. one of the input values is name of work item so rename it here
+     #
+     $WrkItemFromFile.name = $TargetWorkItemToCreate
+     Write-Output $WrkItemFromFile
+
+    #
+    # now confirm the work item to create does not exist  in process selected 
+    #
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/work-item-types/list?view=azure-devops-rest-7.1
+    # GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workitemtypes?api-version=7.1-preview.2
+    $findWkProcessUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $IntoProc.typeId + "/workitemtypes" + '?$expand=layout&api-version=7.1-preview.2' 
+    $findWkProcess = Invoke-RestMethod -Uri $findWkProcessUrl -Method Get -Headers $authorization 
+    $fndWKItem = $findWkProcess.value | Where-Object {$_.name -eq $WrkItemFromFile.name }
+
+    # new process work item type does not exist add it
+    if([string]::IsNullOrEmpty($fndWKItem) )
+    {
+        # create work item type within new precess
+        $workitemTypeJson = @{
+            color = "f6546a"
+            icon = "icon_airplane"
+            description = "my powershell induced workitem type copied from json file"
+            name = $TargetWorkItemToCreate
+            isDisabled = $false       
+        }
+        # add work item
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/work-item-types/create?view=azure-devops-rest-7.1
+        # POST https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workitemtypes?api-version=7.1-preview.2
+        $newWkJson = ConvertTo-Json -InputObject $workitemTypeJson
+        $newWkItemsUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $IntoProc.typeId + '/workitemtypes?$expand=layout&api-version=7.1-preview.2'    
+        $newWKItem = Invoke-RestMethod -Uri $newWkItemsUrl -Method Post -ContentType "application/json" -Headers $authorization -Body $newWkJson
+    }
+    
+    #
+    # now get list of all work items including the one we added if it did not exist
+    # https://learn.microsoft.com/en-us/rest/api/azure/devops/processes/work-item-types/get?view=azure-devops-rest-7.2&tabs=HTTP
+    # GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workitemtypes/{witRefName}?api-version=7.2-preview.2
+    $AllWorkItemTypeUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $IntoProc.typeId  + '/workitemtypes?$expand=layout&api-version=7.2-preview.2'      
+    $newWKItemList = Invoke-RestMethod -Uri $AllWorkItemTypeUrl -Method Get -Headers $authorization
+    # find new work item type
+    $newWKItem =  $newWKItemList.value | Where-Object {$_.name -eq $WrkItemFromFile.name}
+
+    # 
+    # now load the states from json file
+    $statefile = $WorkItemInputFile.Replace(".json","-STATES.json")
+    $StatesFromFile = Get-Content -Raw -Path $statefile |ConvertFrom-Json
+
+    #
+    # these next two loops are here if the work item did not exist or if the states were changed.
+    # this next loop will add the states from the file to the new work item. if they exist it will throw an error which we catch and ignore
+    foreach ($state in $StatesFromFile.value) 
+    {
+        switch ($state.name )
+        {
+            # these are default states the system adds when creating a new workitem type
+            # note for this may be different by process type ir scrum, agile.
+            "New"    {  Write-Host "State " $state.name " Exists" }
+            "Closed" {  Write-Host "State " $state.name " Exists" }
+            Default 
+            {
+                $ddState = @{
+                    name = $state.name
+                    color = $state.color
+                    stateCategory = $state.stateCategory
+                # order = $state.order
+                }
+                $newState = ConvertTo-Json -InputObject $ddState
+                try 
+                {
+                    # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/create?view=azure-devops-rest-7.1
+                    # POST https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states?api-version=7.1-preview.1
+                    $addStateUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $IntoProc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/states?api-version=7.1-preview.1"
+                    $addState = Invoke-RestMethod -Uri $addStateUrl -Method Post -ContentType "application/json" -Headers $authorization -Body $newState
+                    Write-Host "Added State " $state.name " --- " $addState     
+                }
+                catch 
+                {
+                    Write-Host "State exists :" $state.name
+                }
+                
+            }
+        }
+    }
+  
+    # now make sure all the states from the work item type to copy from are the same as the copy to
+    # will remove any states not in the copy from 
+    # get states of work item to copy. this will be used to add states to new work item
+
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/list?view=azure-devops-rest-7.1
+    # GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states?api-version=7.1-preview.1
+    $getNewStatesUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $IntoProc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/states?api-version=7.1-preview.1"
+    $NewStates = Invoke-RestMethod -Uri $getNewStatesUrl -Method Get -Headers $authorization
+    Write-Host $NewStates
+
+    foreach ($st in $NewStates.value) 
+    {
+        $fndState =  $StatesFromFile.value | Where-Object {$_.name -eq $st.name}
+        
+        # if not found in copy from work item delete it. WHen a work item get created it is given a few default states. If any are deleted in inherited process remove them in new
+        if([string]::IsNullOrEmpty($fndState) )
+        {
+            # stat does not exist in copy from work item so it should be removed from copy to work item.
+            # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/delete?view=azure-devops-rest-7.1
+            # DELETE https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states/{stateId}?api-version=7.1-preview.1
+            $DelstateURL =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $IntoProc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/states/" + $st.id + "?api-version=7.1-preview.1"
+            $DelStates = Invoke-RestMethod -Uri $DelstateURL -Method Delete -Headers $authorization
+            Write-Host "Deleted state " $st.name " from Work item to copy to" $DelStates
+        }
+    }
+
+    #
+    # now add the rules if any
+    #
+    # 
+    # now load the rules from json file
+    $ruleFile = $WorkItemInputFile.Replace(".json","-RULE.json")
+    $GetRulesFromFile = Get-Content -Raw -Path $ruleFile |ConvertFrom-Json
+
+    # if rules found add new rules
+    if(![string]::IsNullOrEmpty($GetRulesFromFile) )
+    {
+        # find customized rules
+        $fndCustomRules =  $GetRulesFromFile.value | Where-Object {$_.customizationType -eq 'custom'}
+        Write-Host $fndCustomRules
+
+        foreach ($rules in $fndCustomRules)
+        {
+            $jSonRules = ""
+            
+            # you need to get the condition and then the action for each rule
+            $jSonRules = @{ name = $rules.name}
+            $cond = @()   
+            $act = @()           
+
+            # first the condition
+            foreach ($cd in $rules.conditions)
+            {
+                $cd1 = New-Object -TypeName PSObject -Property @{ conditionType = $cd.conditionType
+                                   field = $cd.field
+                                   value = $cd.value }
+                $cond += $cd1
+                $cd1 = $null
+            }
+            $jSonRules += @{ conditions = $cond}
+
+            # now the action
+            foreach ($ac in $rules.actions) 
+            {
+                $ac1 = New-Object -TypeName PSObject -Property @{ actionType = $ac.actionType
+                    targetField = $ac.targetField
+                    value = $ac.value }
+                $act += $ac1
+                $ac1 = $null
+            }
+            $jSonRules += @{ actions = $act}
+            $jSonRules += @{isDisabled = $rules.isDisabled }
+
+            $newRules = ConvertTo-Json -InputObject $jSonRules
+            #
+            # now add the rule to the new process
+            # https://learn.microsoft.com/en-us/rest/api/azure/devops/processes/rules/add?view=azure-devops-rest-7.1&tabs=HTTP
+            # POST https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/rules?api-version=7.2-preview.2
+            $AddRulesURL =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $IntoProc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/rules?api-version=7.2-preview.2"
+            $AddRules = Invoke-RestMethod -Uri $AddRulesURL -Method Post -Headers $authorization -Body $newRules -ContentType "application/json"
+            Write-Host $AddRules
+        }        
+    }
+      
+  
+
+}
+
+function SaveWorkItemtoFile()
+{
+    Param(
+        [Parameter(Mandatory = $false)]
+        $userParams,
+      
+        [Parameter(Mandatory = $true)]      
+        $InheritedProcessName,
+
+        [Parameter(Mandatory = $true)]      
+        $WorkItemToSave,
+
+        [Parameter(Mandatory = $true)]      
+        $OutputFile
+
+    )
+
+    $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail        
+
+    # get all processes
+    # GET https://dev.azure.com/{organization}/_apis/work/processes?api-version=7.1-preview.2
+    $AllProcessesUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes?api-version=7.1-preview.2"     
+    $AllProcesses = Invoke-RestMethod -Uri $AllProcessesUrl -Method Get -Headers $authorization
+     
+    # find inherited process - process to copy
+     $inheritProc =  $AllProcesses.value | Where-Object {$_.name -eq $InheritedProcessName}
+    
+    # get work item types to copy to file
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/work-item-types/list?view=azure-devops-rest-7.1
+    # GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workitemtypes?api-version=7.1-preview.2    
+    $AllWorkItemTypeUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $inheritProc.typeId + '/workitemtypes?$expand=layout&api-version=7.1-preview.2'      
+    $AllWorkItemTypes = Invoke-RestMethod -Uri $AllWorkItemTypeUrl -Method Get -Headers $authorization
+
+    $WorkItemType =  $AllWorkItemTypes.value | Where-Object {$_.name -eq $WorkItemToSave}
+
+     # copy workitem to json file
+     $jsonWrk = ConvertTo-Json -InputObject $WorkItemType -Depth 12
+     Write-Output $jsonWrk | Out-File $OutputFile 
+
+    # 
+    # get list of all rules from work item to save
+    # https://learn.microsoft.com/en-us/rest/api/azure/devops/processes/rules?view=azure-devops-rest-7.2
+    # GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/rules/{ruleId}?api-version=7.2-preview.2
+    $GetRulesURL =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $inheritProc.typeId  + "/workitemtypes/" + $WorkItemType.referenceName + "/rules?api-version=7.2-preview.2"
+    $GetRules = Invoke-RestMethod -Uri $GetRulesURL -Method Get -Headers $authorization
+    Write-Host $GetRules
+
+     # copy workitem to json file
+     $jsonWrk = ConvertTo-Json -InputObject $GetRules -Depth 12
+     $rulefile = $OutputFile.Replace(".json","-RULE.json")
+     Write-Output $jsonWrk | Out-File $rulefile 
+
+    # get states of work item to copy. this will be used to add states to new work item
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/list?view=azure-devops-rest-7.1
+    # GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states?api-version=7.1-preview.1
+    $getAllStatesUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $inheritProc.typeId  + "/workitemtypes/" + $WorkItemType.referenceName + "/states?api-version=7.1-preview.1"
+    $getAllStates = Invoke-RestMethod -Uri $getAllStatesUrl -Method Get -Headers $authorization
+    Write-Host $getAllStates
+
+    $jsonWrk = ConvertTo-Json -InputObject $getAllStates -Depth 12
+    $rulefile = $OutputFile.Replace(".json","-STATES.json")
+    Write-Output $jsonWrk | Out-File $rulefile 
+
+ 
+}
+
 function Copy-ProcessAndWorkItemType()
 {
     Param(
@@ -2289,7 +2573,10 @@ function Copy-ProcessAndWorkItemType()
         $WorkItemCopyFrom,
 
         [Parameter(Mandatory = $true)]      
-        $WorkItemToCopy
+        $WorkItemToCopy,
+
+        [Parameter(Mandatory = $true)]      
+        $OutputFile
 
     )
 
@@ -2336,6 +2623,10 @@ function Copy-ProcessAndWorkItemType()
     $AllWorkItemTypeUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $inheritProc.typeId + '/workitemtypes?$expand=layout&api-version=7.1-preview.2'      
     $AllWorkItemTypes = Invoke-RestMethod -Uri $AllWorkItemTypeUrl -Method Get -Headers $authorization
     $WorkItemType =  $AllWorkItemTypes.value | Where-Object {$_.name -eq $WorkItemCopyFrom}
+
+    # copy workitem to json file
+    $jsonWrk = ConvertTo-Json -InputObject $WorkItemType -Depth 12
+    Write-Output $jsonWrk | Out-File $OutputFile 
 
     # new process work item type does not exist add it
     if([string]::IsNullOrEmpty($newWKItem) )
