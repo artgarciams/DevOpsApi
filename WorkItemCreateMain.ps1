@@ -49,7 +49,7 @@ Write-Output $userParameters.Description
 #          TargetWorkItemToCreate   - Name to give the WorkItem in the targetPorcess
 #          WorkItemInputFile        - Name of the file where the process was saved to. include path
 #
-CreateWorkItemFromFile -userParams $userParameters -TargetProcessName "WITSource" -TargetWorkItemToCreate "aagOnePDM fromFile"  -WorkItemInputFile ($userParameters.DirRoot + "\\" + "OnePDM_Request.json")
+CreateWorkItemFromFile -userParams $userParameters -TargetProcessName "WITSource" -TargetWorkItemToCreate "aagOnePDM fromFile1"  -WorkItemInputFile ($userParameters.DirRoot + "\\" + "OnePDM_Request.json")
 
 #
 # INPUTS:
@@ -59,4 +59,4 @@ CreateWorkItemFromFile -userParams $userParameters -TargetProcessName "WITSource
 #          WorkItemCopyFrom     - Name of the work item type to copy from
 #          WorkItemToCopy       - Name of work item type to copy to
 #
-#Copy-ProcessAndWorkItemType -userParams $userParameters -InheritedProcessName "WITSource" -DestinationProcess "WITSource" -WorkItemCopyFrom "OnePDM Request" -WorkItemToCopy "aagOnePDM Request" -OutputFile ($userParameters.DirRoot + "\\" + "ProjectList.json")
+#Copy-ProcessAndWorkItemType -userParams $userParameters -InheritedProcessName "WITSource" -DestinationProcess "WITSource" -WorkItemCopyFrom "OnePDM Request" -WorkItemToCopy "aagOnePDM Request1" -OutputFile ($userParameters.DirRoot + "\\" + "ProjectList.json")

@@ -4,7 +4,7 @@
 # Purpose  : this module will create a project and groups for a project
 #           This script is for demonstration only not to be used as production code
 #
-# last update 12/04/2020
+# last update 10/24/2023
 
 function CreateVSTSProject () {
     Param(
@@ -84,16 +84,16 @@ Function AddProjectTeams() {
 
 }
 
-##############################
-#
-# doc : https://www.visualstudio.com/en-us/docs/integrate/api/graph/groups#create-a-group-at-the-account-level
-##############################
+
 function AddVSTSGroupAndUsers() {
     Param(
         [Parameter(Mandatory = $true)]
         $userParams 
     )
-
+        ##############################
+        #
+        # doc : https://www.visualstudio.com/en-us/docs/integrate/api/graph/groups#create-a-group-at-the-account-level
+        ##############################
     # Base64-encodes the Personal Access Token (PAT) appropriately
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail
 
@@ -428,7 +428,6 @@ function Get-ApprovalsByEnvironment()
 
 
 }
-
 
 function Get-BuildReleaseTable()
 {
@@ -848,7 +847,6 @@ function Get-BuildDetailsByProject(){
 
 }
 
-
 function Get-AllUSerMembership(){
     Param(
         [Parameter(Mandatory = $true)]
@@ -1014,7 +1012,6 @@ function Get-AllUSerMembership(){
 
 
 }
-
 
 function Get-GroupInfo() {
     Param(
@@ -1756,13 +1753,13 @@ function Add-TfsGroupMemberToTeamProjectGroup {
 }
 
 
-##############################
-#
-# this function will create the tfssecurity.exe command to change permissions for a given group and area
-#
-##############################
 function GetSecurityCMD_old()
 {
+    ##############################
+    #
+    # this function will create the tfssecurity.exe command to change permissions for a given group and area
+    #
+    ##############################
     Param(
         [Parameter(Mandatory = $true)]
         $userParams,
@@ -2169,6 +2166,27 @@ function Get-AllAzureServices()
 
 }
 
+function Get-AllFields()
+{
+    Param(
+        [Parameter(Mandatory = $false)]
+        $userParams
+    )
+
+    $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail        
+
+    # find all fields in work item type need to handle boolean and other fields
+    # this is a list of all the fileds in the org
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/fields/get?view=azure-devops-rest-7.1
+    # GET https://dev.azure.com/{organization}/{project}/_apis/wit/fields?api-version=7.1-preview.2
+    $AllFieldsUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + '/_apis/wit/fields?$expand=extensionFields&api-version=7.1-preview.2'
+    $AllFields = Invoke-RestMethod -Uri $AllFieldsUrl -Method Get -Headers $authorization
+    Write-Host $AllFields
+    
+    return $AllFields
+
+}
+
 function Get-AllFieldsWorkItemType()
 {
     Param(
@@ -2200,12 +2218,9 @@ function Get-AllFieldsWorkItemType()
     $AllWorkItemTypes = Invoke-RestMethod -Uri $AllWorkItemTypeUrl -Method Get -Headers $authorization
     $WkItemType = $AllWorkItemTypes.value | Where-Object {$_.name -eq $wkItemName}
 
-     # find all fields in work item type need to handle boolean and other fields
+    # find all fields in work item type need to handle boolean and other fields
     # this is a list of all the fileds in the org
-    # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/fields/get?view=azure-devops-rest-7.1
-    # GET https://dev.azure.com/{organization}/{project}/_apis/wit/fields?api-version=7.1-preview.2
-    $AllFieldsUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + '/_apis/wit/fields?$expand=extensionFields&api-version=7.1-preview.2'
-    $AllFields = Invoke-RestMethod -Uri $AllFieldsUrl -Method Get -Headers $authorization
+    $AllFields = Get-AllFields -userParams $userParams
     Write-Host $AllFields
 
     # initialize output file
@@ -2365,77 +2380,39 @@ function CreateWorkItemFromFile()
     # now load the states from json file
     $statefile = $WorkItemInputFile.Replace(".json","-STATES.json")
     $StatesFromFile = Get-Content -Raw -Path $statefile |ConvertFrom-Json
+    Set-StatesForWorkItem -userParams $userParams -inheritProc $IntoProc -proc $IntoProc -newWKItem $newWKItem  -WorkItemType  $newWKItem -StatesValueFromFile $StatesFromFile 
 
-    #
-    # these next two loops are here if the work item did not exist or if the states were changed.
-    # this next loop will add the states from the file to the new work item. if they exist it will throw an error which we catch and ignore
-    foreach ($state in $StatesFromFile.value) 
-    {
-        switch ($state.name )
-        {
-            # these are default states the system adds when creating a new workitem type
-            # note for this may be different by process type ir scrum, agile.
-            "New"    {  Write-Host "State " $state.name " Exists" }
-            "Closed" {  Write-Host "State " $state.name " Exists" }
-            Default 
-            {
-                $ddState = @{
-                    name = $state.name
-                    color = $state.color
-                    stateCategory = $state.stateCategory
-                # order = $state.order
-                }
-                $newState = ConvertTo-Json -InputObject $ddState
-                try 
-                {
-                    # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/create?view=azure-devops-rest-7.1
-                    # POST https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states?api-version=7.1-preview.1
-                    $addStateUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $IntoProc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/states?api-version=7.1-preview.1"
-                    $addState = Invoke-RestMethod -Uri $addStateUrl -Method Post -ContentType "application/json" -Headers $authorization -Body $newState
-                    Write-Host "Added State " $state.name " --- " $addState     
-                }
-                catch 
-                {
-                    Write-Host "State exists :" $state.name
-                }
-                
-            }
-        }
-    }
-  
-    # now make sure all the states from the work item type to copy from are the same as the copy to
-    # will remove any states not in the copy from 
-    # get states of work item to copy. this will be used to add states to new work item
-
-    # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/list?view=azure-devops-rest-7.1
-    # GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states?api-version=7.1-preview.1
-    $getNewStatesUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $IntoProc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/states?api-version=7.1-preview.1"
-    $NewStates = Invoke-RestMethod -Uri $getNewStatesUrl -Method Get -Headers $authorization
-    Write-Host $NewStates
-
-    foreach ($st in $NewStates.value) 
-    {
-        $fndState =  $StatesFromFile.value | Where-Object {$_.name -eq $st.name}
-        
-        # if not found in copy from work item delete it. WHen a work item get created it is given a few default states. If any are deleted in inherited process remove them in new
-        if([string]::IsNullOrEmpty($fndState) )
-        {
-            # stat does not exist in copy from work item so it should be removed from copy to work item.
-            # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/delete?view=azure-devops-rest-7.1
-            # DELETE https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states/{stateId}?api-version=7.1-preview.1
-            $DelstateURL =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $IntoProc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/states/" + $st.id + "?api-version=7.1-preview.1"
-            $DelStates = Invoke-RestMethod -Uri $DelstateURL -Method Delete -Headers $authorization
-            Write-Host "Deleted state " $st.name " from Work item to copy to" $DelStates
-        }
-    }
-
-    #
-    # now add the rules if any
     #
     # 
     # now load the rules from json file
     $ruleFile = $WorkItemInputFile.Replace(".json","-RULE.json")
     $GetRulesFromFile = Get-Content -Raw -Path $ruleFile |ConvertFrom-Json
+    Set-RulesForWorkItem -userParams $userParams -IntoProc $IntoProc -newWKItem $newWKItem -GetRulesFromFile $GetRulesFromFile
+ 
+      
+}
+
+function Set-RulesForWorkItem()
+{
+    #
+    # this function will set the rulles for the custom work item type
+    Param(
+        [Parameter(Mandatory = $false)]
+        $userParams,
+      
+        [Parameter(Mandatory = $true)]      
+        $IntoProc,
+
+        [Parameter(Mandatory = $true)]      
+        $newWKItem,
+
+        [Parameter(Mandatory = $true)]      
+        $GetRulesFromFile
+
+    )
+    
+    
+    $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail       
 
     # if rules found add new rules
     if(![string]::IsNullOrEmpty($GetRulesFromFile) )
@@ -2487,7 +2464,104 @@ function CreateWorkItemFromFile()
         }        
     }
       
-  
+}
+
+function Set-StatesForWorkItem()
+{
+    #
+    # this function will set the states for the custom work item type
+    Param(
+        [Parameter(Mandatory = $false)]
+        $userParams,
+      
+        [Parameter(Mandatory = $true)]      
+        $inheritProc,
+        
+        [Parameter(Mandatory = $true)]      
+        $proc,
+
+        [Parameter(Mandatory = $true)]      
+        $newWKItem,
+
+        [Parameter(Mandatory = $true)]      
+        $WorkItemType,
+
+        [Parameter(Mandatory = $false)]
+        $StatesValueFromFile
+    )
+
+    
+    $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail       
+    $getAllStates = $null
+
+    if([string]::IsNullOrEmpty($StatesValueFromFile) )
+    {
+        # get states of work item to copy. this will be used to add states to new work item
+        # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/list?view=azure-devops-rest-7.1
+        # GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states?api-version=7.1-preview.1
+        $getAllStatesUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $inheritProc.typeId  + "/workitemtypes/" + $WorkItemType.referenceName + "/states?api-version=7.1-preview.1"
+        $getAllStates = Invoke-RestMethod -Uri $getAllStatesUrl -Method Get -Headers $authorization
+        Write-Host $getAllStates
+    }
+    else 
+    {
+        $getAllStates = $StatesValueFromFile
+    }
+
+    # loop thru states of work item to copy and add to new work item
+    foreach ($state in $getAllStates.value) 
+    {
+        switch ($state.name )
+        {
+            # these are default states the system adds when creating a new workitem type
+            # note for this may be different by process type ir scrum, agile.
+            "New"    {  Write-Host "State " $state.name " Exists" }
+            "Active" {  Write-Host "State " $state.name " Exists" }
+            "Closed" {  Write-Host "State " $state.name " Exists" }
+            Default 
+            {
+                $ddState = @{
+                    name = $state.name
+                    color = $state.color
+                    stateCategory = $state.stateCategory
+                # order = $state.order
+                }
+                $newState = ConvertTo-Json -InputObject $ddState
+                # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/create?view=azure-devops-rest-7.1
+                # POST https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states?api-version=7.1-preview.1
+                $addStateUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/states?api-version=7.1-preview.1"
+                $addState = Invoke-RestMethod -Uri $addStateUrl -Method Post -ContentType "application/json" -Headers $authorization -Body $newState
+                Write-Host "Added State " $state.name " --- " $addState 
+            }
+        }
+    }
+
+    # now make sure all the states from the work item type to copy from are the same as the copy to
+    # will remove any states not in the copy from 
+    # get states of work item to copy. this will be used to add states to new work item
+
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/list?view=azure-devops-rest-7.1
+    # GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states?api-version=7.1-preview.1
+    $getNewStatesUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/states?api-version=7.1-preview.1"
+    $NewStates = Invoke-RestMethod -Uri $getNewStatesUrl -Method Get -Headers $authorization
+    Write-Host $NewStates
+
+    foreach ($st in $NewStates.value) 
+    {
+        $fndState =  $getAllStates.value | Where-Object {$_.name -eq $st.name}
+        
+        # if not found in copy from work item delete it. WHen a work item get created it is given a few default states. If any are deleted in inherited process remove them in new
+        if([string]::IsNullOrEmpty($fndState) )
+        {
+            # stat does not exist in copy from work item so it should be removed from copy to work item.
+            # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/delete?view=azure-devops-rest-7.1
+            # DELETE https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states/{stateId}?api-version=7.1-preview.1
+            $DelstateURL =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/states/" + $st.id + "?api-version=7.1-preview.1"
+            $DelStates = Invoke-RestMethod -Uri $DelstateURL -Method Delete -Headers $authorization
+            Write-Host "Deleted state " $st.name " from Work item to copy to" $DelStates
+        }
+    }
+
 
 }
 
@@ -2553,7 +2627,6 @@ function SaveWorkItemtoFile()
     $jsonWrk = ConvertTo-Json -InputObject $getAllStates -Depth 12
     $rulefile = $OutputFile.Replace(".json","-STATES.json")
     Write-Output $jsonWrk | Out-File $rulefile 
-
  
 }
 
@@ -2654,65 +2727,8 @@ function Copy-ProcessAndWorkItemType()
         $newWKItem =  $newWKItemList.value | Where-Object {$_.name -eq $WorkItemToCopy}
 
         # get states of work item to copy. this will be used to add states to new work item
-        # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/list?view=azure-devops-rest-7.1
-        # GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states?api-version=7.1-preview.1
-        $getAllStatesUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $inheritProc.typeId  + "/workitemtypes/" + $WorkItemType.referenceName + "/states?api-version=7.1-preview.1"
-        $getAllStates = Invoke-RestMethod -Uri $getAllStatesUrl -Method Get -Headers $authorization
-        Write-Host $getAllStates
+        Set-StatesForWorkItem -userParams $userParams -inheritProc $inheritProc -proc $proc -newWKItem $newWKItem -WorkItemType $WorkItemType
 
-        # loop thru states of work item to copy and add to new work item
-        foreach ($state in $getAllStates.value) 
-        {
-            switch ($state.name )
-            {
-                # these are default states the system adds when creating a new workitem type
-                # note for this may be different by process type ir scrum, agile.
-                "New"    {  Write-Host "State " $state.name " Exists" }
-                "Active" {  Write-Host "State " $state.name " Exists" }
-                "Closed" {  Write-Host "State " $state.name " Exists" }
-                Default 
-                {
-                    $ddState = @{
-                        name = $state.name
-                        color = $state.color
-                        stateCategory = $state.stateCategory
-                    # order = $state.order
-                    }
-                    $newState = ConvertTo-Json -InputObject $ddState
-                    # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/create?view=azure-devops-rest-7.1
-                    # POST https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states?api-version=7.1-preview.1
-                    $addStateUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/states?api-version=7.1-preview.1"
-                    $addState = Invoke-RestMethod -Uri $addStateUrl -Method Post -ContentType "application/json" -Headers $authorization -Body $newState
-                    Write-Host "Added State " $state.name " --- " $addState 
-                }
-            }
-        }
-
-        # now make sure all the states from the work item type to copy from are the same as the copy to
-        # will remove any states not in the copy from 
-        # get states of work item to copy. this will be used to add states to new work item
-
-        # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/list?view=azure-devops-rest-7.1
-        # GET https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states?api-version=7.1-preview.1
-        $getNewStatesUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/states?api-version=7.1-preview.1"
-        $NewStates = Invoke-RestMethod -Uri $getNewStatesUrl -Method Get -Headers $authorization
-        Write-Host $NewStates
-
-        foreach ($st in $NewStates.value) 
-        {
-            $fndState =  $getAllStates.value | Where-Object {$_.name -eq $st.name}
-            
-            # if not found in copy from work item delete it. WHen a work item get created it is given a few default states. If any are deleted in inherited process remove them in new
-            if([string]::IsNullOrEmpty($fndState) )
-            {
-                # stat does not exist in copy from work item so it should be removed from copy to work item.
-                # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/states/delete?view=azure-devops-rest-7.1
-                # DELETE https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/states/{stateId}?api-version=7.1-preview.1
-                $DelstateURL =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/states/" + $st.id + "?api-version=7.1-preview.1"
-                $DelStates = Invoke-RestMethod -Uri $DelstateURL -Method Delete -Headers $authorization
-                Write-Host "Deleted state " $st.name " from Work item to copy to" $DelStates
-            }
-        }
     }
 
     # copy rules from inherited process to new process
@@ -2723,55 +2739,9 @@ function Copy-ProcessAndWorkItemType()
     $GetRules = Invoke-RestMethod -Uri $GetRulesURL -Method Get -Headers $authorization
     Write-Host $GetRules
 
-    # if rules found add new rules
-    if(![string]::IsNullOrEmpty($GetRules) )
-    {
-        # find customized rules
-        $fndCustomRules =  $GetRules.value | Where-Object {$_.customizationType -eq 'custom'}
-        Write-Host $fndCustomRules
-
-        foreach ($rules in $fndCustomRules)
-        {
-            $jSonRules = ""
-            
-            # you need to get the condition and then the action for each rule
-            $jSonRules = @{ name = $rules.name}
-            $cond = @()   
-            $act = @()           
-
-            # first the condition
-            foreach ($cd in $rules.conditions)
-            {
-                $cd1 = New-Object -TypeName PSObject -Property @{ conditionType = $cd.conditionType
-                                   field = $cd.field
-                                   value = $cd.value }
-                $cond += $cd1
-                $cd1 = $null
-            }
-            $jSonRules += @{ conditions = $cond}
-
-            # now the action
-            foreach ($ac in $rules.actions) 
-            {
-                $ac1 = New-Object -TypeName PSObject -Property @{ actionType = $ac.actionType
-                    targetField = $ac.targetField
-                    value = $ac.value }
-                $act += $ac1
-                $ac1 = $null
-            }
-            $jSonRules += @{ actions = $act}
-            $jSonRules += @{isDisabled = 'false'}
-
-            $newRules = ConvertTo-Json -InputObject $jSonRules
-            #
-            # now add the rule to the new process
-            # https://learn.microsoft.com/en-us/rest/api/azure/devops/processes/rules/add?view=azure-devops-rest-7.1&tabs=HTTP
-            # POST https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/rules?api-version=7.2-preview.2
-            $AddRulesURL =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/rules?api-version=7.2-preview.2"
-            $AddRules = Invoke-RestMethod -Uri $AddRulesURL -Method Post -Headers $authorization -Body $newRules -ContentType "application/json"
-            Write-Host $AddRules
-        }        
-    }
+    #
+    # set the rules for the given workitem
+    Set-RulesForWorkItem -userParams $userParams -IntoProc $proc -newWKItem $newWKItem -GetRulesFromFile $GetRules
 
     # get pages from new work item type. needed to add groups to page.
     # each page has 4 sections that arte created on page creation.they are situated left to right on page. section 4 i believe is hidden( not sure yet)
@@ -2779,10 +2749,7 @@ function Copy-ProcessAndWorkItemType()
   
     # find all fields in work item type need to handle boolean and other fields
     # this is a list of all the fileds in the org
-    # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/fields/get?view=azure-devops-rest-7.1
-    # GET https://dev.azure.com/{organization}/{project}/_apis/wit/fields?api-version=7.1-preview.2
-    $AllFieldsUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + '/_apis/wit/fields?$expand=extensionFields&api-version=7.1-preview.2'
-    $AllFields = Invoke-RestMethod -Uri $AllFieldsUrl -Method Get -Headers $authorization
+    $AllFields = Get-AllFields -userParams $userParams
     Write-Host $AllFields
 
     # loop thru layout to copy and add pages  to new layout if they dont exist
@@ -2842,253 +2809,252 @@ function Copy-ProcessAndWorkItemType()
                             # loop thru each group in inherited page and add any group that does not exist
                             foreach ($grp in $currSection.groups) 
                             {
-                                    # special case if we rename system.description need to handle it this way
-                                    $newGrp = $null
-                                    $isMultiLine = $false
-                                    if($grp.controls[0].id -eq "System.Description")
+                                # special case if we rename system.description need to handle it this way
+                                $newGrp = $null
+                                $isMultiLine = $false
+                                if($grp.controls[0].id -eq "System.Description")
+                                {
+                                    # does new group exist if its one of the default fields we need to look for them first
+                                    $newGrp = $newSection.groups | Where-Object {$_.id -eq $grp.id}        
+                                }
+                                else
+                                {
+                                    # does new group exist if its one of the default fields we need to look for them first
+                                    $newGrp = $newSection.groups | Where-Object {$_.label.Trim() -eq $grp.label.Trim()}    
+                                    
+                                        # multi line text fields cannot be inside a group. they are their own group on the UI
+                                    if($grp.controls[0].controlType -eq "HtmlFieldControl")
                                     {
-                                        # does new group exist if its one of the default fields we need to look for them first
-                                        $newGrp = $newSection.groups | Where-Object {$_.id -eq $grp.id}        
-                                    }
-                                    else
-                                    {
-                                        # does new group exist if its one of the default fields we need to look for them first
-                                        $newGrp = $newSection.groups | Where-Object {$_.label.Trim() -eq $grp.label.Trim()}    
-                                        
-                                         # multi line text fields cannot be inside a group. they are their own group on the UI
-                                        if($grp.controls[0].controlType -eq "HtmlFieldControl")
-                                        {
-                                            $isMultiLine = $true
+                                        $isMultiLine = $true
 
-                                            # first add the field to the work item
-                                            $addCtl = @{
-                                                    referenceName = $grp.controls[0].id
-                                                    order = "$null"
-                                                    readOnly = "$false"
-                                                    label = $grp.label.Trim()
-                                                    visible = "$true"
-
-                                                    # must encapsulate true false in quotes to register
-                                                    defaultValue = if($fld.type -eq "boolean"){"$false"}else {""}
-                                                    required = if($fld.type -eq "boolean"){"$true"}else {"$false"}                                                    
-                                            }
-                                            $ctlJSON = ConvertTo-Json -InputObject $addCtl
-
-                                            # add field to work item type
-                                            # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/fields/add?view=azure-devops-rest-7.1
-                                            # POST https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/fields?api-version=7.1-preview.2
-                                            $field = $null
-                                            $fieldURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemTypes/" + $newWKItem.referenceName + "/fields?api-version=7.1-preview.2"
-                                            $field = Invoke-RestMethod -Uri $fieldURL -Method Post -ContentType "application/json" -Headers $authorization -Body $ctlJSON
-                                            Write-Host $field
-                                            
-                                            # now add the Multi line field to the page in a group with no name 
-                                            $addGroup = @{
-                                                Contribution = "$null"    
-                                                height = "$null"
-                                                id = "$null"
-                                                inherited = "$null"
-                                                isContribution = "$false"
+                                        # first add the field to the work item
+                                        $addCtl = @{
+                                                referenceName = $grp.controls[0].id
+                                                order = "$null"
+                                                readOnly = "$false"
                                                 label = $grp.label.Trim()
                                                 visible = "$true"
-                                                order = "$null"
-                                                overridden = "$null"
-                                                controls = @( @{
-                                                    contribution = "$null"
-                                                    controlType = "$null"
-                                                    height = "$null"
-                                                    id = $grp.controls[0].id
-                                                    inherited = "$null"
-                                                    isContribution = "$false"
-                                                    label = $grp.controls[0].label.Trim()
-                                                    metadata = "$null"
-                                                    order = "$null"
-                                                    overridden = "$null"
-                                                    visible = "$true"
-                                                    watermark = "$null"
-                                                })
-                                                                                            
-                                            }
-                                            $grpJSON = ConvertTo-Json -InputObject $addGroup
-                                            # POST https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/layout/pages/{pageId}/sections/{sectionId}/groups?api-version=7.1-preview.1
-                                            $groupURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/layout/pages/" + $pgExists.id + "/sections/" + $newSection.id + "/groups?api-version=7.1-preview.1"   
-                                            $group = Invoke-RestMethod -Uri $groupURL -Method Post -ContentType "application/json" -Headers $authorization -Body $grpJSON
-                                            Write-Host "Multi line field " $group
-                                            $newGrp = $group
 
+                                                # must encapsulate true false in quotes to register
+                                                defaultValue = if($fld.type -eq "boolean"){"$false"}else {""}
+                                                required = if($fld.type -eq "boolean"){"$true"}else {"$false"}                                                    
                                         }
-                                    }     
+                                        $ctlJSON = ConvertTo-Json -InputObject $addCtl
 
-                                    # if group does not exist add it
-                                    if([string]::IsNullOrEmpty($newGrp) -and $isMultiLine -eq $false )
-                                    {
+                                        # add field to work item type
+                                        # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/fields/add?view=azure-devops-rest-7.1
+                                        # POST https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/fields?api-version=7.1-preview.2
+                                        $field = $null
+                                        $fieldURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemTypes/" + $newWKItem.referenceName + "/fields?api-version=7.1-preview.2"
+                                        $field = Invoke-RestMethod -Uri $fieldURL -Method Post -ContentType "application/json" -Headers $authorization -Body $ctlJSON
+                                        Write-Host $field
+                                        
+                                        # now add the Multi line field to the page in a group with no name 
                                         $addGroup = @{
+                                            Contribution = "$null"    
+                                            height = "$null"
                                             id = "$null"
+                                            inherited = "$null"
+                                            isContribution = "$false"
                                             label = $grp.label.Trim()
                                             visible = "$true"
-                                            isContribution = "$false"
-                                            
+                                            order = "$null"
+                                            overridden = "$null"
+                                            controls = @( @{
+                                                contribution = "$null"
+                                                controlType = "$null"
+                                                height = "$null"
+                                                id = $grp.controls[0].id
+                                                inherited = "$null"
+                                                isContribution = "$false"
+                                                label = $grp.controls[0].label.Trim()
+                                                metadata = "$null"
+                                                order = "$null"
+                                                overridden = "$null"
+                                                visible = "$true"
+                                                watermark = "$null"
+                                            })
+                                                                                        
                                         }
                                         $grpJSON = ConvertTo-Json -InputObject $addGroup
-
                                         # POST https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/layout/pages/{pageId}/sections/{sectionId}/groups?api-version=7.1-preview.1
                                         $groupURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/layout/pages/" + $pgExists.id + "/sections/" + $newSection.id + "/groups?api-version=7.1-preview.1"   
                                         $group = Invoke-RestMethod -Uri $groupURL -Method Post -ContentType "application/json" -Headers $authorization -Body $grpJSON
-                                        Write-Host $group
+                                        Write-Host "Multi line field " $group
+                                        $newGrp = $group
 
-                                        foreach ($grpCtl in $grp.controls) 
+                                    }
+                                }     
+
+                                # if group does not exist add it
+                                if([string]::IsNullOrEmpty($newGrp) -and $isMultiLine -eq $false )
+                                {
+                                    $addGroup = @{
+                                        id = "$null"
+                                        label = $grp.label.Trim()
+                                        visible = "$true"
+                                        isContribution = "$false"
+                                        
+                                    }
+                                    $grpJSON = ConvertTo-Json -InputObject $addGroup
+
+                                    # POST https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/layout/pages/{pageId}/sections/{sectionId}/groups?api-version=7.1-preview.1
+                                    $groupURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/layout/pages/" + $pgExists.id + "/sections/" + $newSection.id + "/groups?api-version=7.1-preview.1"   
+                                    $group = Invoke-RestMethod -Uri $groupURL -Method Post -ContentType "application/json" -Headers $authorization -Body $grpJSON
+                                    Write-Host $group
+
+                                    foreach ($grpCtl in $grp.controls) 
+                                    {
+                                        $fld = $AllFields.value | Where-Object {$_.referenceName -eq $grpCtl.id }
+                                        if($fld.type -eq "html")
                                         {
-                                            $fld = $AllFields.value | Where-Object {$_.referenceName -eq $grpCtl.id }
-                                            if($fld.type -eq "html")
-                                            {
-                                                Write-Host $fld
-                                            }
-
-                                            # add controls to group 
-                                            if($grpCtl.isContribution -eq $true)
-                                            {
-                                                $addCtl = @{  
-                                                    referenceName = $grpCtl.contribution.inputs.FieldName                                                    
-                                                    order = "$null"
-                                                    readOnly = "$false"
-                                                    inherited = $grpCtl.inherited
-                                                    label = $grpCtl.label.Trim()
-                                                    visible = "$true"
-
-                                                    # must encapsulate true false in quotes to register                                                
-                                                    required = if($grpCtl.controlType -eq "boolean"){"$true"}else {"$false"}  
-                                                    contribution = @{
-                                                        contributionId = $grpCtl.contribution.contributionId
-                                                        inputs = @{
-                                                            FieldName =  $grpCtl.contribution.inputs.FieldName
-                                                            Values = $grpCtl.contribution.inputs.Values
-                                                        }
-                                                    }
-                                                    isContribution = "$true"
-                                                }
-                                            }
-                                            else
-                                            {
-                                                $addCtl = @{
-                                                    referenceName = $grpCtl.id
-                                                    order = "$null"
-                                                    readOnly = "$false"
-                                                    label = $grpCtl.label.Trim()
-                                                    visible = "$true"
-                                                    # must encapsulate true false in quotes to register
-                                                    defaultValue = if($fld.type -eq "boolean"){"$false"}else {""}
-                                                    required = if($fld.type -eq "boolean"){"$true"}else {"$false"}                                                    
-                                                }
-                                            }
-                                            $ctlJSON = ConvertTo-Json -InputObject $addCtl
-
-                                            # add field to work item type
-                                            # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/fields/add?view=azure-devops-rest-7.1
-                                            # POST https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/fields?api-version=7.1-preview.2
-                                            $field = $null
-                                            $fieldURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemTypes/" + $newWKItem.referenceName + "/fields?api-version=7.1-preview.2"
-                                            $field = Invoke-RestMethod -Uri $fieldURL -Method Post -ContentType "application/json" -Headers $authorization -Body $ctlJSON
-                                            Write-Host $field
-
-                                            # add control to group. add the field to the control
-                                            if($grpCtl.isContribution -eq $true)
-                                            {
-                                                $addCtl = @{
-
-                                                    # un documented when adding a contribution control it must have an ID. it has to be unique so i added a guid.
-                                                    id = New-Guid
-
-                                                    # un documented - if adding a contribution field must add reference name - this is the field in the control
-                                                    referenceName = $grpCtl.contribution.inputs.FieldName
-
-                                                    isContribution =  if($grpCtl.isContribution -eq $true){"$true"}else {"$false"}  
-                                                    height = "$null"
-                                                    label = $grpCtl.label.Trim()
-                                                    metadata = "$null"
-                                                    order = "$null"
-                                                    overridden = "$null"
-                                                    readOnly = if($grpCtl.readOnly -eq $true){"$true"}else {"$false"}   
-                                                    visible = if($grpCtl.visible -eq $true){"$true"}else {"$false"}   
-                                                    watermark = "$null"
-                                                    contribution = @{
-                                                        contributionId = $grpCtl.contribution.contributionId
-                                                        inputs = @{
-                                                            FieldName =  $grpCtl.contribution.inputs.FieldName
-                                                            Values = $grpCtl.contribution.inputs.Values
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            else
-                                            {
-                                                $addCtl = @{
-                                                    id = $grpCtl.id
-                                                    isContribution = if($grpCtl.isContribution -eq $true){"$true"}else {"$false"}  
-                                                    height = "$null"                                                    
-                                                    label = $grpCtl.label.Trim()
-                                                    metadata = "$null"
-                                                    order = "$null"
-                                                    overridden = "$null"
-                                                    readOnly = if($grpCtl.readOnly -eq $true){"$true"}else {"$false"}   
-                                                    visible = if($grpCtl.visible -eq $true){"$true"}else {"$false"}   
-                                                    watermark = "$null"
-                                                }
-                                            }
-
-                                            $ctlJSON = ConvertTo-Json -InputObject $addCtl
-                                            # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/controls/create?view=azure-devops-rest-7.1
-                                            # POST https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/layout/groups/{groupId}/controls?api-version=7.1-preview.1
-                                            $controlURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/layout/groups/" + $group.id + "/controls?api-version=7.1-preview.1"    
-                                            $control = Invoke-RestMethod -Uri $controlURL -Method Post -ContentType "application/json" -Headers $authorization -Body $ctlJSON
-                                            Write-Host $control
+                                            Write-Host $fld
                                         }
-                                    
-                                    }                                    
-                                    else 
-                                    {   
-                                        # if this is the system description field, need to update label and visibility
-                                        if($grp.controls[0].id -eq "System.Description")
+
+                                        # add controls to group 
+                                        if($grpCtl.isContribution -eq $true)
                                         {
-                                            $editGrp = @{
-                                                id = $newGrp.Id
-                                                label = $grp.label.Trim()
-                                                visible = if($grp.controls[0].visible -eq "true"){"$true"}else{"$false"}
+                                            $addCtl = @{  
+                                                referenceName = $grpCtl.contribution.inputs.FieldName                                                    
+                                                order = "$null"
+                                                readOnly = "$false"
+                                                inherited = $grpCtl.inherited
+                                                label = $grpCtl.label.Trim()
+                                                visible = "$true"
+
+                                                # must encapsulate true false in quotes to register                                                
+                                                required = if($grpCtl.controlType -eq "boolean"){"$true"}else {"$false"}  
+                                                contribution = @{
+                                                    contributionId = $grpCtl.contribution.contributionId
+                                                    inputs = @{
+                                                        FieldName =  $grpCtl.contribution.inputs.FieldName
+                                                        Values = $grpCtl.contribution.inputs.Values
+                                                    }
+                                                }
+                                                isContribution = "$true"
                                             }
-
-                                            $editJSON = ConvertTo-Json -InputObject $editGrp
-                                            # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/groups/update?view=azure-devops-rest-7.1
-                                            # PATCH https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/layout/pages/{pageId}/sections/{sectionId}/groups/{groupId}?api-version=7.1-preview.1
-                                            $editURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/layout/pages/" + $pgExists.id + "/sections/" + $newSection.id +  "/groups/" + $grp.id + "?api-version=7.1-preview.1"    
-                                            $editGroup = Invoke-RestMethod -Uri $editURL -Method PATCH -ContentType "application/json" -Headers $authorization -Body $editJSON
-                                            Write-Host $editGroup
-
                                         }
                                         else
                                         {
-                                            # if not a multi line control then update the group
-                                            if($grp.controls[0].controlType -ne "HtmlFieldControl")
-                                            {                                            
-                                                # group exists update the group deployment and development groups inherited and trying to hide
-                                                    $editGrp = @{
-                                                        id = $newGrp.Id
-                                                        label = $grp.label.Trim()
-                                                        visible = if($grp.controls[0].visible -eq "true"){"$true"}else{"$false"}
-                                                    }
-                                                $editJSON = ConvertTo-Json -InputObject $editGrp
-
-                                                # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/groups/update?view=azure-devops-rest-7.1
-                                                # PATCH https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/layout/pages/{pageId}/sections/{sectionId}/groups/{groupId}?api-version=7.1-preview.1
-                                                $editGrp = $null
-                                                $editURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/layout/pages/" + $pgExists.id + "/sections/" + $newSection.id +  "/groups/" + $grp.id + "?api-version=7.1-preview.1"    
-                                                $editGroup = Invoke-RestMethod -Uri $editURL -Method PATCH -ContentType "application/json" -Headers $authorization -Body $editJSON
-                                                Write-Host $editGroup
+                                            $addCtl = @{
+                                                referenceName = $grpCtl.id
+                                                order = "$null"
+                                                readOnly = "$false"
+                                                label = $grpCtl.label.Trim()
+                                                visible = "$true"
+                                                # must encapsulate true false in quotes to register
+                                                defaultValue = if($fld.type -eq "boolean"){"$false"}else {""}
+                                                required = if($fld.type -eq "boolean"){"$true"}else {"$false"}                                                    
                                             }
-                                        
                                         }
-                                       
+                                        $ctlJSON = ConvertTo-Json -InputObject $addCtl
+
+                                        # add field to work item type
+                                        # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/fields/add?view=azure-devops-rest-7.1
+                                        # POST https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/fields?api-version=7.1-preview.2
+                                        $field = $null
+                                        $fieldURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemTypes/" + $newWKItem.referenceName + "/fields?api-version=7.1-preview.2"
+                                        $field = Invoke-RestMethod -Uri $fieldURL -Method Post -ContentType "application/json" -Headers $authorization -Body $ctlJSON
+                                        Write-Host $field
+
+                                        # add control to group. add the field to the control
+                                        if($grpCtl.isContribution -eq $true)
+                                        {
+                                            $addCtl = @{
+
+                                                # un documented when adding a contribution control it must have an ID. it has to be unique so i added a guid.
+                                                id = New-Guid
+
+                                                # un documented - if adding a contribution field must add reference name - this is the field in the control
+                                                referenceName = $grpCtl.contribution.inputs.FieldName
+
+                                                isContribution =  if($grpCtl.isContribution -eq $true){"$true"}else {"$false"}  
+                                                height = "$null"
+                                                label = $grpCtl.label.Trim()
+                                                metadata = "$null"
+                                                order = "$null"
+                                                overridden = "$null"
+                                                readOnly = if($grpCtl.readOnly -eq $true){"$true"}else {"$false"}   
+                                                visible = if($grpCtl.visible -eq $true){"$true"}else {"$false"}   
+                                                watermark = "$null"
+                                                contribution = @{
+                                                    contributionId = $grpCtl.contribution.contributionId
+                                                    inputs = @{
+                                                        FieldName =  $grpCtl.contribution.inputs.FieldName
+                                                        Values = $grpCtl.contribution.inputs.Values
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            $addCtl = @{
+                                                id = $grpCtl.id
+                                                isContribution = if($grpCtl.isContribution -eq $true){"$true"}else {"$false"}  
+                                                height = "$null"                                                    
+                                                label = $grpCtl.label.Trim()
+                                                metadata = "$null"
+                                                order = "$null"
+                                                overridden = "$null"
+                                                readOnly = if($grpCtl.readOnly -eq $true){"$true"}else {"$false"}   
+                                                visible = if($grpCtl.visible -eq $true){"$true"}else {"$false"}   
+                                                watermark = "$null"
+                                            }
+                                        }
+
+                                        $ctlJSON = ConvertTo-Json -InputObject $addCtl
+                                        # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/controls/create?view=azure-devops-rest-7.1
+                                        # POST https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/layout/groups/{groupId}/controls?api-version=7.1-preview.1
+                                        $controlURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/layout/groups/" + $group.id + "/controls?api-version=7.1-preview.1"    
+                                        $control = Invoke-RestMethod -Uri $controlURL -Method Post -ContentType "application/json" -Headers $authorization -Body $ctlJSON
+                                        Write-Host $control
+                                    }
+                                
+                                }                                    
+                                else 
+                                {   
+                                    # if this is the system description field, need to update label and visibility
+                                    if($grp.controls[0].id -eq "System.Description")
+                                    {
+                                        $editGrp = @{
+                                            id = $newGrp.Id
+                                            label = $grp.label.Trim()
+                                            visible = if($grp.controls[0].visible -eq "true"){"$true"}else{"$false"}
+                                        }
+
+                                        $editJSON = ConvertTo-Json -InputObject $editGrp
+                                        # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/groups/update?view=azure-devops-rest-7.1
+                                        # PATCH https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/layout/pages/{pageId}/sections/{sectionId}/groups/{groupId}?api-version=7.1-preview.1
+                                        $editURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/layout/pages/" + $pgExists.id + "/sections/" + $newSection.id +  "/groups/" + $grp.id + "?api-version=7.1-preview.1"    
+                                        $editGroup = Invoke-RestMethod -Uri $editURL -Method PATCH -ContentType "application/json" -Headers $authorization -Body $editJSON
+                                        Write-Host $editGroup
+
+                                    }
+                                    else
+                                    {
+                                        # if not a multi line control then update the group
+                                        if($grp.controls[0].controlType -ne "HtmlFieldControl")
+                                        {                                            
+                                            # group exists update the group deployment and development groups inherited and trying to hide
+                                                $editGrp = @{
+                                                    id = $newGrp.Id
+                                                    label = $grp.label.Trim()
+                                                    visible = if($grp.controls[0].visible -eq "true"){"$true"}else{"$false"}
+                                                }
+                                            $editJSON = ConvertTo-Json -InputObject $editGrp
+
+                                            # https://docs.microsoft.com/en-us/rest/api/azure/devops/processes/groups/update?view=azure-devops-rest-7.1
+                                            # PATCH https://dev.azure.com/{organization}/_apis/work/processes/{processId}/workItemTypes/{witRefName}/layout/pages/{pageId}/sections/{sectionId}/groups/{groupId}?api-version=7.1-preview.1
+                                            $editGrp = $null
+                                            $editURL = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/work/processes/" + $proc.typeId  + "/workitemtypes/" + $newWKItem.referenceName + "/layout/pages/" + $pgExists.id + "/sections/" + $newSection.id +  "/groups/" + $grp.id + "?api-version=7.1-preview.1"    
+                                            $editGroup = Invoke-RestMethod -Uri $editURL -Method PATCH -ContentType "application/json" -Headers $authorization -Body $editJSON
+                                            Write-Host $editGroup
+                                        }
                                     
                                     }
-
+                                    
+                                
+                                }
                             }
                         }
                     }

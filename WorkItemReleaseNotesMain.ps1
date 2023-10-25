@@ -22,6 +22,8 @@ Write-host $userParameters.userEmail
 Write-host $userParameters.CurrentWitemQry 
 Write-Host $userParameters.FutureWitemQry
 
-GeReleaseNotesByQuery -userParams $userParameters
+#GetReleaseNotesByQuery -userParams $userParameters
+
+Get-WorkItemHistoryByQuery -userParams $userParameters 
 
 

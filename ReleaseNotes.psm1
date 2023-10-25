@@ -1406,7 +1406,80 @@ function GetVSTSCredentialWithEtag () {
             }
 }
 
-function GeReleaseNotesByQuery()
+function Get-WorkItemHistoryByQuery()
+{
+    Param(
+        [Parameter(Mandatory = $true)]
+        $userParams
+    )
+
+    $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail    
+    
+     # first get project because we need project id
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/core/projects/list?view=azure-devops-rest-7.1
+    # GET https://dev.azure.com/{organization}/_apis/projects?api-version=7.1-preview.4
+    $AllProjectsUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct + "/_apis/projects?api-version=7.1-preview.4"     
+    $AllProjects = Invoke-RestMethod -Uri $AllProjectsUrl -Method Get -Headers $authorization
+    $project = $AllProjects.value | Where-Object {$_.name -eq $userParams.ProjectName}
+    Write-Host $project
+
+    # get query list and find specific query for current release
+    # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/queries/list?view=azure-devops-rest-7.1
+    # GET https://dev.azure.com/{organization}/{project}/_apis/wit/queries?api-version=7.1-preview.2
+    $queryUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +"/" +  $project.Id +"/_apis/wit/queries?" + '$expand=all&$depth=1&api-version=7.1-preview.2'
+    $query = Invoke-RestMethod -Uri $queryUrl -Method Get -Headers $authorization -ContentType "application/json" 
+    
+    $sharedQry =  $query.value | Where-Object {$_.name -eq "My Queries"}
+    $currRelQuery =  $sharedQry.children | Where-Object {$_.name -eq $userParams.CurrentWitemQry } 
+    $futureRelQuery =  $sharedQry.children | Where-Object {$_.name -eq $userParams.FutureWitemQry}
+        
+    $tmData = @{
+        query = $currRelQuery.wiql
+    }
+    $qryText = ConvertTo-Json -InputObject $tmData  
+    
+    # get current query items
+    $queryUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +"/" +  $project.Id +"/" + $userParams.DefaultTeam +"/_apis/wit/wiql?api-version=7.1-preview.2"     
+    $currquery = Invoke-RestMethod -Uri $queryUrl -Method Post -Headers $authorization -Body $qryText -ContentType "application/json" 
+
+     # setup array to house results
+     $AllWorkItems = @()
+      
+     foreach ($wk in $currquery.workItems) 
+     {
+         #$WorItemUrl =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $wk.Id + "?expand=Fields&api-version=7.1-preview.3"
+         #$WorkItem = Invoke-RestMethod -Uri $WorItemUrl -Method Get -Headers $authorization
+
+         # get updates for given work item id
+         # https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/updates/list?view=azure-devops-rest-7.2&tabs=HTTP#paged-list-of-work-item-updates
+         # GET https://dev.azure.com/{organization}/{project}/_apis/wit/workItems/{id}/updates?api-version=7.2-preview.4
+
+         $WorItemUpdateUrl =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $wk.Id + "/revisions?api-version=7.2-preview.3"
+         $WorkItemUpdate = Invoke-RestMethod -Uri $WorItemUpdateUrl -Method Get -Headers $authorization
+
+         # GET https://dev.azure.com/{organization}/{project}/_apis/wit/workItems/{id}/revisions?api-version=7.2-preview.3
+         $LastState = $null
+         foreach ($rev in $WorkItemUpdate.value)
+         {
+            
+            if($LastState -ne $rev.fields.'System.State')
+            {
+                $LastState = $rev.fields.'System.State'
+                Write-Host $rev.id " - " $rev.fields.'System.Reason' " - " $rev.fields.'System.State'  " - " $rev.fields.'System.ChangedDate'
+            }
+            # IF (![string]::IsNullOrEmpty($rev.fields.'System.State') )
+            # {
+            #     Write-Host $rev.Fields.state " - " $rev.revisedDate 
+
+            # }
+         }
+
+     } 
+
+}
+
+
+function GetReleaseNotesByQuery()
 {
     Param(
         [Parameter(Mandatory = $true)]
