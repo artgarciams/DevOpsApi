@@ -24,6 +24,40 @@ Write-Host $userParameters.FutureWitemQry
 
 #GetReleaseNotesByQuery -userParams $userParameters
 
-Get-WorkItemHistoryByQuery -userParams $userParameters 
+
+# old ADO
+$userParameters.VSTSMasterAcct = "csefy19"
+$userParameters.ProjectName = "CSEng"
+$userParameters.ParentFolder = "Shared Queries/Industry - Government/ISV/"
+$userParameters.PAT = ""
+Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "Old_ISVs_Manufacturing" -outFile "C:\\tempdata\AllCombine.txt"   -CombineFile "yes"
+
+Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "Old_ISVs_Retail" -outFile "C:\\tempdata\AllCombine.txt"   -CombineFile "yes"
+
+Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "Old_Non_ISVs_Manufacturing" -outFile "C:\\tempdata\AllCombine.txt"   -CombineFile "yes"
+
+Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "Old_Non_ISVs_Retail" -outFile "C:\\tempdata\AllCombine.txt"   -CombineFile "yes"
+
+# new ADO
+$userParameters.VSTSMasterAcct = "IndustrySolutions"
+$userParameters.ProjectName = "IS Engagements"
+$userParameters.ParentFolder = "Shared Queries/ISV/ISD/"
+$userParameters.PAT = ""
+
+Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "Non_ISVs_All_Industries_ISD" -outFile "C:\\tempdata\ISDCombine.txt"   -CombineFile "yes"
+
+$userParameters.ParentFolder = "Shared Queries/ISV/ISV versus Non-ISV Subjective Exercise/"
+Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "ISVs_All_Industries" -outFile "C:\\tempdata\AllCombine.txt"   -CombineFile "yes"
+
+Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "NoN_ISVs_All_Industries" -outFile "C:\\tempdata\AllCombine.txt"   -CombineFile "yes"
+
+Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "ISVs_Manufacturing" -outFile "C:\\tempdata\AllCombine.txt"   -CombineFile "yes"
+
+Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "Non_ISVs_Manufacturing" -outFile "C:\\tempdata\AllCombine.txt"   -CombineFile "yes"
+
+Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "ISVs_Retail" -outFile "C:\\tempdata\AllCombine.txt"   -CombineFile "yes"
+
+Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "Non_ISVs_Retail" -outFile "C:\\tempdata\Combine.txt"   -CombineFile "yes"
+
 
 

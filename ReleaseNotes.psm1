@@ -1410,9 +1410,21 @@ function Get-WorkItemHistoryByQuery()
 {
     Param(
         [Parameter(Mandatory = $true)]
-        $userParams
+        $userParams,
+
+        [Parameter(Mandatory = $true)]
+        $QueryName,
+
+        [Parameter(Mandatory = $true)]
+        $outFile,
+
+        [Parameter(Mandatory = $true)]
+        $CombineFile
     )
 
+    #
+    # this function wil get the history of changes in state and how long it was in that state
+    #
     $authorization = GetVSTSCredential -Token $userParams.PAT -userEmail $userParams.userEmail    
     
      # first get project because we need project id
@@ -1422,17 +1434,17 @@ function Get-WorkItemHistoryByQuery()
     $AllProjects = Invoke-RestMethod -Uri $AllProjectsUrl -Method Get -Headers $authorization
     $project = $AllProjects.value | Where-Object {$_.name -eq $userParams.ProjectName}
     Write-Host $project
-
+       
     # get query list and find specific query for current release
     # https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/queries/list?view=azure-devops-rest-7.1
     # GET https://dev.azure.com/{organization}/{project}/_apis/wit/queries?api-version=7.1-preview.2
-    $queryUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +"/" +  $project.Id +"/_apis/wit/queries?" + '$expand=all&$depth=1&api-version=7.1-preview.2'
+    # $queryUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +"/" +  $project.Id +"/_apis/wit/queries/'Shared Queries/People Industries/Government/gov-00 prospect US'?" + '$expand=all&$depth=2&api-version=7.1-preview.2'
+    $queryUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +"/" +  $project.Id +"/_apis/wit/queries/" + $userParams.ParentFolder + "?" + '$expand=all&$depth=2&api-version=7.1-preview.2'
     $query = Invoke-RestMethod -Uri $queryUrl -Method Get -Headers $authorization -ContentType "application/json" 
     
-    $sharedQry =  $query.value | Where-Object {$_.name -eq "My Queries"}
-    $currRelQuery =  $sharedQry.children | Where-Object {$_.name -eq $userParams.CurrentWitemQry } 
-    $futureRelQuery =  $sharedQry.children | Where-Object {$_.name -eq $userParams.FutureWitemQry}
-        
+    $currRelQuery =  $query.children | Where-Object {$_.name -eq $QueryName} 
+   
+            
     $tmData = @{
         query = $currRelQuery.wiql
     }
@@ -1442,39 +1454,109 @@ function Get-WorkItemHistoryByQuery()
     $queryUrl = $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +"/" +  $project.Id +"/" + $userParams.DefaultTeam +"/_apis/wit/wiql?api-version=7.1-preview.2"     
     $currquery = Invoke-RestMethod -Uri $queryUrl -Method Post -Headers $authorization -Body $qryText -ContentType "application/json" 
 
-     # setup array to house results
-     $AllWorkItems = @()
-      
+     if (![string]::IsNullOrEmpty($outFile ) )
+     {
+        if($CombineFile -eq "no")
+        {
+         Write-Output "Project|Id|Bill Type|Title|Company|ISV|Industry|Change Reason|Change Date|New State|Last State|Days in State" | Out-File $outFile 
+        }
+        if(Test-Path $outFile ) 
+        {
+            Write-Host "file exists"
+        }
+        else 
+        {
+            Write-Output "Project|Id|Bill Type|Title|Company|ISV|Industry|Change Reason|Change Date|New State|Last State|Days in State" | Out-File $outFile  
+        }
+     }
+
      foreach ($wk in $currquery.workItems) 
      {
-         #$WorItemUrl =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $wk.Id + "?expand=Fields&api-version=7.1-preview.3"
-         #$WorkItem = Invoke-RestMethod -Uri $WorItemUrl -Method Get -Headers $authorization
+        # get revisions for given work item id
+        # https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/revisions/get?view=azure-devops-rest-7.2&tabs=HTTP
+        # GET https://dev.azure.com/{organization}/{project}/_apis/wit/workItems/{id}/revisions?api-version=7.2-preview.3
+        $WorItemUpdateUrl =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $wk.Id + "/revisions?api-version=7.2-preview.3"
+        $WorkItemUpdate = Invoke-RestMethod -Uri $WorItemUpdateUrl -Method Get -Headers $authorization
+             
+        $LastState = $null
+        $LastChangeDate = $null
+        $prnt = $null
 
-         # get updates for given work item id
-         # https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/updates/list?view=azure-devops-rest-7.2&tabs=HTTP#paged-list-of-work-item-updates
-         # GET https://dev.azure.com/{organization}/{project}/_apis/wit/workItems/{id}/updates?api-version=7.2-preview.4
-
-         $WorItemUpdateUrl =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $wk.Id + "/revisions?api-version=7.2-preview.3"
-         $WorkItemUpdate = Invoke-RestMethod -Uri $WorItemUpdateUrl -Method Get -Headers $authorization
-
-         # GET https://dev.azure.com/{organization}/{project}/_apis/wit/workItems/{id}/revisions?api-version=7.2-preview.3
-         $LastState = $null
-         foreach ($rev in $WorkItemUpdate.value)
-         {
-            
-            if($LastState -ne $rev.fields.'System.State')
+        foreach ($rev in $WorkItemUpdate.value)
+        {
+        
+            if (![string]::IsNullOrEmpty($rev.fields.'System.State') ) 
             {
-                $LastState = $rev.fields.'System.State'
-                Write-Host $rev.id " - " $rev.fields.'System.Reason' " - " $rev.fields.'System.State'  " - " $rev.fields.'System.ChangedDate'
+               # only want stat changes
+            
+                IF ([string]::IsNullOrEmpty($prnt) )
+                {
+                    # get workitem details
+                    # https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/work-items/get-work-item?view=azure-devops-rest-7.2&tabs=HTTP
+                    # GET https://dev.azure.com/{organization}/{project}/_apis/wit/workitems/{id}?api-version=7.2-preview.3
+                    $WorItemUrl =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $wk.Id + '?$expand=all&api-version=7.2-preview.3'
+                    $WorkItem = Invoke-RestMethod -Uri $WorItemUrl -Method Get -Headers $authorization
+
+                    # find parent record
+                    $parent = $WorkItem.relations | Where-Object {$_.rel -eq "System.LinkTypes.Hierarchy-Reverse"}
+                    $parentId = $parent.url.substring($parent.url.LastIndexOf("/"), $parent.url.Length - $parent.url.LastIndexOf("/") ).replace("/","")
+                    # https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/work-items/get-work-item?view=azure-devops-rest-7.2&tabs=HTTP
+                    # GET https://dev.azure.com/{organization}/{project}/_apis/wit/workitems/{id}?api-version=7.2-preview.3
+                    $ParentWorItemUrl =  $userParams.HTTP_preFix + "://dev.azure.com/" + $userParams.VSTSMasterAcct +  "/" + $userParams.ProjectName + "/_apis/wit/workitems/" + $parentId  + '?api-version=7.2-preview.3'
+                    $ParentWorkItem = Invoke-RestMethod -Uri $ParentWorItemUrl -Method Get -Headers $authorization
+                    $prnt = $ParentWorkItem.fields.'System.Title' 
+                }
+
+                if($LastState -ne $rev.fields.'System.State')
+                {
+                    IF (![string]::IsNullOrEmpty($LastChangeDate) )
+                    {
+                        $timespan = New-TimeSpan -Start $LastChangeDate -End $rev.fields.'System.ChangedDate'
+                    }
+
+                    Write-Host $WorkItem.fields.'System.IterationPath' " : Query: " $QueryName -  $rev.id "|" $WorkItem.fields.'System.Title' "|" $prnt "|"  $workItem.fields.'Custom.ISV' "|" $WorkItem.fields.'Custom.Industry' "|" $rev.fields.'System.Reason' "|" $rev.fields.'System.ChangedDate' "|" $rev.fields.'System.State'  "|"  $LastState "|" $timespan.Days 
+                    if (![string]::IsNullOrEmpty($outFile ) )
+                    {
+                        $isIsv = ""
+                        $Industry = ""
+                        $billType = ""
+                    
+                        # for new ADO use these fields
+                        if($WorkItem.fields.'Custom.Industry' -ne $null)
+                        {
+                            $Industry = $WorkItem.fields.'Custom.Industry'
+                        }
+                        if($WorkItem.fields.'Custom.ISV' -ne $null)
+                        {
+                            $isIsv = $WorkItem.fields.'Custom.ISV'
+                        }
+                        if($WorkItem.fields.'Custom.Type' -ne $null)
+                        {
+                            $billType = $WorkItem.fields.'Custom.Type'
+                        }
+
+                        # for old ado use these fields
+                        if($WorkItem.fields.'CSEngineering-V2-Orgs.CSEIndustry' -ne $null)
+                        {
+                            $Industry = $WorkItem.fields.'CSEngineering-V2-Orgs.CSEIndustry'
+                        }
+                        if( $WorkItem.fields.'CSEngineering-V2-Orgs.TargetedISV' -ne $null)
+                        {
+                            $isIsv = $WorkItem.fields.'CSEngineering-V2-Orgs.TargetedISV'
+                        }
+
+                        Write-Output $WorkItem.fields.'System.IterationPath' "|" $rev.id "|" $billType "|" $WorkItem.fields.'System.Title'.replace("|",":")  "|" $prnt "|" $isIsv "|" $Industry "|" $rev.fields.'System.Reason' "|" $rev.fields.'System.ChangedDate' "|" $rev.fields.'System.State'  "|"  $LastState "|" $timespan.Days | Out-File $outFile -Append -NoNewline
+                        Write-Output  " " | Out-File $outFile -Append
+                    }
+                    $LastState = $rev.fields.'System.State'
+                    $LastChangeDate = $rev.fields.'System.ChangedDate'
+
+                }
             }
-            # IF (![string]::IsNullOrEmpty($rev.fields.'System.State') )
-            # {
-            #     Write-Host $rev.Fields.state " - " $rev.revisedDate 
+        
+        }
 
-            # }
-         }
-
-     } 
+    } 
 
 }
 
