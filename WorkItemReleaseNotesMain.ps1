@@ -25,17 +25,15 @@ Write-Host $userParameters.FutureWitemQry
 #GetReleaseNotesByQuery -userParams $userParameters
 
 
+# following are used to get history data out of ADO for processing
 # old ADO
 $userParameters.VSTSMasterAcct = "csefy19"
 $userParameters.ProjectName = "CSEng"
 $userParameters.ParentFolder = "Shared Queries/Industry - Government/ISV/"
 $userParameters.PAT = ""
 Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "Old_ISVs_Manufacturing" -outFile "C:\\tempdata\AllCombine.txt"   -CombineFile "yes"
-
 Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "Old_ISVs_Retail" -outFile "C:\\tempdata\AllCombine.txt"   -CombineFile "yes"
-
 Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "Old_Non_ISVs_Manufacturing" -outFile "C:\\tempdata\AllCombine.txt"   -CombineFile "yes"
-
 Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "Old_Non_ISVs_Retail" -outFile "C:\\tempdata\AllCombine.txt"   -CombineFile "yes"
 
 # new ADO
@@ -48,15 +46,10 @@ Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "Non_ISVs_All
 
 $userParameters.ParentFolder = "Shared Queries/ISV/ISV versus Non-ISV Subjective Exercise/"
 Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "ISVs_All_Industries" -outFile "C:\\tempdata\AllCombine.txt"   -CombineFile "yes"
-
 Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "NoN_ISVs_All_Industries" -outFile "C:\\tempdata\AllCombine.txt"   -CombineFile "yes"
-
 Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "ISVs_Manufacturing" -outFile "C:\\tempdata\AllCombine.txt"   -CombineFile "yes"
-
 Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "Non_ISVs_Manufacturing" -outFile "C:\\tempdata\AllCombine.txt"   -CombineFile "yes"
-
 Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "ISVs_Retail" -outFile "C:\\tempdata\AllCombine.txt"   -CombineFile "yes"
-
 Get-WorkItemHistoryByQuery -userParams $userParameters  -QueryName "Non_ISVs_Retail" -outFile "C:\\tempdata\Combine.txt"   -CombineFile "yes"
 
 

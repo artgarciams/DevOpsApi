@@ -2382,7 +2382,6 @@ function CreateWorkItemFromFile()
     $StatesFromFile = Get-Content -Raw -Path $statefile |ConvertFrom-Json
     Set-StatesForWorkItem -userParams $userParams -inheritProc $IntoProc -proc $IntoProc -newWKItem $newWKItem  -WorkItemType  $newWKItem -StatesValueFromFile $StatesFromFile 
 
-    #
     # 
     # now load the rules from json file
     $ruleFile = $WorkItemInputFile.Replace(".json","-RULE.json")
